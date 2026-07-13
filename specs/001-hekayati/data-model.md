@@ -1,0 +1,93 @@
+# Data Model: Hekayati
+
+**Feature**: `001-hekayati` | **Date**: 2026-07-14
+Document-oriented model (C-01, research R2). Every document: `id` (ULID), `createdAt`, `updatedAt`, `schemaVersion`. Collections listed with key fields; free-form maps allowed where noted (NoSQL flexibility). Validation via zod at the repository boundary.
+
+## Conventions
+
+- **Versioned entity**: immutable version documents + a head pointer. `<Entity>Version` holds content; `<Entity>` holds identity + `currentVersionId` + lifecycle status. Nothing edits a version in place; edits append a version.
+- **Reference**: by `id` (+ `versionId` where the spec requires version binding). Mentions, approvals, provenance, and job inputs always bind versions.
+- **Soft states**: `archived` hides from pickers without breaking references; **permanent delete** is the only destructive operation (FR-005).
+
+## Collections
+
+### customers
+`name`, `whatsapp`, `notes`, `consent { granted: bool, date, note }`, `status: active|archived`.
+Owns → families. Deletion cascades (FR-005) with pre-report.
+
+### families
+`customerId`, `name`, `memberCharacterIds[]`. Scoping boundary for project character selection (FR-003).
+
+### characters *(versioned)*
+Identity: `familyId`, `isPet`, `relationship` (enum + custom label) — relationship is family-level (FR-017).
+`CharacterVersion.profile`: `name`, `nickname`, `ageOrRange`, `gender`, `skinTone`, `hair`, `eyeColor`, `relativeHeight`, `build`, `distinguishingFeatures[]`, `glasses`, `hijab`, `accessories[]`, `interests[]`, `favoriteObjects[]`, `favoriteColor`, `personalityTraits[]`, `speakingStyle`, `notes`, `descriptionOnly: bool`, `referencePhotoAssetIds[]`, `traits: map` *(free-form)*.
+`looks[]` → look ids. Version bump triggers approval superseding + downstream staleness (FR-033, matrix IM-02).
+
+### looks *(versioned)*
+`characterId`, `name` (e.g., الملابس الأصلية / يومي / بدلة فضاء), `LookVersion: { clothing, appearanceOverrides: map, referenceAssetIds[] }`. Editing rules FR-014: project-only override lives on the project (below), not here.
+
+### characterSheets
+`characterId`, `characterVersionId`, `lookVersionId`, `views { face, front, threeQuarter, fullBody, mainOutfit } → assetIds`, `status: generating|ready|revision_needed|approved_superseded`, `pdfAssetId`, provenance. Approval target (FR-030–033).
+
+### projects
+`customerId`, `familyId`, `title`, `status` (see state-machines.md), `priority`, `paused: bool`,
+`storyConfig`: `mainChildId`, `participants[] { characterId, narrativeRole, projectLookOverride? { lookId | inlineOverride } }`, `occasion`, `dedicationText`, `storyType`, `templateId + templateVersionId`, `pageCount: 16|24`, `tone`, `illustrationStyle`, `hiddenGoal { goal, presentation: indirect|acknowledged_ending } | null`, `clothingNotes`, `customNotes`, `readingLevel`, `narrationDialogueBalance` (suggested + operator-edited),
+`bookVersion` (monotonic; bumps on any customer-visible change — drives FR-086),
+`printerProfileId?`.
+`projectLookOverride` implements FR-014(a) without mutating shared looks.
+
+### storyTemplates *(versioned)*
+`name`, `status: active|archived|disabled`, `TemplateVersion: { premise, structure[], environments[], roleSlots[] { slot, requiredRelationship?, narrativeRole }, variables[] { key, type, default }, possibleHiddenGoals[], sceneGuidance[], ageAdaptationRules[], contentBoundaries[], endingPatterns[] }`. Template edits append versions; stories pin `templateVersionId` (FR-050–052). Seven seed templates installed at first run (FR-053).
+
+### stories *(versioned)*
+`projectId`, `StoryVersion: { planJson (validated StoryPlan schema), fullText, sceneIds[] }`. Regenerating story appends version; scenes/pages pin `storyVersionId`.
+
+### scenes *(versioned)*
+`projectId`, `pageNumber`, `SceneVersion: { purpose, description, mentions[] (see below), environment, timeOfDay, composition, cameraFraming, narrativeText, dialogue[] { speakerCharacterId, text }, imagePromptDraft }`.
+**Mention** (embedded): `{ characterId, characterVersionId (resolved at compile), displayName, props { action, emotion, position, framing, lookId?, heldObject?, gazeTarget?, speaks: bool, dialogue? } }`. Group mentions stored as `{ groupKey }` and expanded at compile (FR-038). Unresolved paste/partial tokens stored as `{ unresolvedText }` flagged in UI (FR-040).
+
+### pages *(versioned lineage per FR-059)*
+`projectId`, `pageNumber`, `kind: title|dedication|story|ending1|ending2`,
+`locked: bool`, `reviewStatus: unreviewed|flagged|approved`, `staleReason?` (from invalidation),
+`currentIllustrationVersionId`, `currentLayoutVersionId`.
+`IllustrationVersion`: `assetId`, `promptCompiled`, `negativeConstraints[]`, `inputSnapshot { sceneVersionId, characterVersionIds[], lookVersionIds[], styleId, settingsHash }`, `provenance`, `supersededBy?`.
+`LayoutVersion`: `placement: auto|top|bottom|right|left`, `resolvedRegion`, `readabilityAid: none|gradient|panel`, `fontSizePt`, `overflow: bool`, `bubbles[]`.
+Commit precondition: job's `inputSnapshot` must match current lineage else reject (FR-065).
+
+### jobs *(scheduler-owned — full semantics in contracts/job-scheduler-contract.md)*
+`type`, `projectId`, `dependsOn[]`, `state`, `priority`, `idempotencyKey` (unique), `lease { workerId, expiresAtMono }`, `attempts`, `failure { category, message, providerRaw? (redacted) }`, `progress { pct, note }`, `pauseReason?`, `inputRefs { entity ids + versionIds }`, `provenance`, `resultRefs[]`.
+
+### assets
+`sha256` (unique), `mime`, `bytes`, `width/height/dpi?`, `role: reference_photo|sheet_view|illustration|pdf_preview|pdf_interior|pdf_cover|thumbnail|import_staging`, `origin: upload|generated|derived`, `provenance { provider, model, jobId, promptVersion, referencedAssetIds[], attempt, settingsSnapshot }` (FR-094), `exifStripped: bool`, `refCount`.
+File at `assets/<sha256[0:2]>/<sha256>.<ext>`; write path per R4.
+
+### approvals
+`kind: character|book`, `targetId`, `targetVersionId` (characterSheet version or project bookVersion), `state: preview_sent|approved|changes_requested|invalidated|superseded`, `notes`, `affectedPages[]`, `recordedAt`, `invalidatedBy? { changeType, refId, at }` (FR-085–087).
+
+### printerProfiles
+`name`, `trim { w,h }` (default A4), `bleedMm` (default 3), `safeMarginMm`, `dpiMin` (default 300), `colorMode: rgb|cmyk`, `iccProfilePath?`, `cropMarks: bool`, `spineWidthMm?`, `coverTemplate? { source, geometry }`, `requiredBlankPages?`. Spine unknown + no template ⇒ cover production blocked (FR-122).
+
+### exports
+`projectId`, `manifestVersion`, `filePath`, `checksum`, `createdAt`, `secretScan: passed|failed`, `pausedSnapshot: true` (C-07).
+
+### settings (single doc)
+`textProvider`, `imageProvider`, `models { codexText?, geminiText, geminiImage, geminiImageEconomy }`, `concurrencyPerProvider`, `typography { minPtByAge }`, `watermarkText`, `diskWarnGb`, `storagePathsReadonly`. **No secrets** (FR-137); Gemini key only in Keychain (FR-105).
+
+### auditEvents
+Append-only operator-visible history: provider switches, quota decisions (FR-096), approvals/invalidations, deletions, imports/exports. Supports SC-009/SC-010 audits.
+
+## Relationship summary
+
+```text
+Customer 1─n Family 1─n Character 1─n Look
+Character 1─n CharacterVersion ; Look 1─n LookVersion
+Project n─1 Family ; Project 1─n Page 1─n IllustrationVersion/LayoutVersion
+Project 1─1 Story 1─n StoryVersion 1─n Scene(Version)
+Project 1─n Job (DAG via dependsOn) ; Job n─n Asset (via resultRefs/provenance)
+Approval → target version ; Template 1─n TemplateVersion ← Project pins one
+```
+
+## Versioning & invalidation hooks
+
+- Any write that bumps a version emits a `ChangeEvent { entity, fromVersion, toVersion, changeType }` consumed by the invalidation engine, which applies `invalidation-matrix.md` rows and writes `staleReason` flags + approval invalidations. Locked pages receive flags only (FR-064).
+- `bookVersion` increments on: page text/illustration/layout change, page order/count change, dedication/title/cover change — the customer-visible set of FR-086.
