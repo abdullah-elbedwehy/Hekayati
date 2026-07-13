@@ -1,0 +1,352 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>حكايتي — 05 شرارة الأطلس</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cairo:wght@600;700;800&family=Space+Grotesk:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --teal: #0d7377;
+        --teal-2: #14919b;
+        --spark: #e8316c;
+        --lemon: #f4d35e;
+        --paper: #f7f4ef;
+        --ink: #17212b;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family: 'Space Grotesk', Cairo, sans-serif;
+        color: var(--ink);
+        background:
+          conic-gradient(
+            from 210deg at 85% 15%,
+            rgba(232, 49, 108, 0.16),
+            rgba(13, 115, 119, 0.12),
+            rgba(244, 211, 94, 0.18),
+            rgba(232, 49, 108, 0.1)
+          ),
+          var(--paper);
+      }
+      .wrap {
+        max-width: 1080px;
+        margin: 0 auto;
+        padding: 28px 20px 64px;
+      }
+      .back {
+        color: var(--teal);
+        text-decoration: none;
+        font-weight: 700;
+        font-family: Cairo, sans-serif;
+      }
+      .hero {
+        margin-top: 18px;
+        padding: 36px;
+        background: var(--ink);
+        color: #fff;
+        display: grid;
+        grid-template-columns: 1.25fr 0.75fr;
+        gap: 18px;
+        align-items: center;
+        position: relative;
+        overflow: hidden;
+      }
+      .hero::before {
+        content: '';
+        position: absolute;
+        width: 420px;
+        height: 420px;
+        border-radius: 50%;
+        background: radial-gradient(
+          circle,
+          rgba(20, 145, 155, 0.55),
+          transparent 68%
+        );
+        left: -120px;
+        top: -160px;
+      }
+      .hero::after {
+        content: '';
+        position: absolute;
+        width: 180px;
+        height: 180px;
+        background: var(--spark);
+        right: 8%;
+        bottom: -60px;
+        transform: rotate(18deg);
+        clip-path: polygon(
+          50% 0%,
+          61% 35%,
+          98% 35%,
+          68% 57%,
+          79% 91%,
+          50% 70%,
+          21% 91%,
+          32% 57%,
+          2% 35%,
+          39% 35%
+        );
+        opacity: 0.95;
+      }
+      @media (max-width: 800px) {
+        .hero {
+          grid-template-columns: 1fr;
+        }
+        .hero::after {
+          opacity: 0.35;
+        }
+      }
+      .brand {
+        position: relative;
+        z-index: 1;
+        font-family: Cairo, sans-serif;
+        font-weight: 800;
+        font-size: clamp(3rem, 8vw, 5rem);
+        margin: 0 0 10px;
+        line-height: 0.95;
+      }
+      .tagline {
+        position: relative;
+        z-index: 1;
+        max-width: 24rem;
+        line-height: 1.65;
+        margin: 0;
+        font-size: 1.05rem;
+        opacity: 0.92;
+        font-family: Cairo, sans-serif;
+      }
+      .mark {
+        position: relative;
+        z-index: 1;
+        width: 150px;
+        height: 150px;
+        margin-inline-start: auto;
+        background: var(--teal);
+        display: grid;
+        place-items: center;
+        border: 4px solid var(--lemon);
+      }
+      .mark span {
+        font-family: Cairo, sans-serif;
+        font-weight: 800;
+        font-size: 3.6rem;
+        color: var(--lemon);
+        line-height: 1;
+      }
+      .grid {
+        display: grid;
+        gap: 16px;
+        margin-top: 22px;
+        grid-template-columns: repeat(12, 1fr);
+      }
+      .card {
+        background: rgba(255, 255, 255, 0.78);
+        border: 1px solid rgba(23, 33, 43, 0.1);
+        padding: 18px;
+      }
+      .card h2 {
+        font-family: Cairo, sans-serif;
+        margin: 0 0 12px;
+        font-size: 1.3rem;
+        color: var(--teal);
+      }
+      .span-5 {
+        grid-column: span 5;
+      }
+      .span-7 {
+        grid-column: span 7;
+      }
+      .span-4 {
+        grid-column: span 4;
+      }
+      .span-8 {
+        grid-column: span 8;
+      }
+      @media (max-width: 800px) {
+        .span-5,
+        .span-7,
+        .span-4,
+        .span-8 {
+          grid-column: span 12;
+        }
+      }
+      .swatch-row {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 10px;
+      }
+      .swatch {
+        min-height: 88px;
+        padding: 10px;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+        font-size: 0.78rem;
+        color: #fff;
+        font-family: Cairo, sans-serif;
+      }
+      .swatch.light {
+        color: var(--ink);
+        border: 1px solid rgba(0, 0, 0, 0.08);
+      }
+      .display {
+        font-family: Cairo, sans-serif;
+        font-weight: 800;
+        font-size: 2.2rem;
+        margin: 0 0 8px;
+        color: var(--spark);
+      }
+      .body {
+        margin: 0;
+        line-height: 1.7;
+        font-family: Cairo, sans-serif;
+      }
+      .watermark {
+        height: 180px;
+        position: relative;
+        overflow: hidden;
+        background: linear-gradient(135deg, #d7f0f1, #fde2eb);
+        display: grid;
+        place-items: center;
+      }
+      .wm {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        transform: rotate(-30deg);
+        font-family: Cairo, sans-serif;
+        font-weight: 800;
+        font-size: 2.4rem;
+        color: rgba(13, 115, 119, 0.22);
+      }
+      .footer {
+        position: absolute;
+        bottom: 10px;
+        inset-inline: 12px;
+        text-align: center;
+        font-size: 0.8rem;
+        color: var(--teal);
+        font-family: Cairo, sans-serif;
+      }
+      .ending {
+        background: linear-gradient(120deg, var(--teal), var(--teal-2));
+        color: #fff;
+        padding: 28px;
+        text-align: center;
+        border-bottom: 8px solid var(--spark);
+      }
+      .ending .logo-line {
+        font-family: Cairo, sans-serif;
+        font-weight: 800;
+        font-size: 2rem;
+        margin: 0 0 8px;
+        color: var(--lemon);
+      }
+      .cta {
+        display: inline-block;
+        margin-top: 14px;
+        position: relative;
+        z-index: 1;
+        background: var(--spark);
+        color: #fff;
+        font-weight: 700;
+        padding: 11px 18px;
+        font-family: Cairo, sans-serif;
+      }
+      .note {
+        margin-top: 18px;
+        line-height: 1.65;
+        opacity: 0.85;
+        font-family: Cairo, sans-serif;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <a class="back" href="./index.html">→ كل الهويات</a>
+      <section class="hero">
+        <div>
+          <p
+            style="
+              margin: 0 0 8px;
+              color: var(--lemon);
+              font-weight: 700;
+              letter-spacing: 0.04em;
+              font-family: Cairo, sans-serif;
+            "
+          >
+            05 — Atlas Spark
+          </p>
+          <h1 class="brand">حكايتي</h1>
+          <p class="tagline">
+            هوية حديثة حادّة: تركواز + شرارة وردية. تبان قوية على الشاشة وفي
+            تبويب «توليد صورة».
+          </p>
+          <span class="cta">افتح الاستوديو</span>
+        </div>
+        <div class="mark" aria-hidden="true"><span>ح</span></div>
+      </section>
+      <div class="grid">
+        <div class="card span-5">
+          <h2>الألوان</h2>
+          <div class="swatch-row">
+            <div class="swatch" style="background: var(--teal)">
+              Atlas Teal<br />#0D7377
+            </div>
+            <div class="swatch" style="background: var(--spark)">
+              Spark<br />#E8316C
+            </div>
+            <div class="swatch light" style="background: var(--paper)">
+              Paper<br />#F7F4EF
+            </div>
+            <div
+              class="swatch"
+              style="background: var(--lemon); color: var(--ink)"
+            >
+              Signal<br />#F4D35E
+            </div>
+          </div>
+        </div>
+        <div class="card span-7">
+          <h2>الخطوط</h2>
+          <p class="display">مدينة خيالية</p>
+          <p class="body">
+            Cairo ثقيل وواضح بالعربية. Space Grotesk للّمسات اللاتينية/الأرقام
+            في الواجهة.
+          </p>
+        </div>
+        <div class="card span-4">
+          <h2>علامة مائية</h2>
+          <div class="watermark">
+            <div class="wm">حكايتي</div>
+            <div class="footer">معاينة — غير مخصصة للطباعة</div>
+          </div>
+        </div>
+        <div
+          class="card span-8"
+          style="padding: 0; border: 0; background: transparent"
+        >
+          <div class="ending">
+            <p class="logo-line">حكايتي</p>
+            <p style="font-family: Cairo, sans-serif; margin: 0">
+              صُنع خصيصًا لـ كريم
+            </p>
+          </div>
+        </div>
+      </div>
+      <p class="note">
+        <strong>متى تختاره؟</strong> لو عايز العلامة تبان «ستارت أب منتج» أكثر
+        من دار قصص كلاسيكية — أفضل تمييز بصري سريع في الشات والمعاينات.
+      </p>
+    </div>
+  </body>
+</html>

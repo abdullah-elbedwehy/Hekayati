@@ -4,6 +4,8 @@
 
 Rules: invalidation **marks stale + surfaces scope + offers actions**; it never auto-regenerates (Constitution VII/X). Locked pages get flags only (`locked_stale`), content frozen (FR-064). "Book approval" = full-book customer approval; invalidating it blocks print output until a new approval (SC-010).
 
+**Single Image Studio (FR-145)**: `studio_image` jobs and `studioGenerations` history are **outside this matrix**. Creating, regenerating, or deleting a studio image MUST NOT emit book ChangeEvents and MUST leave every column below unchanged.
+
 Legend: ✖ = invalidated/stale, ⚠ = flagged for re-check (no invalidation), — = unaffected.
 
 | # | Upstream change | Char. approval | Char. sheet | Story plan/text | Scene(s) | Page illustration(s) | Page layout | Preview PDF | Book approval | Print PDFs / preflight |

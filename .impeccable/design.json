@@ -1,0 +1,324 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-07-13T22:35:00.000Z",
+  "title": "Design System: Citrus Playground (ملعب الليمون)",
+  "extensions": {
+    "colorMeta": {
+      "leaf": {
+        "role": "primary",
+        "displayName": "Leaf",
+        "canonical": "oklch(48% 0.09 155)",
+        "tonalRamp": [
+          "oklch(22% 0.06 155)",
+          "oklch(32% 0.08 155)",
+          "oklch(40% 0.09 155)",
+          "oklch(48% 0.09 155)",
+          "oklch(58% 0.09 155)",
+          "oklch(72% 0.07 155)",
+          "oklch(86% 0.04 155)",
+          "oklch(95% 0.02 155)"
+        ]
+      },
+      "leaf-bright": {
+        "role": "primary",
+        "displayName": "Leaf Bright",
+        "canonical": "oklch(60% 0.11 155)",
+        "tonalRamp": [
+          "oklch(28% 0.07 155)",
+          "oklch(38% 0.09 155)",
+          "oklch(48% 0.10 155)",
+          "oklch(60% 0.11 155)",
+          "oklch(70% 0.09 155)",
+          "oklch(80% 0.06 155)",
+          "oklch(90% 0.03 155)",
+          "oklch(96% 0.015 155)"
+        ]
+      },
+      "leaf-deep": {
+        "role": "primary",
+        "displayName": "Leaf Deep",
+        "canonical": "oklch(32% 0.07 155)",
+        "tonalRamp": [
+          "oklch(18% 0.05 155)",
+          "oklch(24% 0.06 155)",
+          "oklch(32% 0.07 155)",
+          "oklch(42% 0.08 155)",
+          "oklch(55% 0.08 155)",
+          "oklch(70% 0.05 155)",
+          "oklch(85% 0.03 155)",
+          "oklch(94% 0.015 155)"
+        ]
+      },
+      "orange": {
+        "role": "secondary",
+        "displayName": "Play Orange",
+        "canonical": "oklch(75% 0.17 55)",
+        "tonalRamp": [
+          "oklch(35% 0.12 55)",
+          "oklch(48% 0.15 55)",
+          "oklch(60% 0.17 55)",
+          "oklch(75% 0.17 55)",
+          "oklch(82% 0.14 55)",
+          "oklch(88% 0.09 55)",
+          "oklch(93% 0.05 55)",
+          "oklch(97% 0.02 55)"
+        ]
+      },
+      "lemon": {
+        "role": "tertiary",
+        "displayName": "Lemon",
+        "canonical": "oklch(92% 0.14 100)",
+        "tonalRamp": [
+          "oklch(45% 0.10 100)",
+          "oklch(58% 0.12 100)",
+          "oklch(72% 0.14 100)",
+          "oklch(82% 0.14 100)",
+          "oklch(88% 0.13 100)",
+          "oklch(92% 0.14 100)",
+          "oklch(95% 0.08 100)",
+          "oklch(98% 0.03 100)"
+        ]
+      },
+      "paper": {
+        "role": "neutral",
+        "displayName": "Sun Paper",
+        "canonical": "oklch(97% 0.02 95)",
+        "tonalRamp": [
+          "oklch(40% 0.02 95)",
+          "oklch(55% 0.02 95)",
+          "oklch(70% 0.02 95)",
+          "oklch(82% 0.025 95)",
+          "oklch(90% 0.025 95)",
+          "oklch(94% 0.02 95)",
+          "oklch(97% 0.02 95)",
+          "oklch(99% 0.01 95)"
+        ]
+      },
+      "paper-deep": {
+        "role": "neutral",
+        "displayName": "Paper Deep",
+        "canonical": "oklch(94% 0.025 95)",
+        "tonalRamp": [
+          "oklch(38% 0.02 95)",
+          "oklch(52% 0.025 95)",
+          "oklch(68% 0.025 95)",
+          "oklch(80% 0.03 95)",
+          "oklch(88% 0.03 95)",
+          "oklch(92% 0.025 95)",
+          "oklch(94% 0.025 95)",
+          "oklch(98% 0.01 95)"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "oklch(28% 0.01 80)",
+        "tonalRamp": [
+          "oklch(18% 0.01 80)",
+          "oklch(28% 0.01 80)",
+          "oklch(40% 0.01 80)",
+          "oklch(52% 0.01 80)",
+          "oklch(65% 0.01 80)",
+          "oklch(78% 0.008 80)",
+          "oklch(90% 0.005 80)",
+          "oklch(96% 0.005 95)"
+        ]
+      },
+      "ink-soft": {
+        "role": "neutral",
+        "displayName": "Ink Soft",
+        "canonical": "oklch(45% 0.015 80)",
+        "tonalRamp": [
+          "oklch(25% 0.015 80)",
+          "oklch(35% 0.015 80)",
+          "oklch(45% 0.015 80)",
+          "oklch(55% 0.012 80)",
+          "oklch(68% 0.01 80)",
+          "oklch(80% 0.008 80)",
+          "oklch(90% 0.005 80)",
+          "oklch(96% 0.005 95)"
+        ]
+      },
+      "danger": {
+        "role": "danger",
+        "displayName": "Danger",
+        "canonical": "oklch(52% 0.16 30)",
+        "tonalRamp": [
+          "oklch(28% 0.12 30)",
+          "oklch(38% 0.14 30)",
+          "oklch(45% 0.15 30)",
+          "oklch(52% 0.16 30)",
+          "oklch(62% 0.14 30)",
+          "oklch(75% 0.09 30)",
+          "oklch(88% 0.04 30)",
+          "oklch(96% 0.015 30)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display (Lemonada)",
+        "purpose": "Brand wordmark, page titles, empty-state headlines, ending-page logo only."
+      },
+      "headline": {
+        "displayName": "Headline (Lemonada)",
+        "purpose": "Section titles on brand moments; not for dense operator chrome."
+      },
+      "title": {
+        "displayName": "Title (Lemonada)",
+        "purpose": "Small brand titles; avoid in tables and form labels."
+      },
+      "body": {
+        "displayName": "Body (Source Sans 3)",
+        "purpose": "Default UI copy, Arabic MSA operator text."
+      },
+      "label": {
+        "displayName": "Label (Source Sans 3)",
+        "purpose": "Form labels, nav items, table headers, chips."
+      },
+      "story": {
+        "displayName": "Story",
+        "purpose": "In-app story preview; print fonts locked separately in print pipeline."
+      }
+    },
+    "shadows": [
+      {
+        "name": "panel-border",
+        "value": "0 0 0 1px color-mix(in srgb, var(--color-ink) 10%, transparent)",
+        "purpose": "Default elevation: tonal border, not a drop shadow."
+      },
+      {
+        "name": "menu",
+        "value": "0 8px 24px color-mix(in srgb, var(--color-ink) 8%, transparent)",
+        "purpose": "Rare floating menus only."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-out-quart",
+        "value": "cubic-bezier(0.25, 1, 0.5, 1)",
+        "purpose": "Default state transitions 150–200ms."
+      },
+      {
+        "name": "duration-ui",
+        "value": "180ms",
+        "purpose": "Buttons, focus, nav active."
+      }
+    ],
+    "breakpoints": [
+      { "name": "md", "value": "900px" },
+      { "name": "lg", "value": "1280px" },
+      { "name": "operator-min", "value": "1440px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Main operator action: save, generate, continue.",
+      "html": "<button class=\"ds-btn-primary\" type=\"button\">حفظ</button>",
+      "css": ".ds-btn-primary{background:var(--color-leaf,#1F6F4A);color:var(--color-paper,#FFF8E8);padding:10px 16px;border:none;border-radius:8px;font:600 0.95rem \"Source Sans 3\",system-ui,sans-serif;cursor:pointer;transition:background 180ms cubic-bezier(0.25,1,0.5,1)}.ds-btn-primary:hover{background:var(--color-leaf-deep,#134A32)}.ds-btn-primary:focus-visible{outline:2px solid var(--color-leaf,#1F6F4A);outline-offset:3px}"
+    },
+    {
+      "name": "Accent Button",
+      "kind": "button",
+      "refersTo": "button-accent",
+      "description": "Gift/high-signal CTA: start story, open studio.",
+      "html": "<button class=\"ds-btn-accent\" type=\"button\">ابدأ قصة جديدة</button>",
+      "css": ".ds-btn-accent{background:var(--color-lemon,#FFE566);color:var(--color-ink,#2B2A28);padding:10px 16px;border:none;border-radius:8px;font:700 0.95rem \"Source Sans 3\",system-ui,sans-serif;cursor:pointer;transition:filter 180ms cubic-bezier(0.25,1,0.5,1)}.ds-btn-accent:hover{filter:brightness(0.96)}.ds-btn-accent:focus-visible{outline:2px solid var(--color-leaf,#1F6F4A);outline-offset:3px}"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Secondary actions on paper chrome.",
+      "html": "<button class=\"ds-btn-secondary\" type=\"button\">إلغاء</button>",
+      "css": ".ds-btn-secondary{background:var(--color-paper,#FFF8E8);color:var(--color-leaf,#1F6F4A);padding:10px 16px;border:1px solid var(--color-leaf,#1F6F4A);border-radius:8px;font:600 0.95rem \"Source Sans 3\",system-ui,sans-serif;cursor:pointer}.ds-btn-secondary:hover{background:var(--color-paper-deep,#F3EBD4)}.ds-btn-secondary:focus-visible{outline:2px solid var(--color-leaf,#1F6F4A);outline-offset:3px}"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input-default",
+      "description": "Default Arabic RTL field.",
+      "html": "<label class=\"ds-field\"><span class=\"ds-label\">اسم الطفل</span><input class=\"ds-input\" type=\"text\" dir=\"rtl\" placeholder=\"أحمد\" /></label>",
+      "css": ".ds-field{display:flex;flex-direction:column;gap:6px;font-family:\"Source Sans 3\",system-ui,sans-serif}.ds-label{font:600 0.875rem/1.4 \"Source Sans 3\",system-ui,sans-serif;color:var(--color-ink,#2B2A28)}.ds-input{background:var(--color-paper,#FFF8E8);color:var(--color-ink,#2B2A28);border:1px solid color-mix(in srgb,var(--color-ink,#2B2A28) 14%,transparent);border-radius:4px;padding:10px 12px;font:400 1rem/1.4 \"Source Sans 3\",system-ui,sans-serif}.ds-input:focus-visible{outline:2px solid var(--color-leaf,#1F6F4A);outline-offset:2px;border-color:var(--color-leaf,#1F6F4A)}"
+    },
+    {
+      "name": "Nav Active",
+      "kind": "nav",
+      "refersTo": "nav-active",
+      "description": "Active shell nav item (leaf + lemon).",
+      "html": "<nav class=\"ds-nav\" dir=\"rtl\"><a class=\"ds-nav-item\" href=\"#\">المشاريع</a><a class=\"ds-nav-item is-active\" href=\"#\">توليد صورة</a><a class=\"ds-nav-item\" href=\"#\">الإعدادات</a></nav>",
+      "css": ".ds-nav{display:flex;gap:8px;padding:8px;background:var(--color-paper-deep,#F3EBD4);font-family:\"Source Sans 3\",system-ui,sans-serif}.ds-nav-item{padding:8px 12px;border-radius:4px;color:var(--color-ink,#2B2A28);text-decoration:none;font-weight:600;font-size:0.9rem}.ds-nav-item:hover{background:color-mix(in srgb,var(--color-leaf,#1F6F4A) 12%,transparent)}.ds-nav-item.is-active{background:var(--color-leaf,#1F6F4A);color:var(--color-lemon,#FFE566)}.ds-nav-item:focus-visible{outline:2px solid var(--color-leaf,#1F6F4A);outline-offset:2px}"
+    },
+    {
+      "name": "Warning Badge",
+      "kind": "chip",
+      "refersTo": "badge-warning",
+      "description": "Quota pause / needs review.",
+      "html": "<span class=\"ds-badge-warning\">متوقف: حصة Codex</span>",
+      "css": ".ds-badge-warning{display:inline-block;background:var(--color-orange,#FF8A1F);color:var(--color-ink,#2B2A28);padding:4px 8px;border-radius:4px;font:600 0.8rem/1.3 \"Source Sans 3\",system-ui,sans-serif}"
+    },
+    {
+      "name": "Surface Panel",
+      "kind": "card",
+      "refersTo": "surface-panel",
+      "description": "Selectable entity surface only when the whole block is the hit target.",
+      "html": "<button class=\"ds-panel\" type=\"button\" dir=\"rtl\"><strong>عائلة أحمد</strong><span>3 شخصيات · موافقة مسجّلة</span></button>",
+      "css": ".ds-panel{display:flex;flex-direction:column;align-items:flex-start;gap:6px;width:100%;text-align:start;background:var(--color-paper,#FFF8E8);color:var(--color-ink,#2B2A28);border:1px solid color-mix(in srgb,var(--color-ink,#2B2A28) 10%,transparent);border-radius:8px;padding:16px;font-family:\"Source Sans 3\",system-ui,sans-serif;cursor:pointer}.ds-panel strong{font-family:Lemonada,\"Segoe UI\",sans-serif;font-size:1.15rem;color:var(--color-leaf,#1F6F4A)}.ds-panel span{font-size:0.875rem;color:var(--color-ink-soft,#5C574F)}.ds-panel:hover{background:var(--color-paper-deep,#F3EBD4)}.ds-panel:focus-visible{outline:2px solid var(--color-leaf,#1F6F4A);outline-offset:2px}"
+    },
+    {
+      "name": "Brand Wordmark Chip",
+      "kind": "custom",
+      "refersTo": null,
+      "description": "Identity moment: حكايتي on leaf field.",
+      "html": "<div class=\"ds-brand\" dir=\"rtl\"><span class=\"ds-brand-mark\">ح</span><span class=\"ds-brand-name\">حكايتي</span></div>",
+      "css": ".ds-brand{display:inline-flex;align-items:center;gap:12px;background:linear-gradient(145deg,#1F6F4A 0%,#185C3D 55%,#134A32 100%);color:#FFF8E8;padding:16px 20px;position:relative;overflow:hidden}.ds-brand-mark{width:44px;height:44px;display:grid;place-items:center;background:#FFF8E8;color:#1F6F4A;border:4px solid #FFE566;font:700 1.4rem Lemonada,sans-serif}.ds-brand-name{font:700 1.75rem/1 Lemonada,sans-serif;color:#FFE566}"
+    }
+  ],
+  "narrative": {
+    "northStar": "Citrus Playground workshop: gift energy on identity moments, calm clarity in operator chrome.",
+    "overview": "Canonical kit is brand-kits/02-citrus-playground.html. Scene: an employee building gift books on a bright Mac desk by day; the UI should feel like a sunlit workshop with citrus energy, not a dark ops console and not a toy store explosion. Product chrome defaults to Restrained (paper, ink, leaf actions). Brand moments may go Committed with leaf fields plus lemon/orange accents.",
+    "keyCharacteristics": [
+      "RTL-first Arabic product UI",
+      "Lemonada for brand/display only",
+      "Source Sans 3 for all operator chrome",
+      "Leaf primary, orange warning, lemon signal",
+      "Tonal elevation over heavy shadows",
+      "One citrus system for Books and Studio"
+    ],
+    "rules": [
+      {
+        "name": "Operator First",
+        "body": "Every screen serves a production task; decoration never blocks scanning, queues, or errors.",
+        "section": "overview"
+      },
+      {
+        "name": "Gift Energy, Workshop Clarity",
+        "body": "Spend citrus on logo, ending page, watermark, empty states, Studio header; keep working chrome calm.",
+        "section": "colors"
+      },
+      {
+        "name": "Display Font Discipline",
+        "body": "Never put Lemonada on table headers, form labels, or dense controls.",
+        "section": "typography"
+      }
+    ],
+    "dos": [
+      "Load /impeccable context (PRODUCT.md + DESIGN.md) and /frontend-design before any frontend UI work",
+      "Keep operator chrome restrained; spend citrus on identity and attention",
+      "Design RTL first; mirror logic, not just text alignment",
+      "Use Lemonada sparingly for brand moments",
+      "Match kit 02 swatches exactly unless amending DESIGN.md"
+    ],
+    "donts": [
+      "Introduce purple, indigo SaaS gradients, or cream+terracotta editorial kits",
+      "Use Inter / Roboto / Arial / Space Grotesk as primary UI fonts",
+      "Put Lemonada on table headers, form labels, or dense controls",
+      "Auto-dark-mode the whole app because tools are dark",
+      "Side-stripe accent borders, gradient text, glass cards as defaults",
+      "Invent a second competing palette for Studio vs Books"
+    ]
+  }
+}

@@ -1,7 +1,7 @@
 # Implementation Plan: Hekayati (حكايتي)
 
 **Branch**: `001-hekayati` | **Date**: 2026-07-14 | **Spec**: [spec.md](./spec.md)
-**Input**: Feature specification from `/specs/001-hekayati/spec.md`
+**Input**: Canonical product specification from `/specs/001-hekayati-product-bible/spec.md`; bounded feature ownership lives in `/specs/002-*` through `/specs/011-*`.
 
 ## Summary
 
@@ -48,7 +48,7 @@ No violations → Complexity Tracking table empty.
 ### Documentation (this feature)
 
 ```text
-specs/001-hekayati/
+specs/001-hekayati-product-bible/
 ├── spec.md                      # Product specification (source of truth)
 ├── plan.md                      # This file
 ├── research.md                  # R1–R12 + feasibility gates G1–G4

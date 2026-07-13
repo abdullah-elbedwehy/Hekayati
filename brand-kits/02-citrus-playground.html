@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>حكايتي — 02 ملعب الليمون</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Lemonada:wght@500;600;700&family=Source+Sans+3:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --leaf: #1f6f4a;
+        --leaf-2: #2f9e6a;
+        --orange: #ff8a1f;
+        --lemon: #ffe566;
+        --paper: #fff8e8;
+        --ink: #2b2a28;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family: 'Source Sans 3', sans-serif;
+        color: var(--ink);
+        background:
+          radial-gradient(
+            circle at 12% 18%,
+            rgba(255, 229, 102, 0.55) 0 18%,
+            transparent 19%
+          ),
+          radial-gradient(
+            circle at 88% 12%,
+            rgba(255, 138, 31, 0.25) 0 14%,
+            transparent 15%
+          ),
+          radial-gradient(
+            circle at 70% 80%,
+            rgba(47, 158, 106, 0.18) 0 20%,
+            transparent 21%
+          ),
+          var(--paper);
+      }
+      .wrap {
+        max-width: 1080px;
+        margin: 0 auto;
+        padding: 28px 20px 64px;
+      }
+      .back {
+        color: var(--leaf);
+        text-decoration: none;
+        font-weight: 700;
+      }
+      .hero {
+        margin-top: 18px;
+        padding: 40px 36px;
+        background: linear-gradient(
+          145deg,
+          var(--leaf) 0%,
+          #185c3d 55%,
+          #134a32 100%
+        );
+        color: #fff;
+        display: grid;
+        grid-template-columns: 1.3fr 0.7fr;
+        gap: 20px;
+        align-items: center;
+        position: relative;
+        overflow: hidden;
+      }
+      .hero::after {
+        content: '';
+        position: absolute;
+        width: 260px;
+        height: 260px;
+        border-radius: 50%;
+        background: var(--orange);
+        left: -60px;
+        bottom: -90px;
+        opacity: 0.9;
+      }
+      .hero::before {
+        content: '';
+        position: absolute;
+        width: 140px;
+        height: 140px;
+        background: var(--lemon);
+        right: 40px;
+        top: -40px;
+        transform: rotate(18deg);
+        opacity: 0.95;
+      }
+      @media (max-width: 800px) {
+        .hero {
+          grid-template-columns: 1fr;
+        }
+        .hero::before,
+        .hero::after {
+          opacity: 0.35;
+        }
+      }
+      .brand {
+        position: relative;
+        z-index: 1;
+        font-family: Lemonada, cursive;
+        font-size: clamp(2.8rem, 7vw, 4.4rem);
+        margin: 0 0 10px;
+        line-height: 1.05;
+      }
+      .tagline {
+        position: relative;
+        z-index: 1;
+        max-width: 24rem;
+        line-height: 1.65;
+        margin: 0;
+        font-size: 1.1rem;
+      }
+      .mark {
+        position: relative;
+        z-index: 1;
+        width: 160px;
+        height: 160px;
+        margin-inline-start: auto;
+        background: var(--paper);
+        color: var(--leaf);
+        display: grid;
+        place-items: center;
+        font-family: Lemonada, cursive;
+        font-size: 3rem;
+        font-weight: 700;
+        border: 6px solid var(--lemon);
+      }
+      .grid {
+        display: grid;
+        gap: 16px;
+        margin-top: 22px;
+        grid-template-columns: repeat(12, 1fr);
+      }
+      .card {
+        background: rgba(255, 255, 255, 0.78);
+        border: 2px solid rgba(31, 111, 74, 0.12);
+        padding: 18px;
+      }
+      .card h2 {
+        font-family: Lemonada, cursive;
+        color: var(--leaf);
+        margin: 0 0 12px;
+        font-size: 1.25rem;
+      }
+      .span-5 {
+        grid-column: span 5;
+      }
+      .span-7 {
+        grid-column: span 7;
+      }
+      .span-4 {
+        grid-column: span 4;
+      }
+      .span-8 {
+        grid-column: span 8;
+      }
+      @media (max-width: 800px) {
+        .span-5,
+        .span-7,
+        .span-4,
+        .span-8 {
+          grid-column: span 12;
+        }
+      }
+      .swatch-row {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 10px;
+      }
+      .swatch {
+        min-height: 88px;
+        padding: 10px;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+        font-size: 0.78rem;
+        color: #fff;
+      }
+      .swatch.light {
+        color: var(--ink);
+        border: 1px solid rgba(0, 0, 0, 0.08);
+      }
+      .display {
+        font-family: Lemonada, cursive;
+        font-size: 2.1rem;
+        margin: 0 0 8px;
+        color: var(--leaf);
+      }
+      .body {
+        margin: 0;
+        line-height: 1.7;
+      }
+      .watermark {
+        height: 180px;
+        position: relative;
+        overflow: hidden;
+        background: repeating-linear-gradient(
+          -45deg,
+          #fff3c9,
+          #fff3c9 12px,
+          #ffe9a8 12px,
+          #ffe9a8 24px
+        );
+        display: grid;
+        place-items: center;
+      }
+      .wm {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        transform: rotate(-24deg);
+        font-family: Lemonada, cursive;
+        font-size: 2.1rem;
+        color: rgba(31, 111, 74, 0.22);
+        font-weight: 700;
+      }
+      .footer {
+        position: absolute;
+        bottom: 10px;
+        inset-inline: 12px;
+        text-align: center;
+        font-size: 0.8rem;
+        color: var(--leaf);
+      }
+      .ending {
+        background: var(--orange);
+        color: #fff;
+        padding: 28px;
+        text-align: center;
+      }
+      .ending .logo-line {
+        font-family: Lemonada, cursive;
+        font-size: 2rem;
+        margin: 0 0 8px;
+        color: var(--lemon);
+      }
+      .cta {
+        display: inline-block;
+        margin-top: 14px;
+        background: var(--lemon);
+        color: var(--ink);
+        font-weight: 700;
+        padding: 10px 16px;
+      }
+      .note {
+        margin-top: 18px;
+        line-height: 1.6;
+        opacity: 0.8;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <a class="back" href="./index.html">→ كل الهويات</a>
+      <section class="hero">
+        <div>
+          <p style="margin: 0 0 8px; font-weight: 700; color: var(--lemon)">
+            02 — Citrus Playground
+          </p>
+          <h1 class="brand">حكايتي</h1>
+          <p class="tagline">
+            قصص مبهجة زي يوم فسح… ألوان عالية الطاقة للأعياد والأطفال الصغار.
+          </p>
+          <span class="cta">ابدأ قصة جديدة</span>
+        </div>
+        <div class="mark" aria-hidden="true">ح</div>
+      </section>
+      <div class="grid">
+        <div class="card span-5">
+          <h2>الألوان</h2>
+          <div class="swatch-row">
+            <div class="swatch" style="background: var(--leaf)">
+              Leaf<br />#1F6F4A
+            </div>
+            <div class="swatch" style="background: var(--orange)">
+              Play Orange<br />#FF8A1F
+            </div>
+            <div class="swatch light" style="background: var(--paper)">
+              Sun Paper<br />#FFF8E8
+            </div>
+            <div
+              class="swatch"
+              style="background: var(--lemon); color: var(--ink)"
+            >
+              Lemon<br />#FFE566
+            </div>
+          </div>
+        </div>
+        <div class="card span-7">
+          <h2>الخطوط</h2>
+          <p class="display">عيد ميلاد لا يُنسى</p>
+          <p class="body">
+            Lemonada للعناوين الطفولية. Source Sans 3 لواجهة واضحة وسريعة
+            القراءة.
+          </p>
+        </div>
+        <div class="card span-4">
+          <h2>علامة مائية</h2>
+          <div class="watermark">
+            <div class="wm">حكايتي</div>
+            <div class="footer">معاينة — غير مخصصة للطباعة</div>
+          </div>
+        </div>
+        <div
+          class="card span-8"
+          style="padding: 0; border: 0; background: transparent"
+        >
+          <div class="ending">
+            <p class="logo-line">حكايتي</p>
+            <p>صُنع خصيصًا لـ لينا</p>
+          </div>
+        </div>
+      </div>
+      <p class="note">
+        <strong>متى تختاره؟</strong> لو المنتج هيبان كتير في معاينات واتساب
+        الملونة، وأعياد الميلاد هي الاستخدام الأشهر.
+      </p>
+    </div>
+  </body>
+</html>

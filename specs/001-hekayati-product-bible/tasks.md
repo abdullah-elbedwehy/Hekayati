@@ -1,6 +1,6 @@
 # Tasks: Hekayati (حكايتي)
 
-**Input**: Design documents from `/specs/001-hekayati/`
+**Input**: Integrated design documents from `/specs/001-hekayati-product-bible/`; feature ownership slices are indexed by `/specs/README.md`.
 **Prerequisites**: plan.md, spec.md, research.md, data-model.md, contracts/, state-machines.md, invalidation-matrix.md
 **Tests**: REQUIRED (Constitution XI, TDD). Test tasks precede implementation within each group.
 
@@ -146,8 +146,11 @@ Format: `[ID] [P?] [Refs] Description` — **[P]** = parallelizable (different f
 - [ ] T-P6-07 Safety-refusal handling: step/page identification, no auto-variation retry, operator resolution flow [FR-116, EC-D10]
 - [ ] T-P6-08 Page-count-change guided expand/shorten flow [FR-058, IM-09]
 - [ ] T-P6-09 E2E: US4 + US5 scenarios (mock), incl. E4 regeneration isolation + E5 quota journey; live-provider manual validation script
+- [ ] T-P6-10 [US11] Single Image Studio domain + API: `studioGenerations` CRUD, `studio_image` job type, no Project/Story/Page side effects (`src/domain/studio/`) [FR-140–146]
+- [ ] T-P6-11 [US11] Studio Arabic RTL tab UI: character/look picker, prompt, style, generate/regenerate/history/download; consent + capacity warnings [FR-140/141/144, C-15]
+- [ ] T-P6-12 [US11] E2E: US11 + E8 — generate with refs, download, assert zero project records and zero book invalidation events; isolation vs concurrent book project (SC-013)
 
-**Checkpoint**: a full 16-page mock book produced, reviewed, page-7-regenerated with checksum-proven isolation. **DoD**: CHK012–018 satisfiable; SC-003 test green.
+**Checkpoint**: a full 16-page mock book produced, reviewed, page-7-regenerated with checksum-proven isolation; Studio one-shot image path green. **DoD**: CHK012–018 + CHK026 satisfiable; SC-003 and SC-013 tests green.
 
 ---
 
@@ -226,7 +229,7 @@ Format: `[ID] [P?] [Refs] Description` — **[P]** = parallelizable (different f
 
 ```text
 P0 ──▶ P1 ──▶ P2 ──▶ P3 ──▶ P6 ──▶ P7 ──▶ P8 ──▶ P10
-        │                    ▲               
+        │                    ▲
         ├──▶ P4 ────────────┤ (P4 parallel to P2/P3 after T-P4-01)
         └──▶ P5 ────────────┘ (P5 needs P4 contract types)
 P9 needs P2+P6; can run parallel to P7/P8.

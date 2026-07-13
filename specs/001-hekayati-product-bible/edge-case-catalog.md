@@ -55,6 +55,9 @@
 | EC-C08 | Text placement fails everywhere | Preset chain → gradient/panel → operator warning; min font floor respected | FR-082 |
 | EC-C09 | Dialogue doesn't fit bubble | Layout overflow flag; operator shortens or repositions | FR-083 |
 | EC-C10 | No safe text area | Same FR-082 chain terminal warning | FR-082 |
+| EC-C11 | Studio generate while book jobs run | Both allowed; studio job has no `projectId`; book pages/approvals unchanged | FR-142/145, SC-013 |
+| EC-C12 | Studio with cross-family characters | Blocked before enqueue (same as FR-003/146) | FR-146, EC-H02 |
+| EC-C13 | Studio without characters (prompt-only) | Allowed; provenance records zero refs; safety/style rules still apply | FR-141/143 |
 
 ## D — AI providers
 

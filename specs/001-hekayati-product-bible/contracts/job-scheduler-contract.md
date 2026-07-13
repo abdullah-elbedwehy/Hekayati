@@ -37,8 +37,9 @@ Full diagrams: `../state-machines.md`.
 
 - DAG via `dependsOn[]`. A job is `blocked` until all deps `succeeded` (or `waiting_review` deps acknowledged where the stage allows).
 - Canonical chain (FR-114): character inputs → character sheet → **character approval (waiting_review)** → story plan → story → scenes → image prompts → page illustrations (fan-out, parallel) → **internal review (waiting_review)** → preview PDF → **customer approval (waiting_review)** → print PDFs.
-- Priority: project priority then FIFO. Page-illustration fan-out respects `concurrencyPerProvider` (default 2, C-09).
-- Failure of one page-illustration job never blocks sibling pages (independent subtrees).
+- **Standalone exception**: job type `studio_image` (FR-142) has empty `dependsOn`, nullable `projectId`, and never enters the book chain or `waiting_review` stages. It still uses leases, idempotency, atomic commit, failure taxonomy, and quota-pause.
+- Priority: project priority then FIFO. Page-illustration fan-out respects `concurrencyPerProvider` (default 2, C-09). Studio jobs share the same per-provider concurrency pool unless settings later add a separate cap (v1: shared pool).
+- Failure of one page-illustration job never blocks sibling pages (independent subtrees). Studio failures never block book jobs and vice versa.
 
 ## Failure taxonomy & retry policy (FR-092)
 

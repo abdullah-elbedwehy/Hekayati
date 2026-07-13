@@ -33,6 +33,7 @@
 - [ ] CHK417 Destructive flows (delete, replace-import, unlock) require explicit confirmation with scope preview (FR-005/127)
 - [ ] CHK418 No-backup + export≠backup warnings present and honest (FR-133)
 - [ ] CHK419 Review checklist UI per page covers all FR-118 items; consistency view usable (FR-119)
+- [ ] CHK425 Single Image tab («توليد صورة») reachable from main nav without opening a project; generate/history/download usable in Arabic RTL (FR-140/144, US11)
 
 ## Accessibility & Layout
 

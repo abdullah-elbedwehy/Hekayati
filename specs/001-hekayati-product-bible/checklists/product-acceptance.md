@@ -39,6 +39,7 @@
 - [ ] CHK023 Cover blocked without spine width/template; produced correctly with printer template (FR-122, US7-AS2/3)
 - [ ] CHK024 Export/import round-trip full fidelity; deletion removes media from disk (US9)
 - [ ] CHK025 Complete Arabic RTL journey usable at 1440×900 (SC-012); quickstart walkthrough completes as written (SC-001)
+- [ ] CHK026 Single Image Studio: one image without a book project; history + download; no Project/Story/Page created; book approvals untouched (FR-140–146, SC-013, US11, E8)
 
 ## Notes
 - Every item must map to passing automated tests where feasible; manual items require recorded evidence (screenshots/proof prints).

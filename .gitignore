@@ -1,0 +1,33 @@
+.DS_Store
+
+# Local environment and credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Node and build output
+node_modules/
+dist/
+coverage/
+.vite/
+playwright-report/
+test-results/
+*.log
+
+# Hekayati runtime data — never commit customer or generated artifacts
+data/
+runtime/
+exports/
+tmp/
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+*.zip
+
+# Phase 0 generated probe output; scripts and written evidence stay tracked
+spikes/artifacts/
+spikes/output/
+spikes/.cache/

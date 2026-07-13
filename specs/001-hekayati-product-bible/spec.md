@@ -2,28 +2,28 @@
 
 **Feature Branch**: `001-hekayati`
 **Created**: 2026-07-14
-**Status**: Draft — awaiting user approval (implementation gated)
+**Status**: Approved — full delivery authorized 2026-07-14; slice readiness gates apply
 **Input**: User description: "Local desktop-operated web application for creating highly personalized, printed children's picture books where the child is the visual and narrative hero."
 
 **Supporting artifacts** (same directory — normative parts of this specification):
 
-| Artifact | Purpose |
-|---|---|
-| `plan.md` | Technical plan, architecture decisions |
-| `research.md` | Technology research entries R1–R12, feasibility gates |
-| `data-model.md` | Domain model, entities, versioning rules |
-| `contracts/provider-contract.md` | Canonical AI provider capability model and operations |
-| `contracts/structured-outputs.md` | Canonical schemas for AI structured output |
-| `contracts/job-scheduler-contract.md` | Durable job scheduler semantics |
-| `state-machines.md` | Project, job, page, approval state machines |
-| `invalidation-matrix.md` | Upstream-change → downstream-invalidation rules |
-| `provider-capability-matrix.md` | Codex vs Gemini vs Mock capabilities |
-| `edge-case-catalog.md` | Edge cases A–H mapped to requirements |
-| `risk-register.md` | Risks, mitigations, feasibility gates |
-| `test-strategy.md` | Test levels, failure injection, acceptance approach |
-| `quickstart.md` | Operator setup and first-book walkthrough |
-| `checklists/` | Product acceptance, AI reliability, privacy/security, print production, UX |
-| `tasks.md` | Phased, dependency-aware implementation tasks |
+| Artifact                              | Purpose                                                                    |
+| ------------------------------------- | -------------------------------------------------------------------------- |
+| `plan.md`                             | Technical plan, architecture decisions                                     |
+| `research.md`                         | Technology research entries R1–R12, feasibility gates                      |
+| `data-model.md`                       | Domain model, entities, versioning rules                                   |
+| `contracts/provider-contract.md`      | Canonical AI provider capability model and operations                      |
+| `contracts/structured-outputs.md`     | Canonical schemas for AI structured output                                 |
+| `contracts/job-scheduler-contract.md` | Durable job scheduler semantics                                            |
+| `state-machines.md`                   | Project, job, page, approval state machines                                |
+| `invalidation-matrix.md`              | Upstream-change → downstream-invalidation rules                            |
+| `provider-capability-matrix.md`       | Codex vs Gemini vs Mock capabilities                                       |
+| `edge-case-catalog.md`                | Edge cases A–H mapped to requirements                                      |
+| `risk-register.md`                    | Risks, mitigations, feasibility gates                                      |
+| `test-strategy.md`                    | Test levels, failure injection, acceptance approach                        |
+| `quickstart.md`                       | Operator setup and first-book walkthrough                                  |
+| `checklists/`                         | Product acceptance, AI reliability, privacy/security, print production, UX |
+| `tasks.md`                            | Phased, dependency-aware implementation tasks                              |
 
 ---
 
@@ -44,6 +44,7 @@ The product is **a gift first**. It may carry a subtle developmental goal, but i
 - Provider-neutral AI orchestration over two provider families (Codex subscription mode, Gemini API mode) plus a mock provider for development/testing.
 - Durable background job scheduling with restart recovery, quota pause, and manual continuation.
 - Page-level review, versioning, locking, and single-page regeneration.
+- Single Image Studio tab: generate one illustration (with optional character references) without creating or running a full book pipeline.
 - Programmatic Arabic text layout over text-free illustrations.
 - Watermarked preview PDF; print-ready interior PDF; print-ready cover spread PDF (back + spine + front); preflight.
 - Manual project export/import (versioned ZIP).
@@ -56,7 +57,7 @@ Customer accounts; customer self-service; public website; cloud hosting; multi-e
 
 ---
 
-## 2. User Scenarios & Testing *(mandatory)*
+## 2. User Scenarios & Testing _(mandatory)_
 
 The single persona is **the Employee** (operator). "Customer" actions below are always performed by the employee on the customer's behalf.
 
@@ -240,6 +241,26 @@ The employee creates, edits, duplicates, archives, and disables story templates;
 
 ---
 
+### User Story 11 — Single Image Studio (Priority: P2)
+
+The employee opens a dedicated app tab («توليد صورة» / Single Image) and generates **one** illustration without creating a book project, story, scenes, or PDF pipeline. They may optionally attach customer/family characters (with looks) as references, write a scene prompt, pick an illustration style, run generation, review the result, regenerate, browse history, and download the image.
+
+**Why this priority**: Operators often need a quick WhatsApp mockup, outfit test, or character likeness check before committing to a full book. Blocking that behind the entire book graph wastes time and quota.
+
+**Independent Test**: With mock provider and no project open, open the Single Image tab → select one consented character + look → enter a short scene prompt → generate → image appears with provenance → regenerate once → both versions in history → download PNG → confirm no Project/Story/Page records were created → confirm a concurrent book project's pages are untouched.
+
+**Acceptance Scenarios**:
+
+1. **Given** the main navigation, **When** the employee opens the Single Image tab, **Then** they can generate without selecting or creating a book project.
+2. **Given** a character with recorded consent and a selected look, **When** generation is started, **Then** one durable image job runs using the same provider contract, consent gate, payload minimization, and provenance rules as book illustrations.
+3. **Given** no characters selected, **When** the employee generates from prompt + style only, **Then** the system still produces one image and records that zero character references were sent.
+4. **Given** a customer without consent, **When** the employee tries to include that customer's character photos as references, **Then** generation is blocked with the same consent reason as FR-004.
+5. **Given** a completed studio image, **When** the employee regenerates or downloads, **Then** prior versions remain in studio history; download exports the selected asset; no book approval, preview, or print artifact is created or invalidated.
+6. **Given** a book project with running or completed pages, **When** a studio image is generated, **Then** no page, story, or book approval state changes (studio jobs are isolated from the book invalidation matrix).
+7. **Given** participant count exceeds the selected image model's reliable reference capacity, **When** the employee confirms after the warning, **Then** generation may proceed under the same C-08 rules as book scenes; inventing unselected people remains forbidden via negative constraints.
+
+---
+
 ### Cross-cutting Edge Cases
 
 The normative edge-case catalog is `edge-case-catalog.md` (categories A–H, each mapped to requirement IDs and tasks). Representative cases:
@@ -253,7 +274,7 @@ The normative edge-case catalog is `edge-case-catalog.md` (categories A–H, eac
 
 ---
 
-## 3. Requirements *(mandatory)*
+## 3. Requirements _(mandatory)_
 
 Requirement IDs are stable and referenced by tasks, checklists, and the edge-case catalog. MUST/SHOULD per RFC 2119 intent.
 
@@ -431,9 +452,19 @@ Requirement IDs are stable and referenced by tasks, checklists, and the edge-cas
 - **FR-137**: Settings MUST cover: provider selection (text/image), model IDs, concurrency limits, typography minimums, printer profiles, storage locations (read-only display), Gemini key management, Codex status, economy-mode warnings.
 - **FR-138**: A health/diagnostics screen MUST show: DB status, disk free space (warn below configurable threshold, default 10 GB), asset store integrity summary, provider auth/availability, job queue depth, and bind-address confirmation.
 
+### 3.23 Single Image Studio
+
+- **FR-140**: The UI MUST provide a top-level Single Image Studio tab (Arabic label «توليد صورة») that is reachable without creating or opening a book project.
+- **FR-141**: Studio generation MUST support: freeform scene prompt, illustration style (FR-070 set), optional customer/family scoping, optional character + look references (one or more), optional negative constraints, and the globally selected image provider/model (with economy-mode warning FR-108).
+- **FR-142**: Starting studio generation MUST enqueue exactly one durable image job (type `studio_image`) through the normal scheduler; it MUST NOT create Project, Story, Scene, Page, preview, or print records.
+- **FR-143**: Studio jobs MUST reuse FR-004 consent gating, FR-134 payload minimization, FR-071/072/073 content rules (no story text in the image, no franchise imitation, illustrated identity not photo paste), FR-075/C-08 reference-capacity warnings, FR-092 failure taxonomy, FR-094 provenance, and FR-096 quota-pause behavior.
+- **FR-144**: Studio MUST keep an append-only history of generations (prompt, refs, style, asset, provenance, timestamps) with regenerate, delete-one, and download (PNG/JPEG) actions; history survives app restart until permanent deletion of the owning customer/characters or an explicit studio-history delete.
+- **FR-145**: Studio generation MUST NOT invalidate book approvals, mutate pages, or write into a project's illustration lineage. Optional "attach to page" / "use in project" is out of scope for v1 (operator downloads and uses externally, or regenerates inside the book flow).
+- **FR-146**: Cross-family character mixing in one studio request MUST be blocked (same scoping rule as FR-003). Description-only characters MAY be referenced without photo upload.
+
 ---
 
-## 4. Key Entities *(summary — normative detail in `data-model.md`)*
+## 4. Key Entities _(summary — normative detail in `data-model.md`)_
 
 - **Customer** — contact, consent, notes. Owns Families.
 - **Family** — group of Members; scoping boundary for character selection.
@@ -450,10 +481,11 @@ Requirement IDs are stable and referenced by tasks, checklists, and the edge-cas
 - **PrinterProfile** — trim/bleed/DPI/color/ICC/crop-marks/spine or cover template.
 - **ExportArchive** — manifest-versioned ZIP record.
 - **SettingsProfile** — provider/model/concurrency/typography config (no secrets).
+- **StudioGeneration** — standalone single-image request + result history; not part of a book project graph.
 
 ---
 
-## 5. Success Criteria *(mandatory, technology-agnostic)*
+## 5. Success Criteria _(mandatory, technology-agnostic)_
 
 - **SC-001**: The employee can go from new customer to print-ready interior + cover PDFs for a 16-page book in a single working day, with AI wait time visible and interruptible.
 - **SC-002**: After a forced app kill and machine restart mid-generation, 100% of completed pages/assets are intact and generation resumes without duplicated artifacts (verified by failure-injection suite).
@@ -467,27 +499,30 @@ Requirement IDs are stable and referenced by tasks, checklists, and the edge-cas
 - **SC-010**: An approved book version can never reach print output after a customer-visible change without a new recorded approval (enforced and tested via the invalidation matrix).
 - **SC-011**: Full-book approval invalidation, character-approval superseding, and locked-page immutability each have dedicated automated tests that pass.
 - **SC-012**: The complete operator journey is usable in Arabic RTL at 1440×900 and larger without horizontal scrolling or clipped controls.
+- **SC-013**: From the Single Image tab, the employee can produce one downloadable illustration with character references in ≤3 operator actions after characters exist (select refs → prompt → generate), without creating any Project/Story/Page records (verified by DB assertions in the independent test).
 
 ---
 
 ## 6. Clarifications (resolved by documented conservative assumption)
 
-| ID | Question | Decision | Rationale |
-|---|---|---|---|
-| C-01 | "NoSQL" — does it mandate a NoSQL server? | It mandates a **flexible document data model**. Engine choice is a plan-level decision (research R2); an embedded document store satisfies the requirement if it preserves schema flexibility. | One-person local ops; requirement's intent is flexibility, not a daemon. |
-| C-02 | No auth screen — any access control? | None in v1 beyond loopback-only binding + OS user account. Documented as accepted risk in risk register. | Explicit operating context. |
-| C-03 | What are the two ending pages? | Ending 1 = personalized closing scene ("hero farewell"); Ending 2 = brand page ("صُنع خصيصًا لـ {الطفل}", logo area). Operator-editable. | Common picture-book convention; keeps story pages intact. |
-| C-04 | Blank/printer-required pages? | Added only during print assembly, shown in preflight report, invisible to preview numbering. | Keeps customer-visible story stable (FR-057). |
-| C-05 | Page-count change after generation? | Treated as story-structure invalidation with guided expand/shorten flow; nothing auto-regenerates. | Constitution X. |
-| C-06 | Preview resolution? | Downsampled to ~150 DPI + watermark; never print-resolution assets in preview. | WhatsApp size limits; asset protection. |
-| C-07 | Export while jobs run? | Require pause (one-click) then snapshot export. Chosen over concurrent snapshot for simplicity and correctness. | "Safest simple behavior" directive. |
-| C-08 | Max characters per scene? | Soft warning above the per-model reliable-reference count from the capability matrix (default threshold 3 for multi-reference image models). Proceed requires confirmation. | Known model limitation; avoids silent quality loss. |
-| C-09 | Concurrency default? | 2 concurrent image jobs per provider, configurable 1–4. | Conservative vs rate limits. |
-| C-10 | Retention? | All versions retained until explicit permanent deletion; no auto-pruning in v1. Disk-space health warning instead. | Recoverability principle; simplicity. |
-| C-11 | Mention name matching with diacritics? | Store IDs; match display names diacritic-insensitively (NFC normalize + strip tashkeel for search). | FR-040. |
-| C-12 | Color mode default? | RGB PDF by default; CMYK conversion via configured ICC profile only when the printer profile requires it. | Most digital printers accept RGB; avoids uncalibrated conversion damage. |
-| C-13 | Consent granularity? | Per-customer boolean + date + note (covers submitted photos for book production). Per-photo consent deferred; flagged in legal-review risk item. | Minimal viable consent record; avoids inventing legal claims. |
-| C-14 | Watermark form? | Diagonal semi-transparent brand text on every preview page + "معاينة — غير مخصصة للطباعة" footer. Configurable text. | Must survive screenshots; simple. |
+| ID   | Question                                  | Decision                                                                                                                                                                                            | Rationale                                                                |
+| ---- | ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| C-01 | "NoSQL" — does it mandate a NoSQL server? | It mandates a **flexible document data model**. Engine choice is a plan-level decision (research R2); an embedded document store satisfies the requirement if it preserves schema flexibility.      | One-person local ops; requirement's intent is flexibility, not a daemon. |
+| C-02 | No auth screen — any access control?      | None in v1 beyond loopback-only binding + OS user account. Documented as accepted risk in risk register.                                                                                            | Explicit operating context.                                              |
+| C-03 | What are the two ending pages?            | Ending 1 = personalized closing scene ("hero farewell"); Ending 2 = brand page ("صُنع خصيصًا لـ {الطفل}", logo area). Operator-editable.                                                            | Common picture-book convention; keeps story pages intact.                |
+| C-04 | Blank/printer-required pages?             | Added only during print assembly, shown in preflight report, invisible to preview numbering.                                                                                                        | Keeps customer-visible story stable (FR-057).                            |
+| C-05 | Page-count change after generation?       | Treated as story-structure invalidation with guided expand/shorten flow; nothing auto-regenerates.                                                                                                  | Constitution X.                                                          |
+| C-06 | Preview resolution?                       | Downsampled to ~150 DPI + watermark; never print-resolution assets in preview.                                                                                                                      | WhatsApp size limits; asset protection.                                  |
+| C-07 | Export while jobs run?                    | Require pause (one-click) then snapshot export. Chosen over concurrent snapshot for simplicity and correctness.                                                                                     | "Safest simple behavior" directive.                                      |
+| C-08 | Max characters per scene?                 | Soft warning above the per-model reliable-reference count from the capability matrix (default threshold 3 for multi-reference image models). Proceed requires confirmation.                         | Known model limitation; avoids silent quality loss.                      |
+| C-09 | Concurrency default?                      | 2 concurrent image jobs per provider, configurable 1–4.                                                                                                                                             | Conservative vs rate limits.                                             |
+| C-10 | Retention?                                | All versions retained until explicit permanent deletion; no auto-pruning in v1. Disk-space health warning instead.                                                                                  | Recoverability principle; simplicity.                                    |
+| C-11 | Mention name matching with diacritics?    | Store IDs; match display names diacritic-insensitively (NFC normalize + strip tashkeel for search).                                                                                                 | FR-040.                                                                  |
+| C-12 | Color mode default?                       | RGB PDF by default; CMYK conversion via configured ICC profile only when the printer profile requires it.                                                                                           | Most digital printers accept RGB; avoids uncalibrated conversion damage. |
+| C-13 | Consent granularity?                      | Per-customer boolean + date + note (covers submitted photos for book production). Per-photo consent deferred; flagged in legal-review risk item.                                                    | Minimal viable consent record; avoids inventing legal claims.            |
+| C-14 | Watermark form?                           | Diagonal semi-transparent brand text on every preview page + "معاينة — غير مخصصة للطباعة" footer. Configurable text.                                                                                | Must survive screenshots; simple.                                        |
+| C-15 | Single Image vs book page regen?          | Separate Studio tab for one-off images; book page regeneration stays inside the project review UI (US5). Studio does not write into page lineage in v1 (FR-145).                                    | Keeps quick tests off the book state machine.                            |
+| C-16 | Brand / visual language?                  | **Citrus Playground (ملعب الليمون)** — kit `brand-kits/02-citrus-playground.html`; tokens and rules in root `DESIGN.md` / `PRODUCT.md`. Frontend work must use Impeccable + frontend-design skills. | Operator-chosen; gift energy with workshop clarity.                      |
 
 No open clarification markers remain. No decision above changes fundamental product behavior or carries material privacy/legal/financial consequence beyond what the risk register records.
 
@@ -508,23 +543,34 @@ No open clarification markers remain. No decision above changes fundamental prod
 ## 8. Example Workflows (normative behavior examples)
 
 ### E1 — Ahmed & Ali play football
+
 Input scene: `@أحمد و@علي بيلعبوا كورة في النادي. @أحمد فرحان ومتحمس، و@علي مركز وجاد.`
 Compiled structured meaning: participants = {Ahmed(main child), Ali(brother)} only; Ahmed: action=playing football, emotion=happy/excited; Ali: action=playing football, emotion=focused/serious; no parent/pet present; negative constraints forbid extra people; generated image contains **no Arabic text**; text rendered later by layout (FR-073, FR-080).
 
 ### E2 — Reusable mother
+
 Mother saved once in the family library. Book 1: relationship=mother, role=guide, look=everyday. Book 2: relationship=mother, role=space-station commander, look=space uniform. Editing the space uniform changes only that look; everyday look and base profile untouched (FR-013/FR-014).
 
 ### E3 — Hidden goal, no shaming
+
 Goal: reduce excessive phone use. Output remains a fun space adventure where the child chooses to set the phone aside to finish a spaceship model and join friends. Never: "أحمد غلطان لأنه بيلعب بالموبايل طول الوقت". Review flags any blame/lecture phrasing (FR-047/FR-048).
 
 ### E4 — Regenerate page 7 only
+
 Ali has wrong shirt on page 7. Employee sets page-specific look, regenerates page 7. Pages 1–6, 8–16 unchanged (checksum-verified); page 7 gets new version with history; preview stale; recorded book approval invalidated (FR-062…FR-066, invalidation matrix).
 
 ### E5 — Codex quota exhaustion at 14/20
+
 14 completed illustrations stay valid; 6 jobs pause with exact reason; employee chooses wait vs continue-with-Gemini; no auto-switch; per-page provenance records the actual generator (FR-096, FR-094).
 
 ### E6 — Duplicate names
+
 Main child أحمد and friend أحمد. Picker shows "أحمد — الطفل البطل — thumbnail A" and "أحمد — الصديق — thumbnail B". Renaming the friend later breaks nothing (IDs stable, FR-036/FR-039).
 
 ### E7 — Template from completed story
+
 Completed treasure story → save as template: structure copied; customer photos/names stripped into role slots; original story immutable (FR-051/FR-052).
+
+### E8 — Single Image Studio (no book)
+
+Employee opens «توليد صورة», picks أحمد (main child) + "Space Suit" look, prompt: "أحمد واقف قدام مركبة فضاء، مبتسم، رسم كرتوني". One job runs; image has no Arabic text in pixels; provenance stored; download works; no Project created; an open book project elsewhere is unchanged (FR-140–146, SC-013).

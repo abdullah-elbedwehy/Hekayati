@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>حكايتي — Brand Kits</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=El+Messiri:wght@500;700&family=IBM+Plex+Sans+Arabic:wght@400;600&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --ink: #1a2433;
+        --paper: #f3efe6;
+        --line: #d7d0c3;
+        --accent: #0f766e;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: 'IBM Plex Sans Arabic', system-ui, sans-serif;
+        color: var(--ink);
+        background:
+          radial-gradient(
+            1200px 600px at 10% -10%,
+            #d9efe9 0%,
+            transparent 55%
+          ),
+          radial-gradient(900px 500px at 100% 0%, #f7e7d4 0%, transparent 50%),
+          var(--paper);
+      }
+      main {
+        max-width: 980px;
+        margin: 0 auto;
+        padding: 48px 24px 80px;
+      }
+      h1 {
+        font-family: 'El Messiri', serif;
+        font-size: clamp(2.4rem, 5vw, 3.6rem);
+        margin: 0 0 8px;
+        letter-spacing: -0.02em;
+      }
+      .lead {
+        max-width: 42rem;
+        font-size: 1.05rem;
+        line-height: 1.7;
+        opacity: 0.85;
+        margin-bottom: 36px;
+      }
+      .grid {
+        display: grid;
+        gap: 18px;
+      }
+      @media (min-width: 720px) {
+        .grid {
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+      a.card {
+        display: block;
+        text-decoration: none;
+        color: inherit;
+        background: rgba(255, 255, 255, 0.72);
+        border: 1px solid var(--line);
+        padding: 22px 22px 20px;
+        transition:
+          transform 160ms ease,
+          box-shadow 160ms ease;
+      }
+      a.card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 12px 28px rgba(26, 36, 51, 0.08);
+      }
+      .swatches {
+        display: flex;
+        gap: 6px;
+        margin-bottom: 14px;
+      }
+      .swatches span {
+        width: 28px;
+        height: 28px;
+        display: block;
+        border: 1px solid rgba(0, 0, 0, 0.08);
+      }
+      .name {
+        font-family: 'El Messiri', serif;
+        font-size: 1.45rem;
+        margin: 0 0 6px;
+      }
+      .meta {
+        font-size: 0.92rem;
+        line-height: 1.55;
+        opacity: 0.78;
+        margin: 0;
+      }
+      .tag {
+        display: inline-block;
+        margin-top: 14px;
+        font-size: 0.78rem;
+        font-weight: 600;
+        color: var(--accent);
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>حكايتي — خمس هويات</h1>
+      <p class="lead">
+        الهوية المعتمدة: <strong>02 — ملعب الليمون (Citrus Playground)</strong>.
+        موثّقة في <code>PRODUCT.md</code> و<code>DESIGN.md</code>. باقي الملفات
+        للأرشيف والمقارنة فقط.
+      </p>
+      <div class="grid">
+        <a class="card" href="./01-nile-lantern.html">
+          <div class="swatches">
+            <span style="background: #0b3d4a"></span>
+            <span style="background: #f0c75e"></span>
+            <span style="background: #f7f1e3"></span>
+            <span style="background: #d97b4a"></span>
+          </div>
+          <h2 class="name">01 — فانوس النيل</h2>
+          <p class="meta">
+            دفء قصصي ليلي. مناسب لكتب المغامرة والهدايا العائلية.
+          </p>
+          <span class="tag">افتح المعاينة ←</span>
+        </a>
+        <a
+          class="card"
+          href="./02-citrus-playground.html"
+          style="outline: 3px solid var(--accent)"
+        >
+          <div class="swatches">
+            <span style="background: #1f6f4a"></span>
+            <span style="background: #ff8a1f"></span>
+            <span style="background: #fff8e8"></span>
+            <span style="background: #2b2a28"></span>
+          </div>
+          <h2 class="name">02 — ملعب الليمون ✓ معتمد</h2>
+          <p class="meta">
+            مرح نهاري واضح. مناسب لأعمار أصغر وأعياد الميلاد. — الهوية الرسمية
+            للمنتج.
+          </p>
+          <span class="tag">المصدر المعياري ←</span>
+        </a>
+        <a class="card" href="./03-coral-tide.html">
+          <div class="swatches">
+            <span style="background: #e56b5a"></span>
+            <span style="background: #1f6f8b"></span>
+            <span style="background: #f6f3ee"></span>
+            <span style="background: #f2c14e"></span>
+          </div>
+          <h2 class="name">03 — مدّ المرجان</h2>
+          <p class="meta">ألوان شاطئ حيّة. ودود للطباعة ومبهج في واتساب.</p>
+          <span class="tag">افتح المعاينة ←</span>
+        </a>
+        <a class="card" href="./04-ink-olive.html">
+          <div class="swatches">
+            <span style="background: #1e2a44"></span>
+            <span style="background: #6b7f3b"></span>
+            <span style="background: #efe8d8"></span>
+            <span style="background: #b0893e"></span>
+          </div>
+          <h2 class="name">04 — حبر الزيتون</h2>
+          <p class="meta">شعور مكتبة وقصص شعبية. أكثر هدوءًا ورصانة.</p>
+          <span class="tag">افتح المعاينة ←</span>
+        </a>
+        <a class="card" href="./05-atlas-spark.html">
+          <div class="swatches">
+            <span style="background: #0d7377"></span>
+            <span style="background: #e8316c"></span>
+            <span style="background: #f7f4ef"></span>
+            <span style="background: #f4d35e"></span>
+          </div>
+          <h2 class="name">05 — شرارة الأطلس</h2>
+          <p class="meta">حديث وجريء. يظهر بقوة في الشاشات والعلامة المائية.</p>
+          <span class="tag">افتح المعاينة ←</span>
+        </a>
+      </div>
+    </main>
+  </body>
+</html>

@@ -1,0 +1,26 @@
+/* Hekayati — Citrus Playground tokens (canonical = brand-kits/02 + DESIGN.md) */
+:root {
+  --color-leaf: #1f6f4a;
+  --color-leaf-bright: #2f9e6a;
+  --color-leaf-deep: #134a32;
+  --color-orange: #ff8a1f;
+  --color-lemon: #ffe566;
+  --color-paper: #fff8e8;
+  --color-paper-deep: #f3ebd4;
+  --color-ink: #2b2a28;
+  --color-ink-soft: #5c574f;
+  --color-danger: #c43c2f;
+
+  --font-display: 'Lemonada', 'Segoe UI', sans-serif;
+  --font-ui: 'Source Sans 3', 'IBM Plex Sans Arabic', system-ui, sans-serif;
+
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 40px;
+}

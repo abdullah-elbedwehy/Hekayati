@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>حكايتي — 01 فانوس النيل</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=El+Messiri:wght@500;600;700&family=Nunito:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --deep: #0b3d4a;
+        --deep-2: #145869;
+        --gold: #f0c75e;
+        --clay: #d97b4a;
+        --paper: #f7f1e3;
+        --ink: #1c2a30;
+        --mist: #cfe3df;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family: Nunito, 'Segoe UI', sans-serif;
+        color: var(--ink);
+        background:
+          radial-gradient(
+            900px 500px at 80% -10%,
+            rgba(240, 199, 94, 0.28),
+            transparent 60%
+          ),
+          linear-gradient(160deg, #e8f2ef 0%, var(--paper) 45%, #efe4d2 100%);
+      }
+      .wrap {
+        max-width: 1080px;
+        margin: 0 auto;
+        padding: 28px 20px 64px;
+      }
+      .back {
+        color: var(--deep);
+        text-decoration: none;
+        font-weight: 700;
+        font-size: 0.9rem;
+      }
+      .hero {
+        margin-top: 18px;
+        display: grid;
+        gap: 24px;
+        grid-template-columns: 1.2fr 0.8fr;
+        align-items: end;
+        min-height: 420px;
+        padding: 36px;
+        background:
+          linear-gradient(
+            135deg,
+            rgba(11, 61, 74, 0.92),
+            rgba(20, 88, 105, 0.88)
+          ),
+          url("data:image/svg+xml,%3Csvg width='60' height='60' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 30h60M30 0v60' stroke='%23f0c75e' stroke-opacity='0.08'/%3E%3C/svg%3E");
+        color: var(--paper);
+        position: relative;
+        overflow: hidden;
+      }
+      @media (max-width: 800px) {
+        .hero {
+          grid-template-columns: 1fr;
+        }
+      }
+      .brand {
+        font-family: 'El Messiri', serif;
+        font-size: clamp(3.2rem, 8vw, 5.2rem);
+        line-height: 0.95;
+        margin: 0 0 12px;
+      }
+      .tagline {
+        font-size: 1.15rem;
+        max-width: 22rem;
+        line-height: 1.6;
+        opacity: 0.92;
+        margin: 0;
+      }
+      .mark {
+        width: 180px;
+        height: 180px;
+        margin-inline-start: auto;
+        border: 2px solid rgba(240, 199, 94, 0.55);
+        display: grid;
+        place-items: center;
+        background: rgba(11, 61, 74, 0.35);
+      }
+      .mark svg {
+        width: 110px;
+        height: 110px;
+      }
+      .grid {
+        display: grid;
+        gap: 16px;
+        margin-top: 22px;
+        grid-template-columns: repeat(12, 1fr);
+      }
+      .card {
+        background: rgba(255, 255, 255, 0.7);
+        border: 1px solid rgba(11, 61, 74, 0.12);
+        padding: 18px;
+      }
+      .card h2 {
+        font-family: 'El Messiri', serif;
+        margin: 0 0 12px;
+        font-size: 1.35rem;
+        color: var(--deep);
+      }
+      .span-5 {
+        grid-column: span 5;
+      }
+      .span-7 {
+        grid-column: span 7;
+      }
+      .span-4 {
+        grid-column: span 4;
+      }
+      .span-8 {
+        grid-column: span 8;
+      }
+      @media (max-width: 800px) {
+        .span-5,
+        .span-7,
+        .span-4,
+        .span-8 {
+          grid-column: span 12;
+        }
+      }
+      .swatch-row {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 10px;
+      }
+      .swatch {
+        min-height: 88px;
+        padding: 10px;
+        color: #fff;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+        font-size: 0.78rem;
+      }
+      .swatch.light {
+        color: var(--ink);
+        border: 1px solid rgba(0, 0, 0, 0.08);
+      }
+      .type-sample .display {
+        font-family: 'El Messiri', serif;
+        font-size: 2.4rem;
+        margin: 0 0 6px;
+        color: var(--deep);
+      }
+      .type-sample .body {
+        margin: 0;
+        line-height: 1.7;
+      }
+      .type-meta {
+        margin-top: 12px;
+        font-size: 0.85rem;
+        opacity: 0.75;
+      }
+      .watermark {
+        position: relative;
+        height: 180px;
+        background: linear-gradient(120deg, var(--mist), #f3e8d5);
+        overflow: hidden;
+        display: grid;
+        place-items: center;
+      }
+      .watermark .wm {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        transform: rotate(-28deg);
+        font-family: 'El Messiri', serif;
+        font-size: 2.4rem;
+        color: rgba(11, 61, 74, 0.18);
+        font-weight: 700;
+        pointer-events: none;
+      }
+      .watermark .footer {
+        position: absolute;
+        bottom: 10px;
+        inset-inline: 12px;
+        font-size: 0.8rem;
+        color: var(--deep);
+        opacity: 0.7;
+        text-align: center;
+      }
+      .ending {
+        background: var(--deep);
+        color: var(--paper);
+        padding: 28px;
+        text-align: center;
+      }
+      .ending .logo-line {
+        font-family: 'El Messiri', serif;
+        font-size: 2rem;
+        color: var(--gold);
+        margin: 0 0 8px;
+      }
+      .ending p {
+        margin: 0;
+        opacity: 0.9;
+      }
+      .ui-chip {
+        display: inline-block;
+        margin-top: 14px;
+        padding: 10px 16px;
+        background: var(--gold);
+        color: var(--deep);
+        font-weight: 700;
+        border: none;
+      }
+      .note {
+        margin-top: 18px;
+        font-size: 0.92rem;
+        line-height: 1.6;
+        opacity: 0.8;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <a class="back" href="./index.html">→ كل الهويات</a>
+      <section class="hero">
+        <div>
+          <p
+            style="
+              margin: 0 0 8px;
+              color: var(--gold);
+              font-weight: 700;
+              letter-spacing: 0.04em;
+            "
+          >
+            01 — Nile Lantern
+          </p>
+          <h1 class="brand">حكايتي</h1>
+          <p class="tagline">قصص تُهدى… والطفل هو البطل تحت ضوء الفانوس.</p>
+          <span class="ui-chip">معاينة / إرسال للعميل</span>
+        </div>
+        <div class="mark" aria-hidden="true">
+          <svg viewBox="0 0 120 120" fill="none">
+            <circle cx="60" cy="60" r="46" stroke="#f0c75e" stroke-width="3" />
+            <path
+              d="M60 28c-8 10-14 20-14 32a14 14 0 0028 0c0-12-6-22-14-32z"
+              fill="#f0c75e"
+            />
+            <path d="M48 78h24v8H48z" fill="#d97b4a" />
+            <path d="M52 86h16l-2 10H54l-2-10z" fill="#f0c75e" />
+          </svg>
+        </div>
+      </section>
+
+      <div class="grid">
+        <div class="card span-5">
+          <h2>الألوان</h2>
+          <div class="swatch-row">
+            <div class="swatch" style="background: var(--deep)">
+              Deep Nile<br />#0B3D4A
+            </div>
+            <div
+              class="swatch"
+              style="background: var(--gold); color: var(--deep)"
+            >
+              Lantern Gold<br />#F0C75E
+            </div>
+            <div class="swatch light" style="background: var(--paper)">
+              Sand Paper<br />#F7F1E3
+            </div>
+            <div class="swatch" style="background: var(--clay)">
+              Clay Ember<br />#D97B4A
+            </div>
+          </div>
+        </div>
+        <div class="card span-7 type-sample">
+          <h2>الخطوط</h2>
+          <p class="display">أحمد في الفضاء</p>
+          <p class="body">
+            واجهة بسيطة بالفصحى الحديثة. نص القصة بالمصري الطبيعي. العنوان: El
+            Messiri — النص: Nunito.
+          </p>
+          <p class="type-meta">
+            Display: El Messiri 700 · UI/Body: Nunito 400/700
+          </p>
+        </div>
+        <div class="card span-4">
+          <h2>علامة مائية</h2>
+          <div class="watermark">
+            <div class="wm">حكايتي</div>
+            <div class="footer">معاينة — غير مخصصة للطباعة</div>
+          </div>
+        </div>
+        <div
+          class="card span-8"
+          style="
+            padding: 0;
+            overflow: hidden;
+            border: none;
+            background: transparent;
+          "
+        >
+          <div class="ending">
+            <p class="logo-line">حكايتي</p>
+            <p>صُنع خصيصًا لـ أحمد</p>
+            <p style="margin-top: 10px; font-size: 0.9rem; opacity: 0.7">
+              صفحة خاتمة / هوية الطباعة
+            </p>
+          </div>
+        </div>
+      </div>
+      <p class="note">
+        <strong>متى تختاره؟</strong> لو عايز هوية دافية وقصصية تشبه «هدية ليلية»
+        — قوية في الأغلفة والمغامرات، أقل صخبًا من الألوان النهارية.
+      </p>
+    </div>
+  </body>
+</html>

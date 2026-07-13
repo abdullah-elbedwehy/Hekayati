@@ -10,17 +10,20 @@ The product handles **sensitive photos of children**. Privacy, consent, and loca
 
 ## Current project state
 
-**Specification phase.** No production code exists yet. Implementation MUST NOT begin until the user explicitly approves the Spec Kit artifacts.
+**Delivery phase.** The complete spec graph was approved for the full delivery loop on 2026-07-14 via `prompts/codex-full-delivery-loop.md`. Run Phase 0 first, then advance and implement one dependency-ready slice at a time; each slice still requires an analyze pass before its product code begins.
 
 ## Source of truth
 
 1. `.specify/memory/constitution.md` — project constitution. Binding on all work.
-2. `specs/001-hekayati/spec.md` — product specification.
-3. `specs/001-hekayati/plan.md` — technical plan and architecture decisions.
-4. `specs/001-hekayati/tasks.md` — phased implementation tasks.
-5. Supporting artifacts in `specs/001-hekayati/` (research, data model, contracts, state machines, invalidation matrix, edge-case catalog, risk register, checklists, test strategy).
+2. `specs/README.md` — spec registry and dependency order.
+3. `specs/001-hekayati-product-bible/spec.md` — canonical product specification and stable IDs.
+4. Relevant feature slices in `specs/002-*` through `specs/011-*`.
+5. `specs/001-hekayati-product-bible/plan.md` — integrated technical plan and architecture decisions.
+6. `specs/001-hekayati-product-bible/tasks.md` — master phased implementation tasks.
+7. `PRODUCT.md` + `DESIGN.md` — Impeccable product/design context (Citrus Playground).
+8. Supporting artifacts in `specs/001-hekayati-product-bible/` (research, data model, contracts, state machines, invalidation matrix, edge-case catalog, risk register, checklists, test strategy).
 
-When code and spec disagree, the spec wins. When spec artifacts disagree with the constitution, the constitution wins. Fix the artifact, do not silently diverge.
+Precedence: constitution > product bible and normative companions > feature slice > plan > tasks > design system (`PRODUCT.md`/`DESIGN.md`) for UI > code. A slice cannot redefine canonical behavior; amend the bible first. Fix conflicts in the artifacts; never silently diverge.
 
 ## Spec Kit workflow
 
@@ -28,7 +31,7 @@ This repo was initialized with GitHub Spec Kit (Specify). Templates live in `.sp
 
 - constitution → specify → clarify → plan → checklist → tasks → analyze → (implement, only after approval).
 
-Use `.specify/scripts/bash/create-new-feature.sh` to create new feature spec directories; `check-prerequisites.sh` to validate stage inputs.
+Use `.specify/scripts/bash/create-new-feature.sh` to create new feature spec directories; `check-prerequisites.sh` to validate stage inputs. The current delivery authorization auto-continues after a slice analyze pass unless a true clarification or feasibility blocker remains.
 
 ## Hard rules (from the constitution — read it in full)
 
@@ -46,6 +49,7 @@ Use `.specify/scripts/bash/create-new-feature.sh` to create new feature spec dir
 
 - UI language: simple Modern Standard Arabic, RTL layout.
 - Generated story language: natural, age-appropriate Egyptian Arabic.
+- **Design system:** Citrus Playground (`PRODUCT.md`, `DESIGN.md`, `brand-kits/02-citrus-playground.html`). Before any frontend UI work, load **`/impeccable`** and **`/frontend-design`**; do not invent alternate palettes or dark-default themes.
 - Commit format: `<type>: <description>` (feat, fix, refactor, docs, test, chore, perf, ci).
 - Do not commit or push unless the user asks.
 - Many small files over few large files; 800-line hard cap per file.
@@ -53,7 +57,8 @@ Use `.specify/scripts/bash/create-new-feature.sh` to create new feature spec dir
 
 ## What NOT to do
 
-- Do not start implementation before user approval of the spec set.
+- Do not implement a slice before its readiness pipeline and analyze pass, even though the full delivery loop is approved.
 - Do not add out-of-scope features (auth screens, payments, customer portal, WhatsApp API, cloud hosting, automatic backups — see spec §Out of Scope).
-- Do not assume Codex subscription image generation works; it is gated by Phase 0 feasibility findings in `specs/001-hekayati/research.md`.
+- Do not assume Codex subscription image generation works; it is gated by Phase 0 feasibility findings in `specs/001-hekayati-product-bible/research.md`.
 - Do not hardcode AI model IDs; they are configurable settings with runtime availability checks.
+- Do not build frontend UI without Impeccable + frontend-design context loaded.

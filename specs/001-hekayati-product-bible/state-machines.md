@@ -61,7 +61,7 @@ print PDFs producible ONLY from state=approved with matching bookVersion (FR-086
 ```text
 unknown → checking → available
 checking → unavailable(reason: not_installed | logged_out | invalid_key | model_missing | network)
-available ──quota_exhausted──▶ quota_paused ──operator wait/switch decision──▶ available (later) 
+available ──quota_exhausted──▶ quota_paused ──operator wait/switch decision──▶ available (later)
 unavailable/quota states surface verbatim in Settings + queue blocking reasons; no silent transitions.
 ```
 
@@ -69,7 +69,7 @@ unavailable/quota states surface verbatim in Settings + queue blocking reasons; 
 
 ```text
 Export: requested → require_paused_generation → snapshotting → secret_scan → { ready | failed(reason) }
-Import: file_selected → validating(structure, manifest, checksums, path-safety, disk) 
+Import: file_selected → validating(structure, manifest, checksums, path-safety, disk)
         → staged → committing(tx) → { imported | rolled_back(reason) }
 No state writes anything user-visible before `committing` succeeds (FR-128).
 ```

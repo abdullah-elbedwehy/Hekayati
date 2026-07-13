@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>حكايتي — 03 مدّ المرجان</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Baloo+Bhaijaan+2:wght@500;600;700&family=DM+Sans:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --coral: #e56b5a;
+        --sea: #1f6f8b;
+        --foam: #f6f3ee;
+        --sand: #f2c14e;
+        --ink: #243038;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family: 'DM Sans', sans-serif;
+        color: var(--ink);
+        background: linear-gradient(
+          180deg,
+          #d7eef5 0%,
+          var(--foam) 38%,
+          #f8e9df 100%
+        );
+      }
+      .wrap {
+        max-width: 1080px;
+        margin: 0 auto;
+        padding: 28px 20px 64px;
+      }
+      .back {
+        color: var(--sea);
+        text-decoration: none;
+        font-weight: 700;
+      }
+      .hero {
+        margin-top: 18px;
+        min-height: 420px;
+        padding: 40px;
+        background:
+          radial-gradient(
+            ellipse at 20% 80%,
+            rgba(229, 107, 90, 0.35),
+            transparent 50%
+          ),
+          radial-gradient(
+            ellipse at 90% 20%,
+            rgba(242, 193, 78, 0.4),
+            transparent 45%
+          ),
+          linear-gradient(160deg, #1f6f8b 0%, #2a8aa8 45%, #3aa0b8 100%);
+        color: #fff;
+        display: grid;
+        grid-template-columns: 1.2fr 0.8fr;
+        align-items: center;
+        gap: 20px;
+        position: relative;
+        overflow: hidden;
+      }
+      .hero .wave {
+        position: absolute;
+        inset-inline: 0;
+        bottom: 0;
+        height: 70px;
+        background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 80' preserveAspectRatio='none'%3E%3Cpath fill='%23f6f3ee' d='M0 40c120 20 240-20 360 0s240 20 360 0 240-20 360 0 240 20 360 0v40H0z'/%3E%3C/svg%3E")
+          bottom/100% 100% no-repeat;
+      }
+      @media (max-width: 800px) {
+        .hero {
+          grid-template-columns: 1fr;
+        }
+      }
+      .brand {
+        font-family: 'Baloo Bhaijaan 2', sans-serif;
+        font-size: clamp(3rem, 8vw, 5rem);
+        margin: 0 0 10px;
+        line-height: 0.95;
+      }
+      .tagline {
+        max-width: 24rem;
+        line-height: 1.65;
+        margin: 0;
+        font-size: 1.1rem;
+      }
+      .mark {
+        width: 170px;
+        height: 170px;
+        margin-inline-start: auto;
+        margin-bottom: 40px;
+        background: var(--coral);
+        display: grid;
+        place-items: center;
+        box-shadow: 12px 12px 0 var(--sand);
+      }
+      .mark svg {
+        width: 100px;
+        height: 100px;
+      }
+      .grid {
+        display: grid;
+        gap: 16px;
+        margin-top: 22px;
+        grid-template-columns: repeat(12, 1fr);
+      }
+      .card {
+        background: rgba(255, 255, 255, 0.82);
+        border: 1px solid rgba(31, 111, 139, 0.14);
+        padding: 18px;
+      }
+      .card h2 {
+        font-family: 'Baloo Bhaijaan 2', sans-serif;
+        color: var(--sea);
+        margin: 0 0 12px;
+        font-size: 1.35rem;
+      }
+      .span-5 {
+        grid-column: span 5;
+      }
+      .span-7 {
+        grid-column: span 7;
+      }
+      .span-4 {
+        grid-column: span 4;
+      }
+      .span-8 {
+        grid-column: span 8;
+      }
+      @media (max-width: 800px) {
+        .span-5,
+        .span-7,
+        .span-4,
+        .span-8 {
+          grid-column: span 12;
+        }
+      }
+      .swatch-row {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 10px;
+      }
+      .swatch {
+        min-height: 88px;
+        padding: 10px;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+        font-size: 0.78rem;
+        color: #fff;
+      }
+      .swatch.light {
+        color: var(--ink);
+        border: 1px solid rgba(0, 0, 0, 0.08);
+      }
+      .display {
+        font-family: 'Baloo Bhaijaan 2', sans-serif;
+        font-size: 2.3rem;
+        margin: 0 0 8px;
+        color: var(--coral);
+      }
+      .body {
+        margin: 0;
+        line-height: 1.7;
+      }
+      .watermark {
+        height: 180px;
+        position: relative;
+        overflow: hidden;
+        background: linear-gradient(180deg, #e8f6fa, #fde8e2);
+        display: grid;
+        place-items: center;
+      }
+      .wm {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        transform: rotate(-26deg);
+        font-family: 'Baloo Bhaijaan 2', sans-serif;
+        font-size: 2.3rem;
+        color: rgba(31, 111, 139, 0.2);
+        font-weight: 700;
+      }
+      .footer {
+        position: absolute;
+        bottom: 10px;
+        inset-inline: 12px;
+        text-align: center;
+        font-size: 0.8rem;
+        color: var(--sea);
+      }
+      .ending {
+        background: var(--foam);
+        border-top: 8px solid var(--coral);
+        padding: 28px;
+        text-align: center;
+      }
+      .ending .logo-line {
+        font-family: 'Baloo Bhaijaan 2', sans-serif;
+        font-size: 2rem;
+        margin: 0 0 8px;
+        color: var(--sea);
+      }
+      .cta {
+        display: inline-block;
+        margin-top: 14px;
+        background: var(--sand);
+        color: var(--ink);
+        font-weight: 700;
+        padding: 10px 16px;
+      }
+      .note {
+        margin-top: 18px;
+        line-height: 1.6;
+        opacity: 0.8;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <a class="back" href="./index.html">→ كل الهويات</a>
+      <section class="hero">
+        <div>
+          <p style="margin: 0 0 8px; font-weight: 700; color: var(--sand)">
+            03 — Coral Tide
+          </p>
+          <h1 class="brand">حكايتي</h1>
+          <p class="tagline">
+            موجة دافية من اللون… مناسبة لكتب البحر والمغامرات اللطيفة ومعاينات
+            الموبايل.
+          </p>
+          <span class="cta">توليد صورة سريعة</span>
+        </div>
+        <div class="mark" aria-hidden="true">
+          <svg viewBox="0 0 100 100" fill="none">
+            <path
+              d="M20 62c10-22 22-34 30-38 8 4 20 16 30 38-12 8-22 12-30 12s-18-4-30-12z"
+              fill="#f6f3ee"
+            />
+            <circle cx="42" cy="54" r="4" fill="#1f6f8b" />
+            <circle cx="58" cy="54" r="4" fill="#1f6f8b" />
+            <path
+              d="M40 66c6 6 14 6 20 0"
+              stroke="#1f6f8b"
+              stroke-width="3"
+              stroke-linecap="round"
+            />
+          </svg>
+        </div>
+        <div class="wave" aria-hidden="true"></div>
+      </section>
+      <div class="grid">
+        <div class="card span-5">
+          <h2>الألوان</h2>
+          <div class="swatch-row">
+            <div class="swatch" style="background: var(--coral)">
+              Coral<br />#E56B5A
+            </div>
+            <div class="swatch" style="background: var(--sea)">
+              Sea<br />#1F6F8B
+            </div>
+            <div class="swatch light" style="background: var(--foam)">
+              Foam<br />#F6F3EE
+            </div>
+            <div
+              class="swatch"
+              style="background: var(--sand); color: var(--ink)"
+            >
+              Sand Gold<br />#F2C14E
+            </div>
+          </div>
+        </div>
+        <div class="card span-7">
+          <h2>الخطوط</h2>
+          <p class="display">رحلة تحت المية</p>
+          <p class="body">
+            Baloo Bhaijaan 2 ودود وقريب للأطفال. DM Sans نظيف للوحة التحكم.
+          </p>
+        </div>
+        <div class="card span-4">
+          <h2>علامة مائية</h2>
+          <div class="watermark">
+            <div class="wm">حكايتي</div>
+            <div class="footer">معاينة — غير مخصصة للطباعة</div>
+          </div>
+        </div>
+        <div
+          class="card span-8"
+          style="padding: 0; border: 0; background: transparent"
+        >
+          <div class="ending">
+            <p class="logo-line">حكايتي</p>
+            <p>صُنع خصيصًا لـ يوسف</p>
+          </div>
+        </div>
+      </div>
+      <p class="note">
+        <strong>متى تختاره؟</strong> توازن بين مرح الأطفال ومظهر «منتج مطبوع»
+        أنيق — أقل صخبًا من الليمون، أخف من الحبر الليلي.
+      </p>
+    </div>
+  </body>
+</html>

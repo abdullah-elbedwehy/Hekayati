@@ -73,8 +73,13 @@ File at `assets/<sha256[0:2]>/<sha256>.<ext>`; write path per R4.
 ### settings (single doc)
 `textProvider`, `imageProvider`, `models { codexText?, geminiText, geminiImage, geminiImageEconomy }`, `concurrencyPerProvider`, `typography { minPtByAge }`, `watermarkText`, `diskWarnGb`, `storagePathsReadonly`. **No secrets** (FR-137); Gemini key only in Keychain (FR-105).
 
+### studioGenerations
+Standalone Single Image Studio records (FR-140–146). Not owned by a Project.
+`id`, `customerId?`, `familyId?`, `prompt`, `negativeConstraints?`, `styleId`, `participants[] { characterId, characterVersionId, lookId?, lookVersionId? }`, `jobId`, `state`, `assetId?`, `priorAssetIds[]` (history), `provenance`, `createdAt`, `updatedAt`.
+Constraints: all participants MUST share the same family when present (FR-146); `projectId` is always null; asset role `illustration` with provenance `origin: generated` and job type `studio_image`.
+
 ### auditEvents
-Append-only operator-visible history: provider switches, quota decisions (FR-096), approvals/invalidations, deletions, imports/exports. Supports SC-009/SC-010 audits.
+Append-only operator-visible history: provider switches, quota decisions (FR-096), approvals/invalidations, deletions, imports/exports, studio generations. Supports SC-009/SC-010/SC-013 audits.
 
 ## Relationship summary
 
@@ -84,6 +89,7 @@ Character 1─n CharacterVersion ; Look 1─n LookVersion
 Project n─1 Family ; Project 1─n Page 1─n IllustrationVersion/LayoutVersion
 Project 1─1 Story 1─n StoryVersion 1─n Scene(Version)
 Project 1─n Job (DAG via dependsOn) ; Job n─n Asset (via resultRefs/provenance)
+StudioGeneration n─0..1 Family ; StudioGeneration 1─1 Job (type studio_image, no projectId)
 Approval → target version ; Template 1─n TemplateVersion ← Project pins one
 ```
 
