@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "fixtureKind": "deterministic-synthetic-vector",
+  "fictionalOnly": true,
+  "characters": [
+    {
+      "id": "citrus-spark",
+      "label": "Citrus Spark",
+      "referenceFiles": ["citrus-spark-front.svg", "citrus-spark-three-quarter.svg"],
+      "identityTraits": "warm brown skin, geometric cobalt bob haircut, yellow lemon hair clip, two cheek dots",
+      "clothing": "orange overalls over a cream shirt with two teal stripes"
+    },
+    {
+      "id": "orbit-scout",
+      "label": "Orbit Scout",
+      "referenceFiles": ["orbit-scout-front.svg", "orbit-scout-three-quarter.svg"],
+      "identityTraits": "deep brown skin, five round black curls, round lime glasses, purple bow tie",
+      "clothing": "teal vest over a cream shirt"
+    },
+    {
+      "id": "star-skipper",
+      "label": "Star Skipper",
+      "referenceFiles": ["star-skipper-front.svg", "star-skipper-three-quarter.svg"],
+      "identityTraits": "peach skin, two auburn hair buns, one purple star clip on each bun, cobalt scarf",
+      "clothing": "yellow dress with an orange waist band"
+    },
+    {
+      "id": "leaf-pilot",
+      "label": "Leaf Pilot",
+      "referenceFiles": ["leaf-pilot-front.svg", "leaf-pilot-three-quarter.svg"],
+      "identityTraits": "olive skin, side-swept black hair, red cap, three freckles on each cheek",
+      "clothing": "green hoodie with a single purple backpack strap"
+    }
+  ],
+  "scenes": [
+    {
+      "id": "garden-picnic",
+      "description": "a sunny Egyptian garden picnic beside a lemon tree",
+      "action": "standing together and holding a plain wicker picnic basket"
+    },
+    {
+      "id": "moon-library",
+      "description": "a cozy moonlit library with blue shelves",
+      "action": "reaching together for one blank-cover picture book"
+    },
+    {
+      "id": "beach-castle",
+      "description": "a bright beach with a simple sandcastle and striped parasol",
+      "action": "building the sandcastle with one red bucket"
+    },
+    {
+      "id": "fruit-stall",
+      "description": "a colorful open-air fruit stall with oranges and lemons",
+      "action": "choosing fruit while standing in one clear row"
+    },
+    {
+      "id": "science-table",
+      "description": "a cheerful classroom science table with paper planets",
+      "action": "presenting a harmless baking-soda volcano together"
+    }
+  ]
+}

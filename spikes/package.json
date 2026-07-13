@@ -1,0 +1,27 @@
+{
+  "name": "hekayati-phase0-spikes",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "fetch:fonts": "node fetch-fonts.mjs",
+    "typecheck": "tsc --noEmit",
+    "g1t": "tsx g1t-codex-text.ts",
+    "g1i": "tsx g1i-codex-image.ts",
+    "g2": "tsx g2-gemini-consistency.ts",
+    "g3:arabic": "tsx g3-arabic-pdf.ts",
+    "g3:cover": "tsx g3-cover-cmyk.ts",
+    "g4": "tsx g4-gemini-models.ts"
+  },
+  "dependencies": {
+    "@google/genai": "2.11.0"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.1",
+    "playwright": "1.61.1",
+    "tsx": "4.23.1",
+    "typescript": "5.9.3"
+  }
+}

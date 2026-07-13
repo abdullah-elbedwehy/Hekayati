@@ -31,3 +31,4 @@ tmp/
 spikes/artifacts/
 spikes/output/
 spikes/.cache/
+spikes/.local-artifacts/

@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 2,
+  "keychainService": "com.hekayati.gemini-api-key",
+  "textModel": {
+    "role": "text-structured",
+    "id": "gemini-3.5-flash",
+    "allowedResponseModelVersions": ["gemini-3.5-flash"]
+  },
+  "imageModels": [
+    {
+      "role": "default-image",
+      "id": "gemini-3.1-flash-image",
+      "allowedResponseModelVersions": ["gemini-3.1-flash-image"],
+      "documentedMaxReferences": 14,
+      "documentedMaxCharacterReferences": 4,
+      "probeImageSize": "1K"
+    },
+    {
+      "role": "economy-image",
+      "id": "gemini-3.1-flash-lite-image",
+      "allowedResponseModelVersions": ["gemini-3.1-flash-lite-image"],
+      "documentedMaxReferences": 14,
+      "documentedMaxCharacterReferences": null,
+      "probeImageSize": "1K"
+    }
+  ]
+}

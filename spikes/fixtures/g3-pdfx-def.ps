@@ -1,0 +1,32 @@
+%!
+% Synthetic Hekayati CMYK output-intent definition.
+% Adapted from Ghostscript's documented PDFX_def.ps pattern.
+% The probe replaces both placeholders in an ignored resolved copy.
+
+systemdict /ColorConversionStrategy known {
+  systemdict /ColorConversionStrategy get cvn /CMYK ne
+} {
+  true
+} ifelse
+{
+  (ERROR: ColorConversionStrategy must be CMYK.) =
+  /ColorConversionStrategy cvx /rangecheck signalerror
+} if
+
+/ICCProfile ({{ICC_PATH}}) def
+
+[/_objdef {icc_PDFX} /type /stream /OBJ pdfmark
+[{icc_PDFX} << /N 4 >> /PUT pdfmark
+[{icc_PDFX} ICCProfile (r) file /PUT pdfmark
+
+[/_objdef {OutputIntent_PDFX} /type /dict /OBJ pdfmark
+[{OutputIntent_PDFX} <<
+  /Type /OutputIntent
+  /S /GTS_PDFX
+  /OutputCondition (Hekayati synthetic generic CMYK conversion)
+  /Info (Synthetic feasibility probe; replace with printer profile in production)
+  /OutputConditionIdentifier (hekayati-synthetic-{{ICC_SHA256}})
+  /RegistryName (http://www.color.org)
+  /DestOutputProfile {icc_PDFX}
+>> /PUT pdfmark
+[{Catalog} << /OutputIntents [{OutputIntent_PDFX}] >> /PUT pdfmark

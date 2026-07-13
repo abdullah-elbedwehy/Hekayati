@@ -1,6 +1,6 @@
 # Research: Hekayati — Technology Decisions & Feasibility
 
-**Feature**: `001-hekayati` | **Date**: 2026-07-14 | **Status**: Complete (runtime-verification items marked)
+**Feature**: `001-hekayati` | **Date**: 2026-07-14 | **Status**: Phase 0 complete — dated PASS/FAIL outcomes recorded; G2/G4 await a Gemini credential
 
 Each entry: Decision / Rationale / Alternatives considered / Verification status. Entries marked **[VERIFY AT PHASE 0]** contain assumptions about fast-moving external tools that MUST be re-verified against the installed versions and current official docs before dependent implementation (they are feasibility-gate inputs, not settled facts).
 
@@ -11,15 +11,17 @@ Each entry: Decision / Rationale / Alternatives considered / Verification status
 **Decision**: Single Node.js (current LTS) + TypeScript process, running an HTTP server (Fastify) bound to `127.0.0.1`, serving a React SPA (Vite build, RTL-first) and hosting the in-process job worker loop. Started via a simple launcher script (`npm run app` → builds if needed, starts server, opens browser). No Docker for the core app. Optional launchd agent for auto-start is a post-v1 nicety.
 
 **Rationale**:
+
 - One employee, one Mac: a single supervised process is the simplest thing that satisfies restart-recovery requirements (recovery is DB-driven, not process-driven).
 - Codex CLI invocation, macOS Keychain (`security` CLI), `sips` (HEIC), and direct filesystem access all require host execution — Docker would break or complicate all four (constitution: Docker only where it helps).
 - Node has first-party SDKs for both provider families and mature tooling for every other subsystem (Playwright, sharp, better-sqlite3).
 - Browser UI requirement is explicit; Electron adds packaging complexity without benefit for a localhost-only tool.
 
 **Alternatives**:
-- *Electron/Tauri app*: heavier packaging, no requirement for native windowing; browser-based UI explicitly requested.
-- *Python (FastAPI) backend*: viable, but Codex SDK, Playwright-PDF, and the JS UI stack make a single-language TS codebase simpler for one maintainer.
-- *Docker Compose stack*: rejected for core (Keychain/Codex/sips access, startup reliability); permitted later only for optional isolated add-ons if ever needed.
+
+- _Electron/Tauri app_: heavier packaging, no requirement for native windowing; browser-based UI explicitly requested.
+- _Python (FastAPI) backend_: viable, but Codex SDK, Playwright-PDF, and the JS UI stack make a single-language TS codebase simpler for one maintainer.
+- _Docker Compose stack_: rejected for core (Keychain/Codex/sips access, startup reliability); permitted later only for optional isolated add-ons if ever needed.
 
 ---
 
@@ -28,15 +30,17 @@ Each entry: Decision / Rationale / Alternatives considered / Verification status
 **Decision**: Document-oriented data model implemented on **embedded SQLite via `better-sqlite3`**: one table per collection (`customers`, `characters`, `projects`, `jobs`, …) with `id TEXT PRIMARY KEY`, `doc JSON` (validated at the repository boundary), plus generated columns/indexes for hot query fields. WAL mode, synchronous=FULL for job/version commits. A thin repository layer exposes only document semantics (get/put/query by indexed fields), so the engine can be swapped for MongoDB later without touching domain code. This satisfies spec clarification C-01 (flexible NoSQL **data model**; engine is a plan decision).
 
 **Rationale**:
+
 - Zero-daemon: survives restarts trivially, no service management for a non-technical operator, single-file backup semantics.
 - Real ACID transactions — required for job leases, idempotent commits, and version preconditions (FR-065, FR-109). Mongo single-node transactions require a replica-set config; SQLite gives this for free.
 - `better-sqlite3` is synchronous → simple, race-free queue operations in one process.
 - JSON documents keep schema flexibility (characters with arbitrary trait sets, template variables).
 
 **Alternatives**:
-- *MongoDB (Homebrew service)*: closest to literal "NoSQL"; rejected: daemon lifecycle management by one non-ops employee, transactions need replica set, heavier install. Revisit only if multi-process scaling ever appears (out of scope).
-- *CouchDB/PouchDB*: replication features unneeded; weaker ad-hoc queries; extra service (CouchDB) or weaker durability story (PouchDB/LevelDB).
-- *LowDB / JSON files*: no transactions, corruption-prone under crash — fails FR-113.
+
+- _MongoDB (Homebrew service)_: closest to literal "NoSQL"; rejected: daemon lifecycle management by one non-ops employee, transactions need replica set, heavier install. Revisit only if multi-process scaling ever appears (out of scope).
+- _CouchDB/PouchDB_: replication features unneeded; weaker ad-hoc queries; extra service (CouchDB) or weaker durability story (PouchDB/LevelDB).
+- _LowDB / JSON files_: no transactions, corruption-prone under crash — fails FR-113.
 
 ---
 
@@ -60,36 +64,47 @@ Each entry: Decision / Rationale / Alternatives considered / Verification status
 
 ---
 
-## R5 — Codex subscription authentication & programmatic orchestration **[VERIFY AT PHASE 0]**
+## R5 — Codex subscription authentication & programmatic orchestration **[VERIFIED — G1-T PASS 2026-07-14]**
 
-**Decision (provisional)**: Integrate Codex via the **Codex CLI in non-interactive mode** (`codex exec`), using the employee's existing ChatGPT-subscription login (managed by `codex login`, stored in Codex's own auth store — never copied by Hekayati). Structured output via the CLI's JSON/schema output options where supported by the installed version; otherwise strict prompt-and-validate against our canonical schemas. Adapter shells out with `execFile` (no shell interpolation), per-call timeout, cancellation via process kill, and exit-code/stderr → normalized-failure mapping.
+**Decision**: Integrate Codex via the **Codex CLI in non-interactive mode** (`codex exec`), using the employee's existing ChatGPT-subscription login (managed by `codex login`, stored in Codex's own auth store — never copied by Hekayati). Use JSONL events plus `--output-schema`, then validate the final result again against Hekayati's canonical schema. The adapter shells out with `execFile` (no shell interpolation), with per-call timeout, process-group cancellation, exact-model checks, and normalized failure mapping.
 
-**Known at time of writing** (Jan 2026 knowledge — re-verify): Codex CLI supports non-interactive `exec` runs, ChatGPT-account auth without an API key, JSON event output, and an experimental structured-output/schema flag; an official TypeScript SDK wrapping the CLI exists. Quota exhaustion surfaces as rate-limit/usage errors distinguishable from auth errors.
+**Verified result**: Codex CLI 0.144.3, Node 26.3.0 in the probe process, and the saved ChatGPT login completed a live synthetic schema-constrained call explicitly requesting `gpt-5.5`; the CLI run header reported the same resolved model and the exact local schema validator passed. Cancellation removed the process group; isolated logged-out, missing-binary, and invalid-model probes normalized correctly. Pinned official Codex source revision `fb350d1e7d52c4c3b42f230a4715ee4adf314f08` distinguishes subscription `usage_limit_reached`/API `insufficient_quota`, ordinary retry-limit 429, and refresh-token unauthorized signals. Executable classifier fixtures prove those documented signals map to distinct local categories; live account exhaustion was deliberately not forced and is not claimed as observed. For this gate, “detectable” means a pinned authoritative signal contract plus executable classification, not manufacturing an exhausted account. Official non-interactive and authentication docs explicitly support `codex exec`, schemas, and trusted local automation with ChatGPT-managed auth. No API-key variable or auth file was read or forwarded by the probe.
+
+Current stable CLI 0.144.3 listed `gpt-5.6-sol` in its model catalog but still rejected a direct call as requiring a newer CLI; exact model `gpt-5.5` passed. Therefore catalog presence does not enable a model: CLI version plus a direct exact-model/schema probe remains the runtime health check, and Hekayati never silently substitutes a model. Sanitized evidence: [`spikes/evidence/g1t-scorecard.md`](../../spikes/evidence/g1t-scorecard.md).
 
 **Feasibility gate G1-T (Codex text)** — must answer before Phase 4 marks Codex text mode available:
+
 1. Installed CLI invocable programmatically under subscription login? 2. Reliable structured results (schema or validated JSON)? 3. Rate-limit/quota exhaustion detectable & distinguishable from auth failure? 4. Cancellation kills the run without orphan processes? 5. Behavior complies with current official product terms for programmatic local use?
 
 **Alternatives**: OpenAI API with API key — **forbidden** by FR-100; Codex MCP server mode — viable alternate transport, evaluate at G1-T if `exec` proves awkward; screen automation of ChatGPT — non-compliant and fragile, rejected.
 
 ---
 
-## R6 — Codex subscription image generation **[VERIFY AT PHASE 0 — expected NEGATIVE]**
+## R6 — Codex subscription image generation **[VERIFIED — G1-I FAIL 2026-07-14]**
 
-**Decision (provisional)**: Treat **Codex-mode image generation as UNAVAILABLE** pending gate G1-I. As of the model knowledge cutoff, Codex CLI is a coding agent: it accepts image *input* but exposes no supported programmatic image *generation* under subscription usage, and no documented path saves generated illustration artifacts to a local path. Consequences (already encoded in FR-102): Codex image mode shown as unavailable with the recorded limitation; no secret API-key fallback; Gemini image mode remains the working image path; provider interface keeps an image slot for a future compliant implementation.
+**Decision**: Codex-mode image generation is **UNAVAILABLE**. Keep the provider image slot for a future compliant workflow, but ship the visible limitation required by FR-102. There is no secret API-key fallback; Gemini remains an explicitly selected image path.
+
+**Verified result**: A single bounded synthetic `$imagegen` call ran under confirmed ChatGPT subscription auth in an isolated writable workspace. It exited successfully but emitted no image event and saved no image at the required predictable path (or anywhere else in the workspace). Questions 3, 4, 6, and 7 therefore failed; image-specific quota behavior remained inconclusive and was not forced. Current official docs describe built-in image generation in Codex/ChatGPT surfaces but direct **programmatic image generation** to the Image API, which is forbidden here by FR-100. Sanitized evidence: [`spikes/evidence/g1i-scorecard.md`](../../spikes/evidence/g1i-scorecard.md).
 
 **Feasibility gate G1-I** — the seven questions from the product brief, answered against the installed environment:
-1. Programmatic invocation under subscription? 2. Reliable structured results? 3. Image generation invocable programmatically? 4. Artifacts savable to a predictable local path? 5. Quota exhaustion reliably detectable? 6. Resumable without duplicating completed work? 7. Compliant with current official product behavior?
-**Pass requires ALL seven.** Any failure → record in this file + risk register RR-01, keep UI limitation notice. Do not proceed with Codex image pipeline work on hope.
+
+1. Programmatic invocation under subscription? **Yes.** 2. Reliable structured results? **Yes for text (G1-T).** 3. Image generation invocable programmatically? **No verified result.** 4. Artifacts savable to a predictable local path? **No.** 5. Quota exhaustion reliably detectable? **Inconclusive for images.** 6. Resumable without duplicating completed work? **No verified contract.** 7. Compliant with current official product behavior? **No documented non-interactive subscription artifact workflow.**
+
+**Gate result: FAIL.** All seven were required. Do not implement a Codex image pipeline on hope.
 
 ---
 
-## R7 — Gemini structured output & image generation **[VERIFY AT PHASE 0]**
+## R7 — Gemini structured output & image generation **[OFFICIAL IDS VERIFIED; ACCOUNT GATE FAILED — 2026-07-14]**
 
-**Decision (provisional)**: Official `@google/genai` JS SDK. Text/structured: configured text model with `responseSchema`/JSON-mode structured output validated again locally (never trust provider-side validation alone). Images: configured image model with multi-reference image inputs (character reference images + style directives), response images saved via the atomic asset path.
+**Decision**: Use the official `@google/genai` JS SDK, pinned to a verified release and configured with exact model IDs. Text/structured output uses provider JSON-schema configuration and local revalidation (never trust provider-side validation alone). Image output uses explicit reference-image parts and local byte/MIME validation before the atomic asset path.
 
-**Model IDs are configuration, not constants** (FR-107). Requested defaults — `gemini-3.5-flash` (text), `gemini-3.1-flash-image` "Nano Banana 2" (image), `gemini-3.1-flash-lite-image` "Nano Banana 2 Lite" (economy) — postdate this document's training data and MUST be checked against `models.list` + current official docs at Phase 0; record renames/deprecations here. Runtime re-checks availability before every batch (FR-098). The economy model carries a persistent weaker-consistency warning (FR-108).
+**Official-document result**: `gemini-3.5-flash` (text/structured), `gemini-3.1-flash-image` (default image), and `gemini-3.1-flash-lite-image` (economy image) are current stable exact IDs. The default image model documents up to 14 total references, including up to four character images; Lite documents up to 14 object references but no separate character-consistency allowance. No alias or preview ID is accepted. The probe pins `@google/genai` 2.11.0. See [`spikes/evidence/g4-scorecard.md`](../../spikes/evidence/g4-scorecard.md).
 
-**Feasibility gate G2 (Gemini image references & consistency)**: with 2–3 reference images of one child, across 5 sequential scene prompts, does the configured default image model hold recognizable identity (human judgment, structured scorecard)? How many distinct characters per image before identity degradation (informs capability matrix + C-08 threshold)? Does the API accept enough reference images per request for 3 characters?
+**G4 account result — FAIL (environment)**: neither `GEMINI_API_KEY` nor Keychain service `com.hekayati.gemini-api-key` was present. Consequently `models.list` and all three direct account probes were not run. Gemini modes remain unavailable until the operator configures a credential and the exact-ID connection test passes. IDs remain configuration rather than code constants (FR-107), and runtime re-checks availability before every batch (FR-098).
+
+**Feasibility gate G2 (Gemini image references & consistency)**: using synthetic fictional illustrated characters only (never a real child/customer), with 2–3 reference views per character across 5 sequential scene prompts, does the configured default image model hold recognizable identity (human judgment, structured scorecard)? How many distinct characters per image before identity degradation (informs capability matrix + C-08 threshold)? Does the API accept enough reference images per request for 3 characters? Raw provider outputs and generated images remain ignored local evidence; only sanitized scores, versions, and hashes are committed.
+
+**G2 result — FAIL / PENDING (environment)**: the deterministic four-character/eight-view fixture, 40-scene protocol, subtype-aware reference-limit procedure, and manual 4-of-5 rubric are committed, but no provider call was made without a credential. No empirical identity, reliable-character-count, or reference-boundary claim is promoted. Feature 007's real Gemini path remains blocked; mock-provider/local features may proceed. See [`spikes/evidence/g2-scorecard.md`](../../spikes/evidence/g2-scorecard.md).
 
 **Alternatives**: Vertex AI (needs GCP project + service accounts — heavier auth for one operator; rejected), REST without SDK (more code, no benefit).
 
@@ -105,7 +120,7 @@ Each entry: Decision / Rationale / Alternatives considered / Verification status
 
 ---
 
-## R9 — Arabic text shaping, RTL, font embedding & PDF generation
+## R9 — Arabic text shaping, RTL, font embedding & PDF generation **[VERIFIED — G3 PASS 2026-07-14]**
 
 **Decision**: **HTML/CSS → headless Chromium print-to-PDF via Playwright** for all three outputs (preview, interior, cover). Chromium's text stack (HarfBuzz + BiDi) gives correct Arabic shaping, ligatures (lam-alef), diacritics, RTL ordering, and embeds subsetted fonts in the PDF. Page geometry via `@page { size: 216mm 303mm }` (A4 + 2×3 mm bleed) with trim/safe guides drawn from the printer profile; crop marks drawn as vector elements in the template. Fonts: two licensed embeddable Arabic families (one display for titles, one high-legibility text face, e.g., from the SIL-OFL Arabic families), preloaded and verified embedded in preflight.
 
@@ -113,13 +128,16 @@ Each entry: Decision / Rationale / Alternatives considered / Verification status
 
 **Alternatives**: pdf-lib/PDFKit + harfbuzzjs (high-risk hand-rolled shaping — rejected), WeasyPrint (Python sidecar; good shaping but adds a second runtime), Typst/LaTeX (template authoring burden, weaker HTML/CSS parity with UI), InDesign automation (nonstarter locally).
 
-**Feasibility gate G3 (Arabic print pipeline)**: golden-file test of a shaping-stress corpus (connected forms, lam-alef, tashkeel, Arabic punctuation, mixed-direction lines with Latin names/numbers) rendered to PDF; manual + snapshot verification; font-embedding check via PDF inspection; 300 DPI image placement verified at physical size.
+**Feasibility gate G3 result — PASS**: Playwright 1.61.1 / Chromium 149 rendered a two-page shaping-stress corpus at 216 × 303 mm. Visual inspection passed connected forms, lam-alef variants, tashkeel, punctuation, mixed Arabic/Latin/numeric BiDi, boundaries, and missing-glyph checks. The probe requires exactly the expected two font identities with embedded, subsetted, and Unicode-map flags. DOM measurement proved a deterministic 1800 × 1200 image placement of 152.4 × 101.6 mm, and Poppler reported 300 × 300 PPI. The offline browser attempted zero HTTP(S) requests.
+
+Exact local fonts are `Lemonada-SemiBold.ttf` v4.005 (display) and `IBMPlexSansArabic-Regular.ttf` v1.005 from package 1.1.0 (body), both SIL OFL 1.1. Their immutable upstream pins, licenses, and SHA-256 hashes are committed in [`spikes/fixtures/fonts/SOURCES.md`](../../spikes/fixtures/fonts/SOURCES.md). Full result: [`spikes/evidence/g3-scorecard.md`](../../spikes/evidence/g3-scorecard.md).
 
 ---
 
-## R10 — Print production: bleed, CMYK, ICC, crop marks, cover spread, spine
+## R10 — Print production: bleed, CMYK, ICC, crop marks, cover spread, spine **[G3 COVER PATH VERIFIED 2026-07-14]**
 
 **Decision**:
+
 - Interior: A4 portrait trim + 3 mm default bleed (printer-profile override), safe margin default 10 mm, effective-DPI preflight ≥300 (configurable), optional crop marks.
 - Color: **RGB PDF by default** (C-12); when a printer profile demands CMYK, convert via **Ghostscript** with the profile's ICC (`-sColorConversionStrategy=CMYK -sOutputICCProfile=…`), then re-preflight; conversion failure blocks delivery (FR-123).
 - Cover: single spread PDF = back + spine + front + wraparound bleed. Spine width is **never computed by guess**: it comes from the printer profile (explicit mm value) or an imported printer template (PDF/dimensions spec); absent both → production blocked (FR-122). Page-count changes re-flag spine confirmation.
@@ -128,6 +146,8 @@ Each entry: Decision / Rationale / Alternatives considered / Verification status
 **Rationale**: Matches printing-industry norms while honoring "defaults are not universal printer truth" — everything printer-variable lives in PrinterProfile. Ghostscript is the only dependable local CMYK/ICC converter with scriptable CLI.
 
 **Alternatives**: pdfcpu (no color conversion), commercial preflight (cost/cloud), asking the printer to convert (kept as an allowed workflow — profile can mark "deliver RGB").
+
+**Phase 0 cover result — PASS**: The synthetic printer fixture produced one 436 × 303 mm spread with measured back-left, 10 mm spine, and front-right regions within 0.08 mm tolerance. Ghostscript 10.07.1 converted it with the system Generic CMYK ICC (SHA-256 `0c8a584b288a306eac9e1d3f1e68bc1b64331c717ceb051420e6257f17b3509a`). qpdf 12.3.2 verified one output intent with an embedded four-channel profile whose byte hash exactly matched that selected ICC; every image was `/DeviceCMYK`, no `/DeviceRGB` resource or RGB page-content operator remained, CMYK operators were present, and `inkcov` reported all four channels non-zero. Geometry/font checks and RGB/CMYK visual comparison also passed. Every check runs against a temporary PDF before atomic replacement of the final path; a deliberately missing ICC failed without promotion, and supplying an RGB profile failed the color-space guard while preserving the prior valid final hash byte-for-byte. Under `-dSAFER`, conversion grants read access only to the selected ICC path. This proves the local mechanism, not any printer-specific profile or full PDF/X conformance: production remains blocked until the actual printer profile/template is selected and its converted proof approved.
 
 ---
 
@@ -142,22 +162,23 @@ Each entry: Decision / Rationale / Alternatives considered / Verification status
 ## R12 — Image-reference & character-consistency limitations across providers
 
 **Findings (encoded in `provider-capability-matrix.md`)**:
+
 - No current image model guarantees identity consistency; drift grows with participant count, unusual poses, and style distance from references. Product stance already set: "recognizable, consistent, approved likeness" + mandatory human review (FR-016, FR-117).
-- Practical mitigations specified: character-sheet-first workflow (generate canonical illustrated views once, then use *sheet images* as references for pages — anchors style + identity), ≤3 characters per image warning threshold (C-08, tunable per matrix), per-scene negative constraints against extra people (FR-041), consistency review view (FR-119).
-- Economy-tier image models measurably weaker on multi-reference identity → persistent warning (FR-108).
-- Codex family: image generation unavailable pending G1-I (R6) → matrix rows marked accordingly.
+- Practical mitigations specified: character-sheet-first workflow (generate canonical illustrated views once, then use _sheet images_ as references for pages — anchors style + identity), ≤3 characters per image warning threshold (C-08, tunable per matrix), per-scene negative constraints against extra people (FR-041), consistency review view (FR-119).
+- Economy-tier image consistency is not yet empirically measured in this account. The product retains the conservative persistent weaker-capability warning required by FR-108 until G2 supplies evidence; it does not present that warning as a measured score.
+- Codex family: G1-I failed, so image generation is confirmed unavailable under the required workflow (R6).
 - HEIC intake: macOS `sips` converts HEIC→PNG/JPEG natively (no patent-encumbered lib needed); `sharp` handles resize/crop/format thereafter. EXIF orientation applied before stripping metadata (FR-021).
 
 ---
 
 ## Feasibility gates summary (Phase 0 exit criteria)
 
-| Gate | Question | Expected | Blocking for |
-|---|---|---|---|
-| G1-T | Codex text via subscription, programmatic + structured + quota-detectable + compliant | Likely PASS (verify) | Codex text mode availability |
-| G1-I | Codex image generation under subscription (7 questions, all must pass) | Likely FAIL — record limitation | Codex image mode only (product proceeds via Gemini) |
-| G2 | Gemini multi-reference character consistency acceptable; per-image character capacity measured | PASS with measured limits | Default image pipeline parameters, C-08 threshold |
-| G3 | Arabic shaping/RTL/font-embedding/bleed correct in Chromium-printed PDF | PASS (verify with golden corpus) | Entire PDF pipeline |
-| G4 | Verified current Gemini model IDs recorded; renames noted | Config update only | Settings defaults |
+| Gate | Result | Evidence / consequence | Blocking for |
+| ---- | ------ | ---------------------- | ------------ |
+| G1-T | **PASS** | CLI 0.144.3 + ChatGPT auth; live schema result, error taxonomy, and cancellation verified | Codex text mode available subject to runtime health |
+| G1-I | **FAIL (expected)** | No programmatic subscription image artifact/resume contract; visible unavailable reason required | Codex image mode only; product proceeds via explicit Gemini selection |
+| G2 | **PENDING ENVIRONMENT** | Requires a configured Gemini credential and G4 account probe | Default image pipeline parameters, C-08 threshold, feature 007 |
+| G3 | **PASS** | Arabic shaping/font/300-PPI interior plus cover geometry/ICC-bound CMYK/fail-closed path verified | PDF-dependent features may proceed |
+| G4 | **PARTIAL / ENVIRONMENT FAIL** | Exact stable public IDs verified; account-level probe requires a configured Gemini credential | Gemini modes remain unavailable until connection test passes |
 
 Gate outcomes are recorded by editing this file's gate table + risk register; a failed gate never silently downgrades — it changes visible product capability messaging (FR-102).

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1200" viewBox="0 0 1800 1200">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1d4ed8"/>
+      <stop offset="1" stop-color="#67e8f9"/>
+    </linearGradient>
+    <pattern id="grid" width="120" height="120" patternUnits="userSpaceOnUse">
+      <path d="M120 0H0V120" fill="none" stroke="#ffffff" stroke-opacity="0.18" stroke-width="4"/>
+    </pattern>
+  </defs>
+  <rect width="1800" height="1200" fill="url(#sky)"/>
+  <rect width="1800" height="1200" fill="url(#grid)"/>
+  <circle cx="1420" cy="250" r="150" fill="#facc15" stroke="#fef9c3" stroke-width="24"/>
+  <path d="M0 850 280 620 500 810 800 480 1130 820 1390 590 1800 900V1200H0Z" fill="#166534"/>
+  <path d="M0 980 310 780 540 940 820 650 1160 960 1410 760 1800 1020V1200H0Z" fill="#4ade80"/>
+  <g fill="none" stroke="#fff7ed" stroke-width="18">
+    <circle cx="340" cy="330" r="170"/>
+    <circle cx="340" cy="330" r="105"/>
+    <path d="M170 330H510M340 160V500M220 210 460 450M460 210 220 450"/>
+  </g>
+  <g transform="translate(1050 520)">
+    <rect x="0" y="0" width="420" height="310" rx="42" fill="#fdf2f8" stroke="#831843" stroke-width="16"/>
+    <circle cx="130" cy="130" r="68" fill="#f97316"/>
+    <circle cx="290" cy="130" r="68" fill="#8b5cf6"/>
+    <path d="M95 245Q210 315 325 245" fill="none" stroke="#111827" stroke-width="18" stroke-linecap="round"/>
+  </g>
+  <g fill="#0f172a">
+    <rect x="70" y="1080" width="220" height="40"/>
+    <rect x="330" y="1080" width="160" height="40"/>
+    <rect x="530" y="1080" width="100" height="40"/>
+  </g>
+</svg>

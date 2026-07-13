@@ -1,0 +1,23 @@
+{
+  "type": "object",
+  "properties": {
+    "probe": {
+      "type": "string",
+      "enum": ["G1-T"]
+    },
+    "status": {
+      "type": "string",
+      "enum": ["ok"]
+    },
+    "message": {
+      "type": "string",
+      "enum": ["synthetic Hekayati Codex text probe"]
+    },
+    "values": {
+      "type": "array",
+      "items": { "type": "integer" }
+    }
+  },
+  "required": ["probe", "status", "message", "values"],
+  "additionalProperties": false
+}

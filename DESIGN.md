@@ -125,6 +125,8 @@ components:
 
 **Source of truth order:** `PRODUCT.md` → this `DESIGN.md` → `brand-kits/02-citrus-playground.html` → CSS tokens in app code.
 
+The brand-kit HTML may load web fonts for documentation preview only. Product UI and PDF rendering MUST bundle verified font files locally; no CDN/font request is permitted at runtime.
+
 ## Colors
 
 OKLCH-oriented roles (hex above is normative for Stitch/export; keep chroma moderated at extremes).

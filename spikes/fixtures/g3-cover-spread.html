@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="ar">
+<head>
+  <meta charset="utf-8">
+  <title>G3 synthetic cover spread</title>
+  <style>
+    @font-face {
+      font-family: "G3Body";
+      src: url("{{BODY_FONT_DATA_URI}}") format("truetype");
+      font-style: normal;
+      font-weight: 400;
+      font-display: block;
+    }
+    @page { size: {{SPREAD_WIDTH_MM}}mm {{SPREAD_HEIGHT_MM}}mm; margin: 0; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body { font-family: "G3Body", sans-serif; font-synthesis: none; }
+    .spread {
+      --bleed: {{BLEED_MM}}mm;
+      --trim-w: {{TRIM_WIDTH_MM}}mm;
+      --trim-h: {{TRIM_HEIGHT_MM}}mm;
+      --spine-w: {{SPINE_WIDTH_MM}}mm;
+      position: relative;
+      width: {{SPREAD_WIDTH_MM}}mm;
+      height: {{SPREAD_HEIGHT_MM}}mm;
+      overflow: hidden;
+      direction: ltr;
+      background:
+        linear-gradient(90deg,
+          #06b6d4 0 25%,
+          #2563eb 25% 49%,
+          #facc15 49% 51%,
+          #f97316 51% 75%,
+          #db2777 75% 100%);
+    }
+    .panel {
+      position: absolute;
+      top: var(--bleed);
+      height: var(--trim-h);
+      border: 0.25mm solid rgba(15, 23, 42, 0.85);
+      overflow: hidden;
+    }
+    .back {
+      left: var(--bleed);
+      width: var(--trim-w);
+      background: rgba(207, 250, 254, 0.78);
+    }
+    .spine {
+      left: calc(var(--bleed) + var(--trim-w));
+      width: var(--spine-w);
+      background: rgba(254, 240, 138, 0.9);
+    }
+    .front {
+      left: calc(var(--bleed) + var(--trim-w) + var(--spine-w));
+      width: var(--trim-w);
+      background: rgba(255, 228, 230, 0.78);
+    }
+    .copy {
+      position: absolute;
+      inset: 18mm;
+      display: grid;
+      place-content: center;
+      gap: 5mm;
+      direction: rtl;
+      text-align: center;
+      color: #111827;
+    }
+    .copy h1 { margin: 0; color: #9f1239; font-size: 28pt; line-height: 1.5; }
+    .copy p { margin: 0; font-size: 13pt; line-height: 1.8; }
+    .mark {
+      width: 45mm;
+      height: 45mm;
+      margin: 0 auto;
+      border-radius: 50%;
+      background: conic-gradient(#06b6d4 0 25%, #facc15 0 50%, #f97316 0 75%, #db2777 0);
+      border: 2mm solid #fff;
+      box-shadow: 0 0 0 0.5mm #111827;
+    }
+    .spine-copy {
+      position: absolute;
+      inset: 4mm 1mm;
+      display: grid;
+      place-items: center;
+      writing-mode: vertical-rl;
+      direction: rtl;
+      font-size: 9pt;
+      color: #111827;
+    }
+    .safe {
+      position: absolute;
+      inset: 10mm;
+      border: 0.2mm dashed rgba(15, 23, 42, 0.6);
+      pointer-events: none;
+    }
+    .fold {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 0.2mm;
+      background: rgba(15, 23, 42, 0.75);
+    }
+    .fold.left { left: calc(var(--bleed) + var(--trim-w)); }
+    .fold.right { left: calc(var(--bleed) + var(--trim-w) + var(--spine-w)); }
+    .crop { position: absolute; z-index: 5; background: #000; }
+    .crop.h { width: 5mm; height: 0.2mm; }
+    .crop.v { width: 0.2mm; height: 5mm; }
+    .top { top: var(--bleed); } .bottom { bottom: var(--bleed); }
+    .left-edge { left: 0; } .left-trim { left: var(--bleed); }
+    .right-edge { right: 0; } .right-trim { right: var(--bleed); }
+    .top-edge { top: 0; } .bottom-edge { bottom: 0; }
+    .control-strip {
+      position: absolute;
+      left: 50%;
+      bottom: 0.7mm;
+      transform: translateX(-50%);
+      display: flex;
+      width: 80mm;
+      height: 1.8mm;
+    }
+    .control-strip i { flex: 1; }
+    .c { background: #00ffff; } .m { background: #ff00ff; }
+    .y { background: #ffff00; } .k { background: #000; }
+  </style>
+</head>
+<body>
+  <main class="spread" data-region="spread">
+    <section class="panel back" data-region="back">
+      <div class="copy"><div class="mark"></div><p>الغلاف الخلفي — عيّنة اصطناعية</p></div>
+      <div class="safe"></div>
+    </section>
+    <section class="panel spine" data-region="spine"><div class="spine-copy">حكايتي — اختبار الكعب</div></section>
+    <section class="panel front" data-region="front">
+      <div class="copy"><h1>رحلة في مدينة الألوان</h1><p>غلاف أمامي اصطناعي لاختبار هندسة الطباعة</p></div>
+      <div class="safe"></div>
+    </section>
+    <i class="fold left"></i><i class="fold right"></i>
+    <i class="crop h top left-edge"></i><i class="crop v top-edge left-trim"></i>
+    <i class="crop h bottom left-edge"></i><i class="crop v bottom-edge left-trim"></i>
+    <i class="crop h top right-edge"></i><i class="crop v top-edge right-trim"></i>
+    <i class="crop h bottom right-edge"></i><i class="crop v bottom-edge right-trim"></i>
+    <div class="control-strip" aria-hidden="true"><i class="c"></i><i class="m"></i><i class="y"></i><i class="k"></i></div>
+  </main>
+</body>
+</html>

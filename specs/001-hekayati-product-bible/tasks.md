@@ -16,22 +16,22 @@ Format: `[ID] [P?] [Refs] Description` — **[P]** = parallelizable (different f
 **User-visible outcome**: research.md gate table + capability matrix filled with verified values; go/no-go recorded per provider capability.
 **Dependencies**: none.
 
-- [ ] T-P0-01 [G1-T] Probe installed Codex CLI: version, non-interactive `exec`, subscription auth status, structured/JSON output flags; script `spikes/g1t-codex-text.ts`; record scorecard in research.md R5
-- [ ] T-P0-02 [G1-T] Codex quota/rate-limit/auth error differentiation probe (forced failures); map to taxonomy; record in R5
-- [ ] T-P0-03 [G1-I] Codex image-generation feasibility: answer all 7 gate questions against installed environment + current official docs; record in R6; update capability matrix + RR-01 status
-- [ ] T-P0-04 [P] [G4] Verify current Gemini model IDs vs requested defaults (`gemini-3.5-flash`, `gemini-3.1-flash-image`, lite); record renames/deprecations in R7; set settings defaults
-- [ ] T-P0-05 [G2] Gemini identity-consistency scorecard: 2–3 refs × 5 sequential scenes; measure reliable-characters-per-image + max reference images for default AND economy models; fill capability matrix *G2-measured* cells; set C-08 threshold
-- [ ] T-P0-06 [P] [G3] Arabic PDF spike: Playwright/Chromium print-to-PDF of shaping-stress corpus + A4+bleed geometry + font embedding inspection; record in R9
-- [ ] T-P0-07 [P] [G3] Cover-spread spike: back+spine+front single-PDF geometry from a sample printer template; Ghostscript CMYK conversion smoke test (R10)
-- [ ] T-P0-08 Consolidate: update research.md gate table, provider-capability-matrix.md, risk-register.md; flag any FAILED gate to user before Phase 4/6/8 planning assumptions change
+- [x] T-P0-01 [G1-T] Probe installed Codex CLI: version, non-interactive `exec`, subscription auth status, structured/JSON output flags; script `spikes/g1t-codex-text.ts`; record scorecard in research.md R5 — **PASS 2026-07-14**
+- [x] T-P0-02 [G1-T] Codex quota/rate-limit/auth error differentiation probe (safe forced fixtures; account exhaustion not forced); map to taxonomy; record in R5 — **PASS 2026-07-14**
+- [x] T-P0-03 [G1-I] Codex image-generation feasibility: answer all 7 gate questions against installed environment + current official docs; record in R6; update capability matrix + RR-01 status — **FAIL (expected) 2026-07-14**
+- [x] T-P0-04 [P] [G4] Verify current Gemini model IDs vs requested defaults (`gemini-3.5-flash`, `gemini-3.1-flash-image`, lite); record renames/deprecations in R7; set settings defaults — **official IDs verified; account gate FAIL (environment) 2026-07-14**
+- [x] T-P0-05 [G2] Gemini identity-consistency scorecard using synthetic fictional illustrated characters only: 2–3 refs × 5 sequential scenes; measure reliable-characters-per-image + max reference images for default AND economy models; commit sanitized scores/hashes only; fill capability matrix _G2-measured_ cells; set C-08 threshold — **protocol complete; execution FAIL/PENDING (environment), measured cells intentionally unset 2026-07-14**
+- [x] T-P0-06 [P] [G3] Arabic PDF spike: select and locally bundle exact Arabic display/body fonts with authoritative embedding licenses + source/version/SHA-256 evidence; Playwright/Chromium print-to-PDF of shaping-stress corpus + A4+bleed geometry + font embedding/no-CDN inspection; record in R9 — **PASS 2026-07-14**
+- [x] T-P0-07 [P] [G3] Cover-spread spike: back+spine+front single-PDF geometry from a sample printer template; Ghostscript CMYK conversion smoke test (R10) — **PASS 2026-07-14**
+- [x] T-P0-08 Consolidate: update research.md gate table, provider-capability-matrix.md, risk-register.md; flag any FAILED gate to user before Phase 4/6/8 planning assumptions change — **complete 2026-07-14; G1-I/G2/G4 consequences recorded**
 
-**Checkpoint**: all five gates answered with evidence; no "Assumed" left in matrix rows needed by Phase 4. **DoD**: research.md gate table has zero "expected" entries — only PASS/FAIL with dates.
+**Checkpoint**: all five gates answered with evidence; unavailable measurements are explicitly unset and block only their dependent real-provider paths. **DoD**: research.md gate table contains dated PASS/FAIL outcomes, with no expected result presented as fact.
 
 ---
 
 ## Phase 1 — Local Application Foundation
 
-**Preconditions**: Phase 0 complete (G3 pass required; G1/G2 outcomes only inform messaging).
+**Preconditions**: Phase 0 outcomes recorded. G1/G2/G4 outcomes inform later provider/creative work; a G3 failure blocks PDF-dependent Phases 7–8, not this local-foundation phase.
 **User-visible outcome**: app starts on 127.0.0.1, Arabic RTL shell renders, settings + health screens work, data survives restart. No AI needed for the demo.
 **Dependencies**: Phase 0.
 
@@ -96,7 +96,7 @@ Format: `[ID] [P?] [Refs] Description` — **[P]** = parallelizable (different f
 **User-visible outcome**: settings show real provider health/capabilities; connection tests work; mock provider full-featured; Codex/Gemini adapters conformant.
 **Dependencies**: Phases 0, 1 (parallel to 2–3 after contract tasks).
 
-- [ ] T-P4-01 Canonical contract types + zod schemas in code, mirroring contracts/*.md exactly; schema fixture suite (valid/invalid per structured-outputs §§1–5) (`src/providers/contract.ts`, `schemas/`) [FR-090/091]
+- [ ] T-P4-01 Canonical contract types + zod schemas in code, mirroring contracts/\*.md exactly; schema fixture suite (valid/invalid per structured-outputs §§1–5) (`src/providers/contract.ts`, `schemas/`) [FR-090/091]
 - [ ] T-P4-02 Provider conformance test harness (runs against any adapter): operations, cancellation, timeout, error normalization table, provenance completeness [FR-092/094]
 - [ ] T-P4-03 Mock provider: deterministic outputs by request hash, scriptable faults per taxonomy row, synthetic image fixtures (`src/providers/mock/`) [FR-099]
 - [ ] T-P4-04 [P] Gemini adapter: @google/genai, Keychain key per call, structured via responseSchema + local revalidation, multi-reference images, model probe, economy flag (`src/providers/gemini/`) [FR-105–108]
@@ -239,4 +239,4 @@ MVP slice = P0–P6 + minimal P7 (preview): produces a reviewable book. Print de
 
 ## Traceability
 
-- Every FR appears in ≥1 task Ref; every EC-* case appears in a task or checklist; SC-001…012 land in P6–P10 checkpoints; IM rows covered by T-P6-03 unit suite. Audit repeated at each phase exit (analyze-stage discipline).
+- Every FR appears in ≥1 task Ref; every EC-\* case appears in a task or checklist; SC-001…012 land in P6–P10 checkpoints; IM rows covered by T-P6-03 unit suite. Audit repeated at each phase exit (analyze-stage discipline).

@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <title>G3 Arabic PDF corpus</title>
+  <style>
+    @font-face {
+      font-family: "G3Body";
+      src: url("{{BODY_FONT_DATA_URI}}") format("truetype");
+      font-style: normal;
+      font-weight: 400;
+      font-display: block;
+    }
+    @font-face {
+      font-family: "G3Display";
+      src: url("{{DISPLAY_FONT_DATA_URI}}") format("truetype");
+      font-style: normal;
+      font-weight: 600;
+      font-display: block;
+    }
+    @page { size: 216mm 303mm; margin: 0; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; background: #fff; }
+    body {
+      color: #172033;
+      font-family: "G3Body", sans-serif;
+      font-synthesis: none;
+      direction: rtl;
+    }
+    .page {
+      position: relative;
+      width: 216mm;
+      height: 303mm;
+      overflow: hidden;
+      background: #fffdf8;
+    }
+    .page:not(:last-child) { break-after: page; }
+    .trim {
+      position: absolute;
+      inset: 3mm;
+      border: 0.25mm solid #f97316;
+    }
+    .safe {
+      position: absolute;
+      inset: 12mm;
+      border: 0.2mm dashed #94a3b8;
+      pointer-events: none;
+    }
+    .content { position: absolute; inset: 17mm; }
+    h1, h2 {
+      margin: 0;
+      font-family: "G3Display", sans-serif;
+      font-synthesis: none;
+      color: #9a3412;
+    }
+    h1 { font-size: 18pt; line-height: 1.45; }
+    h2 { font-size: 14pt; line-height: 1.5; }
+    .lead { margin: 4mm 0 6mm; font-size: 10.8pt; line-height: 1.9; }
+    .sample {
+      margin: 3mm 0;
+      padding: 3mm 4mm;
+      border-right: 1.2mm solid #facc15;
+      background: #fff7ed;
+      font-size: 11.5pt;
+      line-height: 1.9;
+    }
+    .label { color: #475569; font-size: 8pt; }
+    .mixed { unicode-bidi: plaintext; }
+    .long { font-size: 9.8pt; overflow-wrap: anywhere; }
+    .footer {
+      position: absolute;
+      right: 17mm;
+      left: 17mm;
+      bottom: 9mm;
+      display: flex;
+      justify-content: space-between;
+      direction: rtl;
+      color: #475569;
+      font-size: 7.5pt;
+    }
+    .art-frame {
+      margin-top: 8mm;
+      width: 152.4mm;
+      height: 101.6mm;
+      outline: 0.4mm solid #0f172a;
+      background: #e2e8f0;
+    }
+    .art-frame img { display: block; width: 100%; height: 100%; object-fit: contain; }
+    .metrics {
+      margin-top: 6mm;
+      padding: 4mm;
+      direction: ltr;
+      text-align: left;
+      border: 0.2mm solid #64748b;
+      font-family: "G3Body", sans-serif;
+      font-size: 9pt;
+      line-height: 1.7;
+    }
+    .crop { position: absolute; background: #111827; }
+    .crop.h { width: 6mm; height: 0.2mm; }
+    .crop.v { width: 0.2mm; height: 6mm; }
+    .tl-h { top: 3mm; left: 0; } .tl-v { top: 0; left: 3mm; }
+    .tr-h { top: 3mm; right: 0; } .tr-v { top: 0; right: 3mm; }
+    .bl-h { bottom: 3mm; left: 0; } .bl-v { bottom: 0; left: 3mm; }
+    .br-h { bottom: 3mm; right: 0; } .br-v { bottom: 0; right: 3mm; }
+  </style>
+</head>
+<body>
+  <section class="page" data-page="corpus">
+    <div class="trim"></div><div class="safe"></div>
+    <i class="crop h tl-h"></i><i class="crop v tl-v"></i>
+    <i class="crop h tr-h"></i><i class="crop v tr-v"></i>
+    <i class="crop h bl-h"></i><i class="crop v bl-v"></i>
+    <i class="crop h br-h"></i><i class="crop v br-v"></i>
+    <main class="content">
+      <h1>اختبار تشكيل العربية واتجاه النص</h1>
+      <p class="lead">هذه صفحة اصطناعية لا تحتوي على بيانات أطفال أو عملاء. هدفها فحص اتصال الحروف، والتشكيل، واتجاه السطر، وتضمين الخطوط.</p>
+      <p class="sample"><span class="label">اتصال الحروف:</span><br>بِسْمِ اللهِ الرَّحْمٰنِ الرَّحِيمِ — في الحديقة شجرةٌ جميلةٌ تتمايل أغصانُها.</p>
+      <p class="sample"><span class="label">لام وألف:</span><br>لا، لأ، لإ، لآ — قال لؤي: «لا تقلق، فاللقاء قريب».</p>
+      <p class="sample"><span class="label">تشكيل وعلامات:</span><br>الشَّمْسُ سَاطِعَةٌ، وَالطِّفْلَةُ تَقْرَأُ قِصَّةً مُفِيدَةً! أَنَبْدَأُ الآن؟</p>
+      <p class="sample mixed"><span class="label">ثنائي الاتجاه:</span><br>رقم الطلب HK-2048، العمر ٨ سنوات، Chapter 7، والموعد 14/07/2026.</p>
+      <p class="sample mixed"><span class="label">أسماء لاتينية وأرقام:</span><br>ذهبت مريم وNour إلى المكتبة، واشترتا 3 books بسعر ١٢٫٥٠ جنيهًا.</p>
+      <p class="sample long"><span class="label">اسم طويل والتفاف آمن:</span><br>عبدالرحمننورالدينمصطفىالسيد يستكشف مدينة الإسكندرية في مغامرةٍ خياليةٍ طويلةٍ ومبهجة.</p>
+    </main>
+    <footer class="footer"><span>G3 — صفحة ١ من ٢</span><span>216 × 303 mm</span></footer>
+  </section>
+
+  <section class="page" data-page="art">
+    <div class="trim"></div><div class="safe"></div>
+    <i class="crop h tl-h"></i><i class="crop v tl-v"></i>
+    <i class="crop h tr-h"></i><i class="crop v tr-v"></i>
+    <i class="crop h bl-h"></i><i class="crop v bl-v"></i>
+    <i class="crop h br-h"></i><i class="crop v br-v"></i>
+    <main class="content">
+      <h2>اختبار دقة الصورة عند الحجم المطبوع</h2>
+      <p class="lead">الصورة التالية مولّدة محليًا من مصدر SVG اصطناعي ثابت، ثم حُفظت كصورة PNG بأبعاد 1800 × 1200 بكسل.</p>
+      <figure class="art-frame"><img alt="رسم اصطناعي لاختبار دقة الطباعة" src="{{ART_DATA_URI}}"></figure>
+      <div class="metrics">
+        source: 1800 x 1200 px<br>
+        placement: 152.4 x 101.6 mm (6 x 4 in)<br>
+        expected effective resolution: 300 x 300 DPI<br>
+        source class: deterministic synthetic fixture
+      </div>
+    </main>
+    <footer class="footer"><span>G3 — صفحة ٢ من ٢</span><span>bleed 3 mm / trim 210 × 297 mm</span></footer>
+  </section>
+</body>
+</html>
