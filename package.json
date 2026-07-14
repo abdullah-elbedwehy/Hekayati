@@ -8,7 +8,7 @@
   },
   "scripts": {
     "app": "npm run build && tsx src/server/index.ts",
-    "app:test": "HEKAYATI_DATA_DIR=.tmp/e2e HEKAYATI_PORT=4317 HEKAYATI_TEST_ROUTES=1 HEKAYATI_NO_OPEN=1 tsx src/server/index.ts",
+    "app:test": "HEKAYATI_DATA_DIR=.tmp/e2e HEKAYATI_PORT=4317 HEKAYATI_TEST_ROUTES=1 HEKAYATI_NO_OPEN=1 HEKAYATI_FAKE_SECURITY_BINARY=$PWD/tests/fixtures/fake-security.ts HEKAYATI_FAKE_KEYCHAIN_FILE=.tmp/e2e-keychain/operator.secret HEKAYATI_PROVIDER_CALL_LOG=.tmp/e2e-provider-calls.log tsx tests/fixtures/start-provider-app.ts",
     "build": "npm run typecheck && vite build",
     "check": "npm run lint && npm run check:fonts && npm run typecheck && npm run test",
     "check:fonts": "node scripts/check-ui-fonts.mjs",
@@ -18,6 +18,7 @@
     "format": "prettier --write src tests scripts *.config.ts package.json tsconfig.json",
     "format:check": "prettier --check src tests scripts *.config.ts package.json tsconfig.json",
     "lint": "eslint src tests *.config.ts && npm run check:size",
+    "live:providers": "tsx scripts/live/provider-smoke.ts",
     "test": "vitest run",
     "test:e2e": "playwright test",
     "test:watch": "vitest",
@@ -26,6 +27,7 @@
   "dependencies": {
     "@fastify/multipart": "10.1.0",
     "@fastify/static": "10.1.0",
+    "@google/genai": "2.11.0",
     "better-sqlite3": "12.11.1",
     "fastify": "5.10.0",
     "file-type": "22.0.1",

@@ -29,7 +29,7 @@ afterEach(async () =>
 );
 
 describe("settings and health foundation", () => {
-  it("migrates schema-v1 settings to bounded photo limits without losing operator choices", async () => {
+  it("migrates schema-v1 settings through v3 without losing operator choices", async () => {
     const fixture = await serviceFixture();
     const now = new Date().toISOString();
     const legacy = {
@@ -69,11 +69,13 @@ describe("settings and health foundation", () => {
     const migrated = fixture.settings.initialize();
 
     expect(migrated).toMatchObject({
-      schemaVersion: 2,
+      schemaVersion: 3,
       watermarkText: "علامة قديمة",
       concurrencyPerProvider: 3,
       photoUploadMaxMb: 25,
       photoMaxMegapixels: 80,
+      geminiImageTier: "default",
+      deferredStatus: { providerLifecycle: "available" },
     });
     expect(
       fixture.store.database
@@ -82,7 +84,66 @@ describe("settings and health foundation", () => {
         )
         .pluck()
         .get(),
-    ).toBe(2);
+    ).toBe(3);
+  });
+
+  it("migrates schema-v2 settings directly to v3 and preserves every v2 value", async () => {
+    const fixture = await serviceFixture();
+    const now = new Date().toISOString();
+    const legacy = {
+      id: "operator",
+      schemaVersion: 2,
+      createdAt: now,
+      updatedAt: now,
+      textProvider: "codex",
+      imageProvider: "gemini",
+      models: {
+        codexText: "codex-v2",
+        geminiText: "gemini-v2",
+        geminiImage: "image-v2",
+        geminiImageEconomy: "image-economy-v2",
+      },
+      concurrencyPerProvider: 4,
+      typography: { minimumAge3To5Pt: 18, minimumAge6PlusPt: 15 },
+      watermarkText: "علامة الإصدار الثاني",
+      diskWarnGb: 23,
+      photoUploadMaxMb: 31,
+      photoMaxMegapixels: 91,
+      storagePathsReadonly: {
+        data: fixture.paths.root,
+        assets: fixture.paths.assets,
+      },
+      firstRunAcknowledged: true,
+      deferredStatus: {
+        providerLifecycle: "not_configured",
+        printerProfiles: "not_available",
+      },
+    };
+    fixture.store.database
+      .prepare(
+        `INSERT INTO documents(collection, id, doc, schema_version, created_at, updated_at)
+         VALUES ('settings', 'operator', ?, 2, ?, ?)`,
+      )
+      .run(JSON.stringify(legacy), now, now);
+    const migrated = fixture.settings.initialize();
+    expect(migrated).toMatchObject({
+      schemaVersion: 3,
+      textProvider: "codex",
+      imageProvider: "gemini",
+      geminiImageTier: "default",
+      models: legacy.models,
+      concurrencyPerProvider: 4,
+      typography: legacy.typography,
+      watermarkText: legacy.watermarkText,
+      diskWarnGb: 23,
+      photoUploadMaxMb: 31,
+      photoMaxMegapixels: 91,
+      firstRunAcknowledged: true,
+      deferredStatus: {
+        providerLifecycle: "available",
+        printerProfiles: "not_available",
+      },
+    });
   });
 
   it("persists validated settings across a full server restart", async () => {
@@ -212,7 +273,15 @@ describe("settings and health foundation", () => {
     const fixture = await runtimeFixture();
     const bootstrap = await json(fixture.origin, "/api/bootstrap");
     const health = await json(fixture.origin, "/api/health");
-    expect(health.providers).toEqual({ status: "not_configured" });
+    expect(health.providers).toMatchObject({
+      status: "available",
+      selected: { text: "mock", image: "mock" },
+      connections: {
+        mock: { state: "not_checked" },
+        codex: { state: "not_checked" },
+        gemini: { state: "not_checked" },
+      },
+    });
     expect(health.queue).toEqual({ status: "not_available", depth: null });
     expect(health.printerProfiles).toEqual({ status: "not_configured" });
     expect(health.listener).toEqual({
@@ -500,6 +569,7 @@ function settingsUpdate(
   return {
     textProvider: settings.textProvider,
     imageProvider: settings.imageProvider,
+    geminiImageTier: settings.geminiImageTier,
     models: settings.models,
     concurrencyPerProvider: settings.concurrencyPerProvider,
     typography: settings.typography,

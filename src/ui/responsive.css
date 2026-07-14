@@ -29,7 +29,8 @@
 
   .brand-welcome,
   .form-grid,
-  .form-grid--three {
+  .form-grid--three,
+  .prompt-policy-panel {
     grid-template-columns: 1fr;
   }
 
@@ -64,6 +65,15 @@
   .status-value {
     align-items: start;
     flex-direction: column;
+  }
+
+  .provider-card__header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .provider-card__header .button {
+    width: 100%;
   }
 }
 

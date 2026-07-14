@@ -381,6 +381,7 @@ function toSettingsUpdate(settings: Record<string, unknown>) {
     [
       "textProvider",
       "imageProvider",
+      "geminiImageTier",
       "models",
       "concurrencyPerProvider",
       "typography",

@@ -1,5 +1,9 @@
 import { StatusLine } from "../components/StatusLine";
-import type { HealthSnapshot, IntegrityReport } from "../types";
+import type {
+  HealthSnapshot,
+  IntegrityReport,
+  ProviderProjection,
+} from "../types";
 
 interface HealthViewProps {
   health: HealthSnapshot;
@@ -13,6 +17,7 @@ export function HealthView(props: HealthViewProps) {
     <main className="view" id="main-content">
       <HealthHeader busy={props.busy} onRefresh={props.onRefresh} />
       <LocalHealthSection {...props} />
+      <ProviderHealth health={props.health} />
       <DeferredHealth />
     </main>
   );
@@ -152,16 +157,164 @@ function DeferredHealth() {
         </div>
       </div>
       <div className="status-list">
-        <StatusLine
-          label="اتصال المزوّدين"
-          status="غير مُعَدّ"
-          tone="pending"
-        />
         <StatusLine label="عمق قائمة المهام" status="غير متاح" tone="pending" />
         <StatusLine label="ملفات الطباعة" status="غير مُعَدّة" tone="pending" />
       </div>
     </section>
   );
+}
+
+function ProviderHealth({ health }: { health: HealthSnapshot }) {
+  const providers = health.providers;
+  if (providers.status !== "available") {
+    return (
+      <section className="section" aria-labelledby="provider-health-heading">
+        <h2 id="provider-health-heading">اتصال المزوّدين</h2>
+        <StatusLine
+          label="منظومة المزوّدين"
+          status="غير مُعَدّة"
+          tone="pending"
+        />
+      </section>
+    );
+  }
+  return (
+    <section className="section" aria-labelledby="provider-health-heading">
+      <div className="section-heading">
+        <div>
+          <p className="eyebrow">لا يبدأ فحصًا تلقائيًا</p>
+          <h2 id="provider-health-heading">اتصال المزوّدين</h2>
+        </div>
+        <span className="plain-badge">
+          النص: {providerLabel(providers.selected.text)} · الصور:{" "}
+          {providerLabel(providers.selected.image)}
+        </span>
+      </div>
+      <ProviderConnectionRows connections={providers.connections} />
+    </section>
+  );
+}
+
+function ProviderConnectionRows({
+  connections,
+}: {
+  connections: Extract<
+    HealthSnapshot["providers"],
+    { status: "available" }
+  >["connections"];
+}) {
+  return (
+    <div className="status-list">
+      {(["mock", "codex", "gemini"] as const).map((providerId) => {
+        const projection = connections[providerId];
+        return (
+          <StatusLine
+            key={providerId}
+            label={providerLabel(providerId)}
+            status={providerStateLabel(projection.state)}
+            tone={providerTone(projection.state)}
+            detail={<ProviderHealthDetail projection={projection} />}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+function ProviderHealthDetail({
+  projection,
+}: {
+  projection: ProviderProjection;
+}) {
+  if (!projection.checkedAt) return <>اختبر الاتصال من الإعدادات</>;
+  return (
+    <span className="provider-health-detail">
+      <span>المصادقة: {providerAuthLabel(projection.authState)}</span>
+      <OperationHealth label="النص" operation={projection.text} />
+      <OperationHealth label="الصور" operation={projection.image} />
+      {projection.image && (
+        <span>حدود الصور: {imageLimitsLabel(projection.image)}</span>
+      )}
+      <span>
+        آخر فحص: {formatDate(projection.checkedAt)} ·{" "}
+        {providerSourceLabel(projection.source)}
+      </span>
+      {projection.unavailableReason && (
+        <span>السبب العام: {projection.unavailableReason}</span>
+      )}
+    </span>
+  );
+}
+
+function OperationHealth(props: {
+  label: string;
+  operation: ProviderProjection["text"] | ProviderProjection["image"];
+}) {
+  if (!props.operation) return <span>{props.label}: لم يُفحص</span>;
+  return (
+    <span>
+      {props.label}: {props.operation.available ? "متاح" : "غير متاح"}
+      {props.operation.modelId && (
+        <>
+          {" "}
+          · <bdi>{props.operation.modelId}</bdi>
+        </>
+      )}
+      {props.operation.unavailableReason && (
+        <> · {props.operation.unavailableReason}</>
+      )}
+    </span>
+  );
+}
+
+function providerAuthLabel(state: ProviderProjection["authState"]): string {
+  if (state === "ok") return "صالحة";
+  if (state === "missing") return "غير مُعَدّة";
+  if (state === "expired") return "منتهية أو مرفوضة";
+  return state === "error" ? "خطأ" : "لم تُفحص";
+}
+
+function imageLimitsLabel(
+  image: NonNullable<ProviderProjection["image"]>,
+): string {
+  if (
+    image.maxReferenceImages === null ||
+    image.reliableCharacterCount === null
+  ) {
+    return "غير مقاسة — إنشاء الصور محجوب";
+  }
+  return [
+    image.maxReferenceImages,
+    " مرجعًا · ",
+    image.reliableCharacterCount,
+    " شخصيات موثوقة",
+  ].join("");
+}
+
+function providerSourceLabel(source: ProviderProjection["source"]): string {
+  if (source === "fixture") return "تجريبي محلي";
+  if (source === "cache") return "نتيجة مؤقتة";
+  return source === "live" ? "فحص مباشر" : "مصدر غير معروف";
+}
+
+function providerStateLabel(
+  state: "not_checked" | "available" | "unavailable",
+) {
+  if (state === "available") return "متاح";
+  if (state === "unavailable") return "غير متاح";
+  return "لم يُفحص";
+}
+
+function providerTone(state: "not_checked" | "available" | "unavailable") {
+  if (state === "available") return "ok" as const;
+  if (state === "unavailable") return "error" as const;
+  return "pending" as const;
+}
+
+function providerLabel(provider: "mock" | "codex" | "gemini"): string {
+  if (provider === "codex") return "Codex";
+  if (provider === "gemini") return "Gemini";
+  return "تجريبي";
 }
 
 function formatDate(value: string): string {

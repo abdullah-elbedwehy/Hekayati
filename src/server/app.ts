@@ -40,6 +40,11 @@ import {
   productionSeedTemplateInstaller,
   type SeedTemplateInstaller,
 } from "./startup/seed-templates.js";
+import {
+  createProviderSubsystem,
+  type ProviderRuntimeOptions,
+} from "../providers/runtime.js";
+import { ProviderServiceError } from "./providers/provider-service.js";
 
 export interface RuntimeOptions {
   dataDir?: string;
@@ -47,6 +52,7 @@ export interface RuntimeOptions {
   uiRoot?: string;
   enableTestRoutes?: boolean;
   seedTemplateInstaller?: SeedTemplateInstaller;
+  providers?: ProviderRuntimeOptions;
 }
 
 export interface StartOptions {
@@ -131,19 +137,16 @@ async function assembleRuntime(
 ): Promise<HekayatiRuntime> {
   const sentinel = new SecuritySentinel(store);
   const boundary = new LocalRequestBoundary();
-  const logger = new StructuredLogger(
-    createFileLogSink(join(paths.logs, "app.log")),
-    new Redactor(store.secretRegistry),
-  );
-  const health = new HealthService(
+  const { logger, providers, health } = createInfrastructure({
+    options,
+    paths,
     store,
     assets,
+    originals,
     settings,
     boundary,
-    paths,
     initialIntegrity,
-    originals,
-  );
+  });
   const metrics = { listenAttempts: 0, routeDispatches: 0 };
   const photoIntake = new PhotoIntakeCoordinator(
     store,
@@ -161,12 +164,45 @@ async function assembleRuntime(
     authoring,
     photoIntake,
     health,
+    providers,
     boundary,
     sentinel,
     enableTestRoutes: options.enableTestRoutes ?? false,
   });
   await registerUi(app, options);
   return buildRuntime(app, store, boundary, sentinel, paths, metrics, logger);
+}
+
+function createInfrastructure(input: {
+  options: RuntimeOptions;
+  paths: DataPaths;
+  store: DocumentStore;
+  assets: AssetStore;
+  originals: OriginalAssetStore;
+  settings: SettingsService;
+  boundary: LocalRequestBoundary;
+  initialIntegrity: Awaited<ReturnType<AssetStore["scanIntegrity"]>>;
+}) {
+  const logger = new StructuredLogger(
+    createFileLogSink(join(input.paths.logs, "app.log")),
+    new Redactor(input.store.secretRegistry),
+  );
+  const providers = createProviderSubsystem(
+    input.settings,
+    logger.redactor,
+    input.options.providers,
+  );
+  const health = new HealthService(
+    input.store,
+    input.assets,
+    input.settings,
+    input.boundary,
+    input.paths,
+    input.initialIntegrity,
+    input.originals,
+    providers,
+  );
+  return { logger, providers, health };
 }
 
 async function registerMultipart(app: FastifyInstance): Promise<void> {
@@ -295,16 +331,7 @@ function handleError(
   reply: FastifyReply,
   logger: StructuredLogger,
 ): void {
-  if (error instanceof ZodError) {
-    void reply.code(400).send({
-      code: "INVALID_INPUT",
-      issues: error.issues.map((issue) => ({
-        path: issue.path.join("."),
-        message: issue.message,
-      })),
-    });
-    return;
-  }
+  if (handleValidationError(error, reply)) return;
   if (error instanceof SecretPersistenceError) {
     void reply.code(400).send({ code: "INVALID_INPUT" });
     return;
@@ -324,7 +351,10 @@ function handleError(
     void reply.code(error.statusCode).send(error.toSafeResponse());
     return;
   }
-  if (error instanceof PhotoReservationError) {
+  if (
+    error instanceof PhotoReservationError ||
+    error instanceof ProviderServiceError
+  ) {
     void reply.code(error.statusCode).send({ code: error.code });
     return;
   }
@@ -339,6 +369,18 @@ function handleError(
     error: error instanceof Error ? error : new Error("UNKNOWN_ERROR"),
   });
   void reply.code(500).send({ code: "INTERNAL_ERROR" });
+}
+
+function handleValidationError(error: unknown, reply: FastifyReply): boolean {
+  if (!(error instanceof ZodError)) return false;
+  void reply.code(400).send({
+    code: "INVALID_INPUT",
+    issues: error.issues.map((issue) => ({
+      path: issue.path.join("."),
+      message: issue.message,
+    })),
+  });
+  return true;
 }
 
 function clientErrorStatus(error: unknown): number | null {

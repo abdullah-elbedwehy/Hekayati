@@ -21,11 +21,12 @@ const providerStatusSchema = z.enum([
 export const settingsSchema = z
   .object({
     id: z.literal("operator"),
-    schemaVersion: z.literal(2),
+    schemaVersion: z.literal(3),
     createdAt: z.iso.datetime(),
     updatedAt: z.iso.datetime(),
     textProvider: z.enum(["mock", "codex", "gemini"]),
     imageProvider: z.enum(["mock", "codex", "gemini"]),
+    geminiImageTier: z.enum(["default", "economy"]),
     models: z
       .object({
         codexText: z.string().trim().min(1).max(120),
@@ -64,6 +65,7 @@ export const settingsUpdateSchema = settingsSchema
   .pick({
     textProvider: true,
     imageProvider: true,
+    geminiImageTier: true,
     models: true,
     concurrencyPerProvider: true,
     typography: true,
@@ -89,11 +91,16 @@ export class SettingsService {
   }
 
   initialize(): Settings {
-    this.store.migrateDocuments("settings", 2, settingsSchema, [
+    this.store.migrateDocuments("settings", 3, settingsSchema, [
       {
         from: 1,
         to: 2,
         migrate: migrateSettingsV1ToV2,
+      },
+      {
+        from: 2,
+        to: 3,
+        migrate: migrateSettingsV2ToV3,
       },
     ]);
     const existing = this.repository.get("operator");
@@ -129,11 +136,12 @@ export class SettingsService {
     const now = new Date().toISOString();
     return settingsSchema.parse({
       id: "operator",
-      schemaVersion: 2,
+      schemaVersion: 3,
       createdAt: now,
       updatedAt: now,
       textProvider: "mock",
       imageProvider: "mock",
+      geminiImageTier: "default",
       models: DEFAULT_MODELS,
       concurrencyPerProvider: 2,
       typography: { minimumAge3To5Pt: 14, minimumAge6PlusPt: 12 },
@@ -147,11 +155,28 @@ export class SettingsService {
       },
       firstRunAcknowledged: false,
       deferredStatus: {
-        providerLifecycle: "not_configured",
+        providerLifecycle: "available",
         printerProfiles: "not_configured",
       },
     });
   }
+}
+
+function migrateSettingsV2ToV3(input: unknown): unknown {
+  if (!input || typeof input !== "object") {
+    throw new Error("INVALID_SETTINGS_MIGRATION");
+  }
+  const record = input as Record<string, unknown>;
+  const deferred =
+    record.deferredStatus && typeof record.deferredStatus === "object"
+      ? (record.deferredStatus as Record<string, unknown>)
+      : {};
+  return {
+    ...record,
+    schemaVersion: 3,
+    geminiImageTier: "default",
+    deferredStatus: { ...deferred, providerLifecycle: "available" },
+  };
 }
 
 function migrateSettingsV1ToV2(input: unknown): unknown {

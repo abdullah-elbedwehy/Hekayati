@@ -96,18 +96,18 @@ Format: `[ID] [P?] [Refs] Description` — **[P]** = parallelizable (different f
 **User-visible outcome**: settings show real provider health/capabilities; connection tests work; mock provider full-featured; Codex/Gemini adapters conformant.
 **Dependencies**: Phases 0, 1 (parallel to 2–3 after contract tasks).
 
-- [ ] T-P4-01 Canonical contract types + zod schemas in code, mirroring contracts/\*.md exactly, including persisted `ImageRequestDraft` vs ephemeral `ResolvedImageRequest`; schema fixture suite (valid/invalid per structured-outputs §§1–5) (`src/providers/contract.ts`, `schemas/`) [FR-090/091/134]
-- [ ] T-P4-02 Provider conformance test harness (runs against any adapter): adapters receive only resolver-approved bytes/safe metadata and have no asset-store/original handle; operations, cancellation, timeout, error normalization table, provenance completeness, capability/account failures, malformed image variants, reference-capacity changes, and economy warnings [FR-075/092/094/098/102/103/105–108/134, EC-D01–D02/D04–D08/D13–D15/D17–D18]
-- [ ] T-P4-03 Mock provider: deterministic outputs by request hash, scriptable faults per taxonomy row, synthetic image fixtures (`src/providers/mock/`) [FR-099]
-- [ ] T-P4-04 [P] Gemini adapter: @google/genai, Keychain key per call, structured via responseSchema + local revalidation, multi-reference images, model probe, economy flag (`src/providers/gemini/`) [FR-105–108]
-- [ ] T-P4-05 [P] Codex adapter (scope per G1-T outcome): execFile exec wrapper, auth-state detection, structured output per installed CLI, process-kill cancellation; image slot returns G1-I unavailableReason (`src/providers/codex/`) [FR-100–103]
-- [ ] T-P4-06 Prompt compilers per adapter: GenerationTask → provider prompts; three extensible style configurations; versioned prompt templates; mandatory text-free, illustrated-likeness, safety, and participant negative constraints; deny-list transformation flow with operator confirmation UI [FR-070–073/115, CHK104/105]
-- [ ] T-P4-07 Reference budgeting logic from capability matrix values (not constants); provenance notes on reduction [CHK114/115]
-- [ ] T-P4-08 Settings/health integration: provider selection combos, key lifecycle, connection tests, auth/availability state, capability warnings (economy, Codex image unavailability), and model availability surfacing [FR-095/098, FR-137/138 provider stage, US8]
-- [ ] T-P4-09 Live-validation scripts (operator-triggered, not CI): one structured + one image smoke per configured provider [test-strategy §live]
-- [ ] T-P4-10 E2E: US8 scenarios incl. key lifecycle + secret-scan assertions (SC-005 partial)
+- [x] T-P4-01 Canonical contract types + zod schemas in code, mirroring contracts/\*.md exactly, including persisted `ImageRequestDraft` vs ephemeral `ResolvedImageRequest`; schema fixture suite (valid/invalid per structured-outputs §§1–5) (`src/providers/contract.ts`, `schemas/`) [FR-090/091/134]
+- [x] T-P4-02 Provider conformance test harness (runs against any adapter): adapters receive only resolver-approved bytes/safe metadata and have no asset-store/original handle; operations, cancellation, timeout, error normalization table, provenance completeness, capability/account failures, malformed image variants, reference-capacity changes, and economy warnings [FR-075/092/094/098/102/103/105–108/134, EC-D01–D02/D04–D08/D13–D15/D17–D18]
+- [x] T-P4-03 Mock provider: deterministic outputs by request hash, scriptable faults per taxonomy row, synthetic image fixtures (`src/providers/mock/`) [FR-099]
+- [x] T-P4-04 [P] Gemini adapter: @google/genai, Keychain key per call, structured via responseSchema + local revalidation, multi-reference images, model probe, economy flag (`src/providers/gemini/`) [FR-105–108]
+- [x] T-P4-05 [P] Codex adapter (scope per G1-T outcome): execFile exec wrapper, auth-state detection, structured output per installed CLI, process-kill cancellation; image slot returns G1-I unavailableReason (`src/providers/codex/`) [FR-100–103]
+- [x] T-P4-06 Prompt compilers per adapter: GenerationTask → provider prompts; three extensible style configurations; versioned prompt templates; mandatory text-free, illustrated-likeness, safety, and participant negative constraints; deny-list transformation flow with operator confirmation UI [FR-070–073/115, CHK104/105]
+- [x] T-P4-07 Reference budgeting logic from capability matrix values (not constants); provenance notes on reduction [CHK114/115]
+- [x] T-P4-08 Settings/health integration: provider selection combos, key lifecycle, connection tests, auth/availability state, capability warnings (economy, Codex image unavailability), and model availability surfacing [FR-095/098, FR-137/138 provider stage, US8]
+- [x] T-P4-09 Live-validation scripts (operator-triggered, not CI): one structured + one image smoke per configured provider [test-strategy §live]
+- [x] T-P4-10 E2E: US8 scenarios incl. key lifecycle + secret-scan assertions (SC-005 partial)
 
-**Checkpoint**: conformance suite green on mock + fixture-mode adapters; live smoke passes on operator machine. **DoD**: CHK101–115 satisfiable; lint boundary rule active.
+**Checkpoint**: PASS 2026-07-14 — conformance suite green on mock + fixture-mode adapters; configured Codex structured live smoke PASS, unsupported Codex image and unconfigured Gemini paths explicitly SKIP without a call. **DoD**: CHK101–115 satisfied; lint boundary rule active.
 
 ---
 

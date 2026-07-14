@@ -3,6 +3,7 @@ import { defineConfig, devices } from "@playwright/test";
 export default defineConfig({
   testDir: "./tests/e2e",
   fullyParallel: false,
+  workers: 1,
   retries: 0,
   reporter: [["list"]],
   use: {
@@ -14,7 +15,8 @@ export default defineConfig({
     viewport: { width: 1440, height: 900 },
   },
   webServer: {
-    command: "rm -rf .tmp/e2e && npm run build && npm run app:test",
+    command:
+      "rm -rf .tmp/e2e .tmp/e2e-keychain .tmp/e2e-provider-calls.log && npm run build && npm run app:test",
     url: "http://127.0.0.1:4317/api/bootstrap",
     reuseExistingServer: false,
     timeout: 120_000,

@@ -25,6 +25,13 @@ import type {
   AuthoringTemplateContent,
   MentionCandidate,
   PageCountPlan,
+  GeminiCredentialStatus,
+  PromptPolicyCheck,
+  PromptPolicyConfirmation,
+  ProviderId,
+  ProviderStatusSnapshot,
+  ProviderTestResult,
+  IllustrationStyleId,
 } from "./types";
 
 interface BootstrapResponse {
@@ -138,6 +145,44 @@ export class ApiClient {
       method: "PUT",
       body: JSON.stringify(update),
     });
+  }
+
+  providerStatus(): Promise<ProviderStatusSnapshot> {
+    return this.request("/api/providers/status");
+  }
+
+  testProvider(providerId: ProviderId): Promise<ProviderTestResult> {
+    return this.json(`/api/providers/${providerId}/test`, "POST", {});
+  }
+
+  geminiCredential(): Promise<GeminiCredentialStatus> {
+    return this.request("/api/providers/gemini/credential");
+  }
+
+  saveGeminiCredential(key: string): Promise<GeminiCredentialStatus> {
+    return this.json("/api/providers/gemini/credential", "PUT", { key });
+  }
+
+  deleteGeminiCredential(): Promise<GeminiCredentialStatus> {
+    return this.json("/api/providers/gemini/credential", "DELETE", {});
+  }
+
+  checkPromptPolicy(
+    prompt: string,
+    styleId: IllustrationStyleId,
+  ): Promise<PromptPolicyCheck> {
+    return this.json("/api/providers/prompt-policy/check", "POST", {
+      prompt,
+      styleId,
+    });
+  }
+
+  confirmPromptPolicy(input: {
+    prompt: string;
+    styleId: IllustrationStyleId;
+    bindingHash: string;
+  }): Promise<PromptPolicyConfirmation> {
+    return this.json("/api/providers/prompt-policy/confirm", "POST", input);
   }
 
   health(): Promise<HealthSnapshot> {
@@ -488,6 +533,7 @@ export function toSettingsUpdate(settings: Settings): SettingsUpdate {
   const {
     textProvider,
     imageProvider,
+    geminiImageTier,
     models,
     concurrencyPerProvider,
     typography,
@@ -500,6 +546,7 @@ export function toSettingsUpdate(settings: Settings): SettingsUpdate {
   return {
     textProvider,
     imageProvider,
+    geminiImageTier,
     models,
     concurrencyPerProvider,
     typography,

@@ -1,17 +1,36 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { once } from "node:events";
 import { createServer } from "node:net";
+import { resolve } from "node:path";
 
 export interface RunningApp {
   child: ChildProcess;
   origin: string;
 }
 
-export function startApp(dataDir: string, port: number): Promise<RunningApp> {
+export interface StartAppOptions {
+  entryScript?: string;
+  environment?: NodeJS.ProcessEnv;
+}
+
+export function startApp(
+  dataDir: string,
+  port: number,
+  options: StartAppOptions = {},
+): Promise<RunningApp> {
   const origin = `http://127.0.0.1:${port}`;
+  const fixtureEnvironment = {
+    HEKAYATI_FAKE_SECURITY_BINARY: resolve("tests/fixtures/fake-security.ts"),
+    HEKAYATI_FAKE_KEYCHAIN_FILE: `${dataDir}-keychain/operator.secret`,
+    HEKAYATI_PROVIDER_CALL_LOG: `${dataDir}-provider-calls.log`,
+  };
   const child = spawn(
     process.execPath,
-    ["--import", "tsx", "src/server/index.ts"],
+    [
+      "--import",
+      "tsx",
+      options.entryScript ?? "tests/fixtures/start-provider-app.ts",
+    ],
     {
       cwd: process.cwd(),
       env: {
@@ -19,6 +38,8 @@ export function startApp(dataDir: string, port: number): Promise<RunningApp> {
         HEKAYATI_DATA_DIR: dataDir,
         HEKAYATI_PORT: String(port),
         HEKAYATI_NO_OPEN: "1",
+        ...fixtureEnvironment,
+        ...options.environment,
       },
       stdio: ["ignore", "pipe", "pipe"],
     },

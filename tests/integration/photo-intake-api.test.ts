@@ -479,6 +479,7 @@ function settingsUpdate(settings: Record<string, unknown>) {
   const writable = [
     "textProvider",
     "imageProvider",
+    "geminiImageTier",
     "models",
     "concurrencyPerProvider",
     "typography",

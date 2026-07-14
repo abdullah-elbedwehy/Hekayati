@@ -6,6 +6,7 @@ import "./styles.css";
 import "./library.css";
 import "./photo-intake.css";
 import "./authoring.css";
+import "./providers.css";
 import "./responsive.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(

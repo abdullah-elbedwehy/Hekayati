@@ -197,7 +197,13 @@ function CurrentView(props: ShellProps) {
   if (props.view === "library") return <LibraryView client={props.client} />;
   if (props.view === "projects") return <ProjectsView client={props.client} />;
   if (props.view === "settings")
-    return <SettingsView settings={props.settings} onSave={props.save} />;
+    return (
+      <SettingsView
+        client={props.client}
+        settings={props.settings}
+        onSave={props.save}
+      />
+    );
   return (
     <HealthView
       health={props.health}

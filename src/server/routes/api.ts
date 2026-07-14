@@ -8,9 +8,11 @@ import type { SecuritySentinel } from "../../domain/system/sentinel.js";
 import type { HealthService } from "../health/health-service.js";
 import type { LocalRequestBoundary } from "../security/request-boundary.js";
 import type { PhotoIntakeCoordinator } from "../photo-intake/photo-intake-coordinator.js";
+import type { ProviderService } from "../providers/provider-service.js";
 import { registerLibraryApi } from "./library-api.js";
 import { registerAuthoringApi } from "./authoring-api.js";
 import { registerPhotoIntakeApi } from "./photo-intake-api.js";
+import { registerProviderApi } from "./provider-api.js";
 
 export interface ApiDependencies {
   assets: AssetStore;
@@ -19,6 +21,7 @@ export interface ApiDependencies {
   authoring: AuthoringService;
   photoIntake: PhotoIntakeCoordinator;
   health: HealthService;
+  providers: ProviderService;
   boundary: LocalRequestBoundary;
   sentinel: SecuritySentinel;
   enableTestRoutes: boolean;
@@ -46,6 +49,7 @@ export function registerApi(
   registerLibraryApi(app, dependencies.library, dependencies.assets);
   registerAuthoringApi(app, dependencies.authoring, dependencies.library);
   registerPhotoIntakeApi(app, dependencies.photoIntake);
+  registerProviderApi(app, dependencies.providers);
 
   if (dependencies.enableTestRoutes) {
     app.get("/api/testing/sentinel", () => ({ value: sentinel.value() }));

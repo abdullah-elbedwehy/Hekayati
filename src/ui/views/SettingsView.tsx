@@ -5,10 +5,12 @@ import {
   type SetStateAction,
 } from "react";
 
-import { StatusLine } from "../components/StatusLine";
+import type { ApiClient } from "../api";
+import { ProviderSettingsPanel } from "../components/providers/ProviderSettingsPanel";
 import type { Settings } from "../types";
 
 interface SettingsViewProps {
+  client: ApiClient;
   settings: Settings;
   onSave: (settings: Settings) => Promise<void>;
 }
@@ -16,14 +18,7 @@ interface SettingsViewProps {
 type DraftSetter = Dispatch<SetStateAction<Settings>>;
 type SaveState = "idle" | "saving" | "saved" | "error";
 
-const modelFields: Array<{ key: keyof Settings["models"]; label: string }> = [
-  { key: "codexText", label: "نموذج نص Codex" },
-  { key: "geminiText", label: "نموذج نص Gemini" },
-  { key: "geminiImage", label: "نموذج صور Gemini" },
-  { key: "geminiImageEconomy", label: "نموذج الصور الاقتصادي" },
-];
-
-export function SettingsView({ settings, onSave }: SettingsViewProps) {
+export function SettingsView({ client, settings, onSave }: SettingsViewProps) {
   const [draft, setDraft] = useState(settings);
   const [state, setState] = useState<SaveState>("idle");
   const acknowledged = settings.firstRunAcknowledged;
@@ -47,107 +42,16 @@ export function SettingsView({ settings, onSave }: SettingsViewProps) {
         </p>
       </header>
       <form className="settings-form" onSubmit={(event) => void submit(event)}>
-        <ProviderSection draft={draft} setDraft={setDraft} />
+        <ProviderSettingsPanel
+          client={client}
+          draft={draft}
+          setDraft={setDraft}
+        />
         <FoundationSection draft={draft} setDraft={setDraft} />
         <StorageSection settings={draft} />
         <FormActions state={state} />
       </form>
     </main>
-  );
-}
-
-function ProviderSection({ draft, setDraft }: DraftProps) {
-  return (
-    <section className="section" aria-labelledby="provider-heading">
-      <div className="section-heading">
-        <div>
-          <p className="eyebrow">الاختيار المستقبلي</p>
-          <h2 id="provider-heading">المزوّدون والنماذج</h2>
-        </div>
-        <span className="status-chip status-chip--pending">غير مُعَدّ</span>
-      </div>
-      <DeferredSettingsStatus settings={draft} />
-      <div className="form-grid">
-        <ProviderSelectors draft={draft} setDraft={setDraft} />
-        <ModelFields draft={draft} setDraft={setDraft} />
-      </div>
-    </section>
-  );
-}
-
-function DeferredSettingsStatus({ settings }: { settings: Settings }) {
-  return (
-    <div className="status-list deferred-settings">
-      <StatusLine
-        label="دورة اتصال المزوّدين"
-        status={deferredLabel(settings.deferredStatus.providerLifecycle)}
-        tone="pending"
-      />
-      <StatusLine
-        label="ملفات الطباعة"
-        status={deferredLabel(settings.deferredStatus.printerProfiles)}
-        tone="pending"
-      />
-    </div>
-  );
-}
-
-function ProviderSelectors({ draft, setDraft }: DraftProps) {
-  return (
-    <>
-      <label className="field">
-        <span>مزوّد النص</span>
-        <select
-          value={draft.textProvider}
-          onChange={(event) =>
-            setDraft((current) => ({
-              ...current,
-              textProvider: provider(event.target.value),
-            }))
-          }
-        >
-          <option value="mock">المزوّد التجريبي</option>
-          <option value="codex">Codex</option>
-          <option value="gemini">Gemini</option>
-        </select>
-      </label>
-      <label className="field">
-        <span>مزوّد الصور</span>
-        <select
-          value={draft.imageProvider}
-          onChange={(event) =>
-            setDraft((current) => ({
-              ...current,
-              imageProvider: provider(event.target.value),
-            }))
-          }
-        >
-          <option value="mock">المزوّد التجريبي</option>
-          <option value="gemini">Gemini</option>
-          <option value="codex">Codex، غير متاح حاليًا للصور</option>
-        </select>
-      </label>
-    </>
-  );
-}
-
-function ModelFields({ draft, setDraft }: DraftProps) {
-  return (
-    <>
-      {modelFields.map((field) => (
-        <ModelField
-          key={field.key}
-          label={field.label}
-          value={draft.models[field.key]}
-          onChange={(value) =>
-            setDraft((current) => ({
-              ...current,
-              models: { ...current.models, [field.key]: value },
-            }))
-          }
-        />
-      ))}
-    </>
   );
 }
 
@@ -305,23 +209,6 @@ interface DraftProps {
   setDraft: DraftSetter;
 }
 
-function ModelField(props: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-}) {
-  return (
-    <label className="field">
-      <span>{props.label}</span>
-      <input
-        dir="ltr"
-        value={props.value}
-        onChange={(event) => props.onChange(event.target.value)}
-      />
-    </label>
-  );
-}
-
 function NumberField(props: {
   label: string;
   value: number;
@@ -352,14 +239,6 @@ function updateTypography(
     ...current,
     typography: { ...current.typography, [key]: value },
   }));
-}
-
-function provider(value: string): Settings["textProvider"] {
-  return value === "codex" || value === "gemini" ? value : "mock";
-}
-
-function deferredLabel(status: "not_configured"): string {
-  return status === "not_configured" ? "غير مُعَدّ" : "غير متاح";
 }
 
 function saveMessage(state: SaveState): string {

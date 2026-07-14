@@ -7,6 +7,10 @@ import type { DataPaths } from "../../config/paths.js";
 import type { DocumentStore } from "../../domain/repository/document-store.js";
 import type { SettingsService } from "../../domain/settings/settings.js";
 import type { LocalRequestBoundary } from "../security/request-boundary.js";
+import type {
+  ProviderHealthSnapshot,
+  ProviderService,
+} from "../providers/provider-service.js";
 
 const GIB = 1024 ** 3;
 
@@ -20,7 +24,7 @@ export interface HealthSnapshot {
   };
   integrity: IntegrityReport;
   listener: { status: "ok" | "error"; canonicalOrigin: string | null };
-  providers: { status: "not_configured" };
+  providers: ProviderHealthSnapshot | { status: "not_configured" };
   queue: { status: "not_available"; depth: null };
   printerProfiles: { status: "not_configured" };
 }
@@ -36,6 +40,7 @@ export class HealthService {
     private readonly paths: DataPaths,
     initialIntegrity: IntegrityReport,
     private readonly originals?: OriginalAssetStore,
+    private readonly providers?: ProviderService,
   ) {
     this.integrity = initialIntegrity;
   }
@@ -54,7 +59,9 @@ export class HealthService {
         status: listener.ready && listener.canonicalOrigin ? "ok" : "error",
         canonicalOrigin: listener.canonicalOrigin,
       },
-      providers: { status: "not_configured" },
+      providers: this.providers?.healthSnapshot() ?? {
+        status: "not_configured",
+      },
       queue: { status: "not_available", depth: null },
       printerProfiles: { status: "not_configured" },
     };

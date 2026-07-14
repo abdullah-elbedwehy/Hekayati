@@ -1,10 +1,11 @@
 export interface Settings {
   id: "operator";
-  schemaVersion: 2;
+  schemaVersion: 3;
   createdAt: string;
   updatedAt: string;
   textProvider: "mock" | "codex" | "gemini";
   imageProvider: "mock" | "codex" | "gemini";
+  geminiImageTier: "default" | "economy";
   models: {
     codexText: string;
     geminiText: string;
@@ -20,7 +21,7 @@ export interface Settings {
   storagePathsReadonly: { data: string; assets: string };
   firstRunAcknowledged: boolean;
   deferredStatus: {
-    providerLifecycle: "not_configured";
+    providerLifecycle: "available";
     printerProfiles: "not_configured";
   };
 }
@@ -29,6 +30,7 @@ export type SettingsUpdate = Pick<
   Settings,
   | "textProvider"
   | "imageProvider"
+  | "geminiImageTier"
   | "models"
   | "concurrencyPerProvider"
   | "typography"
@@ -38,6 +40,68 @@ export type SettingsUpdate = Pick<
   | "photoMaxMegapixels"
   | "firstRunAcknowledged"
 >;
+
+export type ProviderId = "mock" | "codex" | "gemini";
+export type IllustrationStyleId =
+  "modern_cartoon" | "colorful_2d" | "soft_watercolor";
+
+export interface ProviderProjection {
+  state: "not_checked" | "available" | "unavailable";
+  checkedAt: string | null;
+  source: "fixture" | "cache" | "live" | null;
+  authState: "ok" | "missing" | "expired" | "error" | null;
+  text: {
+    available: boolean;
+    structured: boolean;
+    modelId?: string;
+    unavailableReason?: string;
+  } | null;
+  image: {
+    available: boolean;
+    modelId?: string;
+    maxReferenceImages: number | null;
+    reliableCharacterCount: number | null;
+    economyTier: boolean;
+    unavailableReason?: string;
+  } | null;
+  unavailableReason: string | null;
+}
+
+export interface GeminiCredentialStatus {
+  present: boolean;
+  masked: "••••••••" | null;
+}
+
+export interface ProviderStatusSnapshot {
+  status: "available";
+  checkedAt: string;
+  selected: { text: ProviderId; image: ProviderId };
+  models: Settings["models"];
+  geminiImageTier: Settings["geminiImageTier"];
+  credential: GeminiCredentialStatus;
+  providers: Record<ProviderId, ProviderProjection>;
+}
+
+export interface ProviderTestResult {
+  tested: ProviderId;
+  provider: ProviderProjection;
+}
+
+export type PromptPolicyCheck =
+  | { status: "allowed"; policyVersion: string }
+  | {
+      status: "confirmation_required";
+      policyVersion: string;
+      alternativePrompt: string;
+      matchedCategories: Array<"franchise_trademark" | "living_artist">;
+      bindingHash: string;
+    };
+
+export interface PromptPolicyConfirmation {
+  policyVersion: string;
+  bindingHash: string;
+  confirmed: true;
+}
 
 export interface IntegrityReport {
   checked: number;
@@ -56,7 +120,13 @@ export interface HealthSnapshot {
   };
   integrity: IntegrityReport;
   listener: { status: "ok" | "error"; canonicalOrigin: string | null };
-  providers: { status: "not_configured" };
+  providers:
+    | { status: "not_configured" }
+    | {
+        status: "available";
+        selected: { text: ProviderId; image: ProviderId };
+        connections: Record<ProviderId, ProviderProjection>;
+      };
   queue: { status: "not_available"; depth: null };
   printerProfiles: { status: "not_configured" };
 }
