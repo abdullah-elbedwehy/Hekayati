@@ -13,13 +13,14 @@
 
 ## Child-Image Privacy
 
-- [ ] CHK206 Consent recorded (date+note) before any provider call with photos; block message exact (FR-004)
+- [ ] CHK206 Current granted consent (date+note) is required at enqueue and immediately before every provider call with direct photos or transitively photo-derived sheets; wholly description-derived sheets follow the zero-photo exception; absent/refused codes are exact and rejected fixtures make zero network calls (FR-004, EC-H14)
 - [ ] CHK207 Provider payloads contain only per-call minimum (audited payload snapshot test) (FR-134)
-- [ ] CHK208 GPS/EXIF stripped from working copies; originals never sent to providers (FR-021)
+- [ ] CHK208 GPS/EXIF/IPTC/XMP stripped from working/crop/thumbnail assets; private originals have no provider-ID path; provider resolver accepts only explicit clean `providerAssetId`/approved-sheet records (FR-021/025)
 - [ ] CHK209 Permanent deletion removes DB records AND disk media; verified by post-delete FS scan (FR-005)
 - [ ] CHK210 Cross-family selection blocked structurally (FR-003)
 - [ ] CHK211 Template-from-story strips photos/names/mentions (FR-051 privacy fixture)
 - [ ] CHK212 No telemetry/analytics/external calls besides selected provider endpoints (FR-132 — network capture test)
+- [ ] CHK227 Every accepted upload atomically links a private exact original to metadata-clean working/thumbnail/required-face-crop derivatives and its owning version; runtime staging is opaque/non-product state, new photo-only character creation is atomic, ordinary browser/provider paths accept only explicit derivatives, and cancel/failure/restart leaves no DB or filesystem residue (FR-019/021/024/025)
 
 ## Local-Only Operation
 
@@ -36,7 +37,7 @@ Phase 1 evidence is recorded in `specs/002-local-foundation/IMPLEMENTATION_NOTES
 
 ## Intake & Archive Safety
 
-- [ ] CHK216 File type validated by content; size limits enforced (FR-022)
+- [ ] CHK216 Streaming compressed-byte and decoded-pixel limits are enforced from settings; type is validated by content + successful decode, and spoofed/corrupt/bomb fixtures leave no state (FR-022)
 - [ ] CHK217 ZIP import rejects traversal/symlink/executable/corrupt/future-version fixtures pre-write (FR-128, EC-G01–G10)
 - [ ] CHK218 Import atomic: interrupted-commit fixture leaves zero visible partial state (EC-G08)
 - [ ] CHK219 Export secret-scan gate fails archives containing seeded secrets (FR-126, EC-G11)

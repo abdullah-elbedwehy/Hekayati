@@ -7,13 +7,13 @@
 | ID     | Case                                                       | Defined behavior                                                                             | Refs                          |
 | ------ | ---------------------------------------------------------- | -------------------------------------------------------------------------------------------- | ----------------------------- |
 | EC-A01 | No photo                                                   | Description-only mode fully supported; sheet generated from description                      | FR-010                        |
-| EC-A02 | One photo only                                             | Allowed; intake shows recommended-input checklist + "limited references" warning             | FR-023                        |
+| EC-A02 | One photo only                                             | Allowed; intake requires the face subject box where applicable and shows recommended-input checklist + "limited references" warning | FR-023/024 |
 | EC-A03 | Conflicting photos (hair/clothes/age differ)               | Non-blocking warning listing the specific conflict; operator picks canonical refs            | FR-023                        |
-| EC-A04 | Two people in one photo                                    | Photo unusable as face ref until intended person marked (crop/select)                        | FR-024                        |
+| EC-A04 | Two people in one photo                                    | Runtime staging may preview a safe thumbnail, but commit is blocked until the intended person is explicitly marked; only the crop becomes provider-eligible | FR-024/025 |
 | EC-A05 | Identical names                                            | Picker disambiguates by thumbnail + relationship; IDs distinct                               | FR-036, E6                    |
 | EC-A06 | Character renamed                                          | Mentions re-render new name; references intact (ID-bound)                                    | FR-035, FR-039, IM-05         |
-| EC-A07 | Character deleted while referenced                         | Blocked; affected-scenes list; resolve = replace / remove mentions / cancel                  | FR-039                        |
-| EC-A08 | Character archived but used by old project                 | Old project keeps pinned versions; character hidden from new pickers                         | data-model §conventions       |
+| EC-A07 | Character removed from a project while referenced          | Blocked; affected-scenes list; resolve = replace / remove mentions / cancel                  | FR-039                        |
+| EC-A08 | Character archived but used by old project                 | Old project keeps pinned versions with archived indicator; character hidden from new pickers; no invalidation | FR-018, IM-21 |
 | EC-A09 | More characters than image model supports                  | Compile-time warning at C-08 threshold; proceed needs confirmation; reference budgeting note | FR-075, capability matrix §4  |
 | EC-A10 | Pet confused with another pet                              | Pets are full characters with own refs/sheet; review checklist covers duplication            | FR-010, FR-118                |
 | EC-A11 | Wrong age/gender/skin tone/clothing/relationship in output | Review checklist items; regenerate page or fix profile (versioned paths differ)              | FR-118, IM-01/04              |
@@ -22,6 +22,7 @@
 | EC-A14 | Face drifts between pages                                  | Consistency view (sheet vs page crops); page-level regeneration                              | FR-119, FR-063                |
 | EC-A15 | Two characters' faces swapped                              | Review checklist "no identity swap"; regenerate affected page                                | FR-118                        |
 | EC-A16 | Mention props conflict with profile (e.g., look not owned) | SceneList validation fails: lookId must exist                                                | structured-outputs §3         |
+| EC-A17 | Possible duplicate person in a family                      | Family-local advisory offers open-existing/create-separate; duplicate names remain valid; no biometric match, auto-merge, or cross-family disclosure | FR-019, C-19 |
 
 ## B — Story
 
@@ -154,3 +155,4 @@
 | EC-H11 | Cross-origin or opaque-origin API request          | Any present non-canonical/`null` `Origin` is rejected before route dispatch               | FR-148, SC-014 |
 | EC-H12 | Forged state change lacks trusted source or token  | Missing/bad `Origin` (or exact `Referer` fallback) or CSRF token rejects with zero mutation | FR-148, SC-014 |
 | EC-H13 | App restarts while an old browser tab remains open | Old CSRF token fails closed; reloading the canonical app obtains a new token; persisted product state is unchanged | FR-148, SC-014 |
+| EC-H14 | Consent revoked after photo-bearing work is queued  | Immediate pre-dispatch current-consent check blocks direct-photo and photo-derived-sheet work without a network call; local records and completed artifacts remain intact; wholly description-derived work is unaffected | FR-004 |

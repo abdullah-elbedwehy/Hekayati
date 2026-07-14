@@ -11,7 +11,7 @@ Feature slices are primary delivery and verification owners. A slice does not ov
 | Slice | User-story ownership | Primary FR ownership |
 |---|---|---|
 | 002 | Shared platform under all journeys | FR-093, FR-097, FR-110, FR-130–133, FR-135, FR-137–138, FR-147–148 |
-| 003 | US1; data prerequisites for US2 | FR-001–004, FR-010–017, FR-020–024 |
+| 003 | US1; data prerequisites for US2 | FR-001–004, FR-010–025 (defined IDs, including FR-018/019/025) |
 | 004 | US3, US10 | FR-035–041, FR-045–053, FR-055–060 |
 | 005 | US8; provider portion of US4 | FR-090–091, FR-094–095, FR-098–103, FR-105–108, FR-134 |
 | 006 | Durable orchestration portion of US4 | FR-092, FR-096, FR-109, FR-111–114 |
@@ -21,7 +21,7 @@ Feature slices are primary delivery and verification owners. A slice does not ov
 | 010 | US9 | FR-005, FR-125–129 |
 | 011 | US11 | FR-140–146 |
 
-This partition owns all 117 existing FR IDs exactly once. Numeric gaps remain intentional. Interface consumers still cite the primary requirement: for example, 002 consumes provider provenance FR-094; 009 consumes book-assembly FR-057 and watermark FR-124; 010 owns deletion FR-005 while 003 supplies the affected entities; 011 consumes consent, provider, scheduler, style, and safety rules from 003/005/006/007.
+This partition owns all 120 current FR IDs exactly once. Numeric gaps remain intentional. Interface consumers still cite the primary requirement: for example, 002 consumes provider provenance FR-094; 004 implements the project-context FR-014(a)/IM-04 destination defined by 003; 009 consumes book-assembly FR-057 and watermark FR-124; 010 owns deletion FR-005 while 003 supplies the affected entities; 011 consumes consent, provider, scheduler, style, and safety rules from 003/005/006/007.
 
 ## Success criteria and clarifications
 
@@ -29,7 +29,7 @@ This partition owns all 117 existing FR IDs exactly once. Numeric gaps remain in
 |---|---|---|
 | Bible/shared | SC-001 | — |
 | 002 | SC-012, SC-014 | C-01, C-02, C-16–17 |
-| 003 | — | C-13 |
+| 003 | — | C-13, C-18–21 |
 | 004 | — | C-11 |
 | 005 | SC-004 | — |
 | 006 | SC-002, SC-009 | C-09 |
@@ -49,8 +49,8 @@ The canonical invalidation matrix remains one file because cascades cross featur
 |---|---|---|---|
 | Bible/shared | — | RR-13, RR-15 | — |
 | 002 | IM-18, IM-20 | RR-08, RR-12, RR-17 | EC-C07; EC-E07, E09–E10, E13; EC-H05–H06, H09–H13 |
-| 003 | IM-01–05 | — | EC-A01–A04, A08; EC-H01–H02 |
-| 004 | IM-16 | — | EC-A05–A07, A16; EC-B11–B12 |
+| 003 | IM-01–03, IM-05, IM-21 | RR-18 | EC-A01–A04, A08, A17; EC-H01–H02, H14 |
+| 004 | IM-04, IM-16 | — | EC-A05–A07, A16; EC-B11–B12 |
 | 005 | IM-17 | RR-01, RR-02, RR-04 | EC-D01–D02, D04–D08, D13–D15, D17–D18 |
 | 006 | — | RR-09, RR-16 | EC-D03, D09, D11–D12, D16; EC-E01–E06, E08, E12 |
 | 007 | IM-06, IM-08–10, IM-13 | RR-03, RR-07, RR-10 | EC-A09–A15; EC-B01–B10, B13; EC-C01–C02, C04–C06; EC-D10 |
@@ -59,19 +59,19 @@ The canonical invalidation matrix remains one file because cascades cross featur
 | 010 | — | RR-06 | EC-E11; EC-G01–G13; EC-H03–H04, H07–H08 |
 | 011 | Outside the matrix by FR-145 | No dedicated RR | EC-C11–C13 |
 
-All IM-01–20, RR-01–17, and 113 current EC IDs are accounted for. Slice 007 owns implementation verification of the shared book invalidation engine across every row; slice 011 proves it emits none of those book events.
+All IM-01–21, RR-01–18, and 115 current EC IDs are accounted for. Slice 007 owns implementation verification of the shared book invalidation engine across every row; slice 011 proves it emits none of those book events.
 
 ## Checklist evidence
 
 | Checklist | Primary slice routing |
 |---|---|
-| Product CHK001–026 | 003: 001–006; 007: 007–008 and 012–015; 004: 009–011; 006: 016–017; 005: 018–019; 008: 020–021; 009: 022–023; 010: 024; 002/shared: 025; 011: 026 |
+| Product CHK001–027 | 003: 001–006 and 027; 007: 007–008 and 012–015; 004: 009–011; 006: 016–017; 005: 018–019; 008: 020–021; 009: 022–023; 010: 024; 002/shared: 025; 011: 026 |
 | AI CHK101–120 | 005: 101–105, 111–115, 119–120; 006: 106–110, 116–118 |
-| Privacy CHK201–226 | 005: 201–203, 207; 002: 204–205, 212–215, 220–226; 003: 206, 208, 210; 010: 209, 216–219 plus export-screen evidence for 215; 004: 211 |
+| Privacy CHK201–227 | 005: 201–203, 207 plus provider contribution to 220; 002: 204–205, 212–214, 222–226 plus foundation contribution to 220 and first-run portion of 215; 003: 206, 208, 210, 216, 227 plus upload contribution to 220; 010: 209, 217–219 plus export contribution to 220 and export-screen evidence for 215; 004: 211 |
 | Print CHK301–318 | 009, with 008 supplying layout/preview inputs |
-| UX CHK401–426 | 002: 401–405, 414, 416, 420–424, 426; 004: 406–409; 006: 410–412; 007: 413, 419; 005: 415; 010: 417–418; 011: 425 |
+| UX CHK401–427 | 002: 401–405, 414, 416, 420–424, 426; 003: 427 plus slice rechecks of 401–405/420–424; 004: 406–409; 006: 410–412; 007: 413, 419; 005: 415; 010: 417–418; 011: 425 |
 
-All 116 checklist IDs retain their canonical wording in the bible.
+All 119 checklist IDs retain their canonical wording in the bible.
 
 ## Research, gates, and master tasks
 
@@ -79,23 +79,23 @@ All 116 checklist IDs retain their canonical wording in the bible.
 |---|---|---|
 | Bible/shared | Gate consolidation and integrated release | T-P0-08; T-P10-01–08 |
 | 002 | R1, R2, R4, R8, R13 | T-P1-01–11 |
-| 003 | Character/photo portions of data model | T-P2-01–06; US1 portion of T-P2-10 |
+| 003 | Character/photo portions of data model and R4/R12 intake decision | T-P2-01–06, T-P2-10, T-P2-12 |
 | 004 | Story/template portions of data model | T-P3-01–08 |
 | 005 | R5–R7; G1-T, G1-I, G2, G4; provider side of R12 | T-P0-01–05; T-P4-01–10 |
 | 006 | R3 | T-P5-01–09 |
-| 007 | Creative side of R12 | T-P2-07–08; US2 portion of T-P2-10; T-P6-01–09 |
+| 007 | Creative side of R12 | T-P2-07–08, T-P2-11; T-P6-01–09 |
 | 008 | R9 consumer; G3 consumer | T-P7-01–06 |
 | 009 | R9, R10; G3 | T-P0-06–07; T-P8-01–07 |
 | 010 | R11 | T-P2-09; T-P9-01–06 |
 | 011 | Consumer of R12, provider capabilities, and scheduler contracts | T-P6-10–12 |
 
-All 95 master task IDs remain in the bible. Phase preconditions, checkpoints, definitions of done, and the P0/P10 cross-feature gates remain authoritative there.
+All 97 master task IDs remain in the bible. Phase preconditions, checkpoints, definitions of done, and the P0/P10 cross-feature gates remain authoritative there.
 
 ## Shared artifacts retained in the bible
 
 - Product vision, gift-first rule, v1 scope/out-of-scope list, assumptions, examples E1–E8, all 11 user-story narratives, independent tests, and acceptance scenarios.
 - Integrated plan, architecture decisions, technical constraints, and project structure.
 - Research R1–R13, capability matrix, and feasibility gates G1-T, G1-I, G2, G3, G4.
-- Complete data model, provider/structured-output/scheduler contracts, state machines, invalidation matrix, edge catalog, risk register, test strategy, quickstart, checklists, and master tasks.
+- Complete data model, provider/structured-output/scheduler contracts, state machines, invalidation matrix, edge catalog, risk register, test strategy, quickstart, checklists, and master tasks. The readiness additions retain stable IDs and add only FR-018/019/025, C-18–21, IM-21, RR-18, EC-A17/H14, CHK027/227/427, and T-P2-11/12.
 
 These stay shared to avoid divergent contracts, copied privacy rules, competing state machines, or inconsistent cross-feature invalidation behavior.

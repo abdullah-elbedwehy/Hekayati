@@ -32,7 +32,8 @@ Canonical requirement wording, stable IDs, contracts, state machines, invalidati
 ```text
 full spec-graph approval → shared Phase 0 gates → 002
 002 ──▶ 003 ──▶ 004 ─────────────┐
-  └──▶ 005 ──▶ 006 ──────────────┤
+  └──▶ 005 ───────────┐           │
+003 + 005 ──▶ 006 ────┤           │
 003 + 004 + 005 + 006 ──▶ 007 ──▶ 008 ──▶ 009
                               ├──▶ 010 (parallel with 008/009)
                               └──▶ 011 (parallel with 008/009/010)

@@ -19,7 +19,7 @@ npm ci
 npm run app     # builds if needed, starts server on 127.0.0.1, opens the browser UI
 ```
 
-The app refuses to start unless its effective listener is the literal address `127.0.0.1`. Use the launcher-opened `http://127.0.0.1:<port>` URL; `localhost`, custom hostnames, proxies, and cross-origin access are intentionally rejected. An app restart rotates the browser-request token, so a tab left open across restart may require one reload. Data lives at `~/Library/Application Support/Hekayati/` (DB + assets). To stop: Ctrl-C; all product state survives restarts.
+The app refuses to start unless its effective listener is the literal address `127.0.0.1`. Use the launcher-opened `http://127.0.0.1:<port>` URL; `localhost`, custom hostnames, proxies, and cross-origin access are intentionally rejected. An app restart rotates the browser-request token, so a tab left open across restart may require one reload. Data lives at `~/Library/Application Support/Hekayati/` (DB, derived/generated `assets/`, and private local-only photo `originals/`). To stop: Ctrl-C; all committed product state survives restarts.
 
 ## First-run
 
@@ -29,8 +29,8 @@ The app refuses to start unless its effective listener is the literal address `1
 
 ## First book (happy path)
 
-1. «العملاء» → new customer: name, WhatsApp, **record photo consent** (generation is blocked without it).
-2. Create the family; add characters: upload photos (HEIC fine; intake shows the photo-quality checklist and warnings) or description-only; add looks; add pets.
+1. «العملاء» → new customer: name, WhatsApp, **record the photo-consent decision** with its date and note. Not recorded and recorded refusal are distinct states; either blocks photo-bearing generation while description-only work remains available.
+2. Create the family and choose its relationship anchor; add characters using photos (HEIC is accepted; intake shows the local quality checklist, warnings, and subject selection when needed) or description only; add looks and pets. Use «أرشفة» / «استعادة» for routine removal—permanent deletion is a separate confirmed workflow.
 3. New project → pick main child + participants with narrative roles → occasion, dedication, template (e.g., «مغامرة الفضاء»), 16 pages, tone, illustration style, optional hidden goal.
 4. Generate character sheets → export sheet PDF → send via WhatsApp yourself → record approval («موافقة» / «تعديلات مطلوبة» + notes).
 5. Start generation. Watch the queue («قائمة المهام»): progress, blocking reasons, pause/resume/cancel/retry/priority. You can work on another project meanwhile. If quota runs out you'll be asked: wait, or continue remaining pages on the other provider — nothing switches by itself.
@@ -48,7 +48,8 @@ Each implementation phase in `tasks.md` ends with a checkpoint runnable from thi
 
 | Symptom                                   | Where to look                                                |
 | ----------------------------------------- | ------------------------------------------------------------ |
-| Generation blocked "consent not recorded" | Customer card → consent toggle (FR-004)                      |
+| Generation blocked `PHOTO_CONSENT_NOT_RECORDED` | Customer card → record a dated consent decision (FR-004) |
+| Generation blocked `PHOTO_CONSENT_NOT_GRANTED` | Customer card → review the recorded refusal; never bypass it (FR-004) |
 | Jobs paused "quota exhausted"             | Queue banner → wait or switch decision (FR-096)              |
 | Cover blocked "spine width unknown"       | Printer profile → spine/template (FR-122)                    |
 | Model unavailable error                   | Settings → model IDs + connection test (FR-098)              |

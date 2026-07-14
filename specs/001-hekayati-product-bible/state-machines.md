@@ -73,3 +73,41 @@ Import: file_selected → validating(structure, manifest, checksums, path-safety
         → staged → committing(tx) → { imported | rolled_back(reason) }
 No state writes anything user-visible before `committing` succeeds (FR-128).
 ```
+
+## 8. Photo consent eligibility
+
+```text
+not_recorded ──record granted──▶ granted
+not_recorded ──record refusal──▶ not_granted
+granted ⇄ not_granted          # each recorded decision carries a fresh date + note
+any ──clear record──▶ not_recorded
+```
+
+Direct-photo and transitively photo-derived-sheet work requires `granted` both before enqueue and immediately before dispatch; wholly description-derived work does not. `not_recorded` returns `PHOTO_CONSENT_NOT_RECORDED`; `not_granted` returns `PHOTO_CONSENT_NOT_GRANTED`. A transition away from `granted` blocks queued photo-bearing work before network access but does not delete local/reference/completed artifacts (FR-004, EC-H14).
+
+## 9. Library visibility lifecycle
+
+```text
+active ⇄ archived
+archived ──feature 010 pre-report + explicit confirmation──▶ permanently_deleted
+```
+
+Archive/restore is reversible picker visibility only (FR-018, IM-21). Archiving a customer/family hides its descendants from new selection; existing pinned versions remain readable and carry an archived indicator. Permanent deletion is never an alias or automatic consequence of archive.
+
+Family anchor substate is monotonic: `empty_unanchored ──create first main_child atomically──▶ anchored`; `anchored ──archive anchor──▶ anchor_archived ──restore same anchor──▶ anchored`. Later-member creation and new Project/Studio selection require `anchored`. There is no v1 reassign transition, so old relationship versions can never silently change meaning (C-21).
+
+## 10. Reference-photo intake
+
+```text
+selected → private_runtime_reservation → streaming_limits → sniff_and_decode
+→ original_and_clean_derivatives_prepared → quality_findings
+quality_findings ──face kind──▶ subject_selection → crop_prepared
+quality_findings ──non-face kind──▶ ready_to_commit
+crop_prepared → ready_to_commit
+ready_to_commit ──possible duplicate──▶ operator(open_existing | create_separate)
+create_separate / no_duplicate → atomic_owner_commit → attached
+open_existing / cancel / expiry → rolled_back
+any pre-commit state ──failure or restart──▶ rolled_back_or_startup_gc
+```
+
+The reservation is not a visible domain record. Every face-kind intake requires a keyboard-operable subject rectangle; multi-person input cannot commit until the intended person is explicitly marked. `atomic_owner_commit` has two valid forms: (a) new photo-only character identity + first usable `CharacterVersion` + family-anchor assignment when applicable, or (b) append an existing owning `CharacterVersion`/`LookVersion` under expected-head CAS. In both forms the exact original, working copy, thumbnail, crop when required, immutable `ReferencePhoto`, head, and classified change events become visible together or not at all (FR-019/024/025). Normal cancellation compensates all prepared files; a crash before DB commit leaves only recognized unindexed reservation files for startup GC.

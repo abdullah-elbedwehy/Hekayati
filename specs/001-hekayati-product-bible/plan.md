@@ -10,8 +10,8 @@ Build a local, single-operator macOS web application that produces personalized 
 ## Technical Context
 
 **Language/Version**: TypeScript 5.x on Node.js current LTS (≥22)
-**Primary Dependencies**: Fastify (HTTP, loopback-bound), React 18 + Vite (RTL SPA), better-sqlite3 (embedded document store, WAL), Playwright/Chromium (Arabic PDF rendering), sharp + macOS `sips` (image processing, HEIC), Ghostscript (CMYK/ICC conversion), yazl/yauzl (ZIP), zod (schema validation for canonical contracts), @google/genai (Gemini), Codex CLI via `execFile` (subscription mode)
-**Storage**: SQLite file (document collections, JSON docs + indexed fields) at `~/Library/Application Support/Hekayati/hekayati.db`; content-addressed media under `.../assets/`; secrets in macOS Keychain only
+**Primary Dependencies**: Fastify + `@fastify/multipart` (loopback HTTP and bounded streaming upload), React 18 + Vite (RTL SPA), better-sqlite3 (embedded document store, WAL), Playwright/Chromium (Arabic PDF rendering), `file-type` + sharp + macOS `sips` (content sniff/decode, privacy-clean image processing, HEIC), Ghostscript (CMYK/ICC conversion), yazl/yauzl (ZIP), zod (schema validation for canonical contracts), @google/genai (Gemini), Codex CLI via `execFile` (subscription mode)
+**Storage**: SQLite file (document collections, JSON docs + indexed fields) at `~/Library/Application Support/Hekayati/hekayati.db`; content-addressed derived/generated media under `.../assets/`; exact local-only photo uploads under the separate provider-ineligible `.../originals/` namespace; secrets in macOS Keychain only
 **Testing**: Vitest (unit/integration), Playwright (E2E + visual regression incl. Arabic golden files), failure-injection harness over the mock provider; details in [test-strategy.md](./test-strategy.md)
 **Target Platform**: macOS (Apple Silicon + Intel), single machine, browser UI at `http://127.0.0.1:<port>`
 **Project Type**: Local web application (backend + frontend + worker in one process)
@@ -36,7 +36,7 @@ Build a local, single-operator macOS web application that produces personalized 
 | IX Versioned content | PASS | Version lineage on characters/looks/story/scenes/pages (data-model.md) |
 | X Explicit invalidation | PASS | invalidation-matrix.md is normative; staleness flags, never auto-regen |
 | XI Behavior-focused tests | PASS | test-strategy.md: black-box + failure injection; golden files for Arabic |
-| XII Researched choices | PASS | research.md R1–R12 with alternatives; gates G1–G4 |
+| XII Researched choices | PASS | research.md R1–R13 with alternatives; gates G1–G4 |
 | XIII Arabic & print quality | PASS | Chromium shaping (R9), preflight (R10), SC-006/SC-008 |
 | XIV Credential isolation | PASS | Keychain (R8), redaction tests (FR-131), export secret-scan (FR-126) |
 | XV Verifiable phases | PASS | tasks.md phases each end with checkpoint + DoD |
@@ -94,7 +94,7 @@ src/
 │   ├── codex/             # CLI adapter (execFile), error normalization
 │   └── gemini/            # @google/genai adapter
 ├── jobs/                  # scheduler, worker pool, leases, idempotency, recovery
-├── assets/                # content-addressed store, atomic writes, integrity scan
+├── assets/                # prepared content-addressed writes, derived/generated store, private originals, integrity scans
 ├── layout/                # text placement analysis, dialogue bubbles, typography rules
 ├── pdf/                   # HTML templates, Playwright renderer, watermark, preflight, cover/spine, Ghostscript CMYK
 ├── portability/           # export/import, manifest, secret-scan, ZIP safety
@@ -120,6 +120,7 @@ tests/
 6. **Printer truth lives in PrinterProfile** (R10): bleed/DPI/color/ICC/spine are per-printer data, never constants; spine width hard-blocks when unknown (FR-122).
 7. **Codex image mode gated, not assumed** (R6): G1-I expected to fail; product ships with Gemini images and an honest capability notice — no secret fallbacks (FR-100/102).
 8. **Loopback is a network boundary, not browser authentication** (R13): the server derives one canonical literal-IP origin from its verified listener; an earliest request hook rejects alternate authority before routing, a second guard enforces exact source origin plus a runtime-only CSRF token for unsafe methods, and cross-origin CORS/PNA opt-in headers are never emitted. Proxy trust stays disabled. This keeps the no-login operating model while closing DNS-rebinding and forged-browser-request paths (FR-147, FR-148).
+9. **Photo intake is local, streaming, and non-biometric** (R12, C-19/C-20): multipart uploads are byte-capped while streaming, content-sniffed then decoded, and committed only after a privacy-clean working copy plus its immutable `ReferencePhoto` record are valid. `sips` handles HEIC conversion and sharp handles deterministic image checks/transforms; semantic conflicts come from explicit operator observations. Originals remain local-only and are never provider-eligible.
 
 ## Complexity Tracking
 

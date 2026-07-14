@@ -28,19 +28,20 @@ Provider error normalization at the adapter boundary is owned by feature 005; th
 ## Dependencies and interfaces
 
 - Depends on feature 002 transactional storage, atomic assets, health alerts, and settings.
+- Depends on feature 003's shared consent/enqueue policy, provider-reference resolver, immutable owner versions, and trusted sheet-lineage contract.
 - Depends on feature 005 provider contract, capabilities, provenance, and normalized failures.
 - Supplies durable execution and human-gate primitives to features 007–011; Studio jobs in 011 deliberately use no human review gate or book dependency chain.
-- Consumes version snapshots from feature owners and must never infer invalidation or approval policy itself.
+- Consumes version snapshots from feature owners; it alone re-reads consent/reference state and creates ephemeral resolved requests immediately before dispatch, while never inferring invalidation or approval policy itself.
 
 ## User Scenarios & Testing *(mandatory)*
 
 Canonical story and scenarios: orchestration clauses of **US4** in the [product bible](../001-hekayati-product-bible/spec.md).
 
-Independent acceptance: run a 16-page deterministic mock graph, kill and restart at mid-flight, verify completed assets remain intact and no duplicates appear; inject quota exhaustion, late results, wall-clock jumps, disk full, and cancellation, verifying every canonical transition and operator-visible reason.
+Independent acceptance: run a 16-page deterministic mock graph, kill and restart at mid-flight, verify completed assets remain intact and no duplicates appear; revoke consent after enqueue and attempt an original/full-frame reference to prove the immediate recheck makes zero adapter/network call; inject quota exhaustion, late results, wall-clock jumps, disk full, and cancellation, verifying every canonical transition and operator-visible reason.
 
 ## Success Criteria *(mandatory)*
 
-Primary measurable outcomes: **SC-002 and SC-009**. CHK106–CHK110, CHK116–CHK118, CHK016–CHK017, and the scheduler failure-injection matrix provide the remaining evidence.
+Primary measurable outcomes: **SC-002 and SC-009**. CHK106–CHK110, CHK116–CHK118, CHK016–CHK017, the pre-dispatch portions of CHK206/208, and the scheduler failure-injection matrix provide the remaining evidence.
 
 ## Required bible artifacts
 

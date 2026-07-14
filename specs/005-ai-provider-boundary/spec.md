@@ -29,7 +29,7 @@ Failure retry policy, quota-pause transitions, and job durability are owned by f
 
 - Phase 0 gates **G1-T, G1-I, G2, and G4** are owned here; outcomes update the shared research, capability matrix, and risk register before dependent work.
 - Delivery depends on feature 002 Keychain, redaction, settings, assets, and health surfaces.
-- Feature 006 consumes normalized failures/capabilities and owns orchestration reactions.
+- Feature 006 consumes normalized failures/capabilities, owns orchestration reactions, and supplies adapters only ephemeral resolver-approved image bytes/safe metadata. Adapters never query 003 domain state or load arbitrary asset/original IDs.
 - Features 007 and 011 consume only canonical requests, schemas, capabilities, and validated results.
 
 ## User Scenarios & Testing *(mandatory)*

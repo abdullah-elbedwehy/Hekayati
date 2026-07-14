@@ -40,7 +40,7 @@ Independent acceptance: export a completed project, prove checksums and zero sec
 
 ## Success Criteria *(mandatory)*
 
-Primary measurable outcome: **SC-005**. CHK024, CHK209, CHK216–CHK219, and every canonical US9 scenario provide the remaining round-trip, deletion, and hostile-archive evidence.
+Primary measurable outcome: **SC-005**. CHK024, CHK209, CHK217–CHK219, and every canonical US9 scenario provide the remaining round-trip, deletion, and hostile-archive evidence.
 
 ## Required bible artifacts
 

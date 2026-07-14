@@ -31,7 +31,7 @@ Arabic text placement and preview approval are owned by feature 008. Printer pro
 - Depends on feature 003 versioned characters/photos/looks and feature 004 story configuration/mentions/book structure.
 - Depends on feature 005 validated provider boundary/capabilities and feature 006 durable execution/review gates.
 - Emits versioned pages, change events, review states, approved-sheet references, and reusable style/safety constraints consumed by features 008–011.
-- Uses the complete shared invalidation matrix; no slice may implement a private subset or auto-regeneration shortcut.
+- Uses the complete shared invalidation matrix, including visibility-only IM-21; no slice may implement a private subset or auto-regeneration shortcut.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -41,7 +41,7 @@ Independent acceptance combines two tests: approve then supersede a character sh
 
 ## Success Criteria *(mandatory)*
 
-Primary measurable outcomes: **SC-003 and SC-011**. CHK007–CHK008, CHK012–CHK015, and one automated test per IM-01–IM-20 row provide the remaining acceptance evidence.
+Primary measurable outcomes: **SC-003 and SC-011**. CHK007–CHK008, CHK012–CHK015, and one automated test per IM-01–IM-21 row provide the remaining acceptance evidence.
 
 ## Required bible artifacts
 
@@ -54,6 +54,6 @@ Primary measurable outcomes: **SC-003 and SC-011**. CHK007–CHK008, CHK012–CH
 
 ## Delivery mapping
 
-Master tasks: **T-P2-07–T-P2-08**, the US2 portion of **T-P2-10**, and **T-P6-01–T-P6-09**.
+Master tasks: **T-P2-07–T-P2-08, T-P2-11**, and **T-P6-01–T-P6-09**.
 
 Spec approval requires owned IDs, all cross-feature version interfaces, and every invalidation row's implementation evidence to be accepted; it does not authorize implementation until the complete graph is approved.

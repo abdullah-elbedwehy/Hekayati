@@ -20,6 +20,7 @@ Owned capability boundaries:
 
 - Stable ID-bound mentions, group expansion, Arabic-name search/edit behavior, scene properties, and prose/participant reconciliation.
 - Story configuration, narrative roles, dedication, page count, tone, style selection, hidden-goal setup, and narration/dialogue suggestion.
+- The project-context destination of FR-014(a): version-pinned project-only appearance/look overrides and atomic IM-04 change events, without mutating the reusable profile/look owned by 003.
 - Versioned templates, privacy-safe template extraction, duplication, archives/disabling, seven seed templates, and pinning.
 - Canonical interior book structure and page content model before generation/layout.
 
@@ -27,7 +28,7 @@ Not owned here: provider prompt compilation (005), durable jobs (006), generated
 
 ## Dependencies and interfaces
 
-- Depends on feature 003 family-scoped characters and looks.
+- Depends on feature 003 family-scoped characters, active-anchor eligibility policy, looks, closed edit-intent command, and change-event schema.
 - Produces version-pinned story configuration, templates, scenes, mention participants, and book structure for features 005–009.
 - Participant warnings use capability values owned by feature 005; generation decisions and content review are owned by feature 007.
 - Feature 009 consumes FR-057 printer-page assembly behavior without changing the customer-visible page map.
@@ -36,11 +37,11 @@ Not owned here: provider prompt compilation (005), durable jobs (006), generated
 
 Canonical stories and scenarios: **US3 and US10** in the [product bible](../001-hekayati-product-bible/spec.md).
 
-Independent acceptance: configure a full Space Adventure without a provider; author scenes containing two characters named أحمد; rename one; verify mentions remain ID-bound, zero-member groups block, prior template versions remain pinned, and template-from-story output contains no customer identity data.
+Independent acceptance: configure a full Space Adventure without a provider; reject missing/archived-anchor families while preserving existing pinned projects; choose “change only for this project” and prove the reusable character/look remains byte-identical while the project stores a pinned override and emits IM-04; author scenes containing two characters named أحمد; rename one; verify mentions remain ID-bound, zero-member groups block, prior template versions remain pinned, and template-from-story output contains no customer identity data.
 
 ## Success Criteria *(mandatory)*
 
-Measurable slice evidence: every canonical US3/US10 acceptance scenario passes, CHK009–CHK011 are satisfiable, every FR-040 edit edge has a test, and template extraction carries zero customer names, photos, or identity-bound mentions. No new SC ID is introduced; the integrated outcome remains SC-001.
+Measurable slice evidence: every canonical US3/US10 acceptance scenario passes, FR-014(a)/IM-04 and the project-context portion of CHK006 pass, CHK009–CHK011 are satisfiable, every FR-040 edit edge has a test, and template extraction carries zero customer names, photos, or identity-bound mentions. No new SC ID is introduced; the integrated outcome remains SC-001.
 
 ## Required bible artifacts
 

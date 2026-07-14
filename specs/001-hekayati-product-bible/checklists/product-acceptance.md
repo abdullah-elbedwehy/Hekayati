@@ -5,12 +5,13 @@
 
 ## Foundation & Data
 
-- [ ] CHK001 Customer/family/character/look/pet CRUD works and survives app + machine restart (FR-001/002/010–015, US1)
+- [ ] CHK001 Customer/family/character/look/pet create/update/archive/restore and immutable version history work and survive app + machine restart; no routine action performs permanent deletion (FR-001/002/010–018, US1)
 - [ ] CHK002 Cross-family character selection structurally impossible (FR-003, EC-H02)
-- [ ] CHK003 Consent gate blocks generation with exact reason; consent recording stores date + note (FR-004, EC-H01)
-- [ ] CHK004 HEIC intake converts, applies orientation, strips GPS EXIF (FR-020/021)
-- [ ] CHK005 Photo-quality warnings fire on seeded bad-photo fixtures; multi-face requires person marking (FR-023/024)
+- [ ] CHK003 Consent policy distinguishes not-recorded/refused with stable exact codes, stores date+note, and rechecks current state before enqueue and dispatch (FR-004, EC-H01/H14)
+- [ ] CHK004 HEIC intake converts, applies orientation, strips GPS/EXIF/IPTC/XMP from every derivative, and retains a structurally provider-ineligible exact original (FR-020/021/025)
+- [ ] CHK005 Versioned-policy photo warnings fire with metric/threshold or operator-observation evidence on every seeded fixture; every face photo has a keyboard-defined subject rectangle and multi-face input requires explicit intended-person marking (FR-023/024)
 - [ ] CHK006 Character edit offers exactly: project-only / update-base / new-look; per-scene state never mutates profiles (FR-014)
+- [ ] CHK027 Possible duplicate characters produce a family-local advisory open-existing/create-separate choice; duplicate names remain valid; no biometric match, auto-merge, or cross-family disclosure (FR-019, EC-A17)
 
 ## Creative Pipeline
 

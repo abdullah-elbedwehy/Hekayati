@@ -21,6 +21,7 @@
 | RR-15 | Scope creep re-introducing out-of-scope features | M | M | Spec §Out-of-scope is amendment-gated; constitution II; analyze-stage checks | Continuous |
 | RR-16 | Single maintainer bus-factor on bespoke scheduler | L | M | Scheduler contract fully specified (not tribal knowledge); heavy behavior tests; ~small codebase by design | Phase 5 |
 | RR-17 | Hostile browser content reaches the loopback API through DNS rebinding, forged authority/source headers, CORS/PNA, or CSRF | M | H | Canonical literal-IP listener and authority, proxy trust disabled, exact-origin source checks, runtime-only CSRF token, no CORS/PNA opt-in, and raw-HTTP negative tests that prove zero route dispatch or mutation (FR-147/148, SC-014, R13) | Phase 1 |
+| RR-18 | Local photo-quality checks over-warn, miss defects, or are mistaken for biometric/age judgments | M | M | C-20 limits automatic checks to explainable local image metrics; subjective observations are operator-entered; warning source and reason stay visible; overrides are preserved; synthetic fixtures cover each category. No identity embedding, age estimator, automatic merge, or provider analysis. | Feature 003; advisory residual risk accepted |
 
 ## Feasibility gates (summary — normative detail in research.md)
 

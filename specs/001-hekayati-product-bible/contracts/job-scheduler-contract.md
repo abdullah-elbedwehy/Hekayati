@@ -41,6 +41,19 @@ Full diagrams: `../state-machines.md`.
 - Priority: project priority then FIFO. Page-illustration fan-out respects `concurrencyPerProvider` (default 2, C-09). Studio jobs share the same per-provider concurrency pool unless settings later add a separate cap (v1: shared pool).
 - Failure of one page-illustration job never blocks sibling pages (independent subtrees). Studio failures never block book jobs and vice versa.
 
+## Pre-dispatch validation
+
+Before enqueue, the scheduler applies the same current consent and provider-reference metadata checks to the proposed immutable input snapshot; rejection creates no job. This early decision is advisory against later change, never a cached authorization.
+
+After claim and immediately before any adapter or network call, the worker MUST re-read and validate the current input state:
+
+1. input version IDs still exist and match the immutable job snapshot;
+2. the exact configured provider/model remains available (FR-098);
+3. every `ProviderEligibleReference` in the persisted `ImageRequestDraft` re-resolves through its source `ReferencePhoto` or approved character sheet, the family/owner/version links and allowed derived-asset role match, and no private original/full-frame face asset can enter the payload (FR-021/025/134);
+4. current customer consent is `granted` for every direct photo and every approved sheet whose trusted transitive lineage is `photo_derived`; a wholly `description_only` sheet has zero photo lineage and follows FR-004's exception.
+
+Missing/changed versions or references become `stale_dependency` / `missing_reference_asset` before bytes are loaded. Missing or refused consent transitions the job to `paused(dependency)` with `PHOTO_CONSENT_NOT_RECORDED` or `PHOTO_CONSENT_NOT_GRANTED`; after the operator records a new decision, retry repeats the full validation. Only after all checks pass does the resolver read the selected clean derivatives into an ephemeral `ResolvedImageRequest`; adapters have no asset-store access. Description-only requests and wholly description-derived sheets skip the consent gate. Tests assert zero adapter invocation and zero network access for every rejected fixture, including consent revoked after enqueue (EC-H14).
+
 ## Failure taxonomy & retry policy (FR-092)
 
 | Category | Auto-retry | Policy |

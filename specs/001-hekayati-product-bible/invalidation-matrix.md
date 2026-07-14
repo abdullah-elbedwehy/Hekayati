@@ -10,11 +10,11 @@ Legend: ✖ = invalidated/stale, ⚠ = flagged for re-check (no invalidation), �
 
 | # | Upstream change | Char. approval | Char. sheet | Story plan/text | Scene(s) | Page illustration(s) | Page layout | Preview PDF | Book approval | Print PDFs / preflight |
 |---|---|---|---|---|---|---|---|---|---|---|
-| IM-01 | Character permanent appearance edit (face, hair, skin tone, base look) | ✖ superseded | ✖ | — | — | ✖ pages using that character version | ⚠ | ✖ | ✖ | ✖ |
-| IM-02 | Character non-visual edit (interests, personality, speaking style) | — | — | ⚠ (story may reference traits) | ⚠ | — | — | — | — | — |
-| IM-03 | Look edited (shared look version bump) | — | ✖ if sheet used that look | — | — | ✖ pages using that look | ⚠ | ✖ | ✖ | ✖ |
+| IM-01 | Character appearance/source edit (`appearanceDescription`, source mode, age/gender, physical fields, refs, appearance-capable notes/traits) | ✖ superseded | ✖ | — | — | ✖ pages using that character version | ⚠ | ✖ | ✖ | ✖ |
+| IM-02 | Character narrative/non-visual edit (age/gender, relationship, interests, favorites, personality, speaking style, notes/traits) | — | — | ⚠ (story may reference traits) | ⚠ | — | — | — | — | — |
+| IM-03 | Shared LookVersion edit (name, clothing, appearance overrides, references) | — | ✖ if sheet used that look | — | — | ✖ pages using that look | ⚠ | ✖ | ✖ | ✖ |
 | IM-04 | Project-only look override changed | — | — | — | — | ✖ affected pages only | ⚠ | ✖ | ✖ | ✖ |
-| IM-05 | Character renamed | — | ⚠ (name on sheet) | ⚠ mentions re-render | ⚠ | — (art has no text) | ✖ if name appears in rendered text | ✖ | ✖ | ✖ |
+| IM-05 | Character name/nickname changed | — | ⚠ (name on sheet) | ⚠ mentions re-render | ⚠ | — (art has no text) | ✖ if name appears in rendered text | ✖ | ✖ | ✖ |
 | IM-06 | Scene action/description/participants edit | — | — | — | (self: new version) | ✖ that page only | ✖ that page | ✖ | ✖ | ✖ |
 | IM-07 | Narrative text edit — any visible change incl. punctuation | — | — | (self) | — | — (no regen needed) | ✖ that page layout | ✖ | ✖ | ✖ |
 | IM-08 | Story-level regeneration / plan change | — | — | (self) | ✖ all scenes | ✖ all unlocked pages | ✖ | ✖ | ✖ | ✖ |
@@ -30,11 +30,12 @@ Legend: ✖ = invalidated/stale, ⚠ = flagged for re-check (no invalidation), �
 | IM-18 | Internal-only changes (job logs, audit, retention cleanup, integrity re-hash) | — | — | — | — | — | — | — | — (FR-087) | — |
 | IM-19 | Watermark text setting change | — | — | — | — | — | — | ✖ preview only | ⚠ (approval referenced old preview file; record note) | — |
 | IM-20 | Asset file found missing/corrupt (integrity scan) | — | ✖ if sheet asset | — | — | ✖ affected page (regeneration offered) | — | ✖ if referenced | ⚠ | ✖ if referenced |
+| IM-21 | Customer/family/character/look archive or restore (visibility only) | — | — | — | — | — | — | — | — | — |
 
 ## Cascade mechanics
 
-1. Version bump emits `ChangeEvent` (data-model.md §hooks).
-2. Invalidation engine resolves affected rows top-down; consequences are transitively applied left→right in one pass (e.g., IM-06 → page ✖ → preview ✖ → book approval ✖ → print ✖).
+1. Version append + compare-and-swap head update emits one immutable `changeEvents` outbox record per applicable matrix row in the same transaction (data-model.md §hooks). Multiple rows may apply to one edit; no "strongest row only" shortcut is allowed.
+2. Invalidation engine resolves affected rows top-down; consequences are transitively applied left→right in one pass (e.g., IM-06 → page ✖ → preview ✖ → book approval ✖ → print ✖). IM-21 changes picker visibility only: descendants of an archived parent are excluded from new selection, while every existing pinned reference remains readable with an archived indicator.
 3. Affected-items view shows: what, why (matrix row id), and per-item actions (regenerate / keep-stale / unlock-and-edit for locked).
 4. `bookVersion` bump ⟷ exactly the rows marked ✖ under Book approval (FR-086 definition of customer-visible).
 5. Every invalidation writes an `auditEvents` record (SC-010 evidence).
