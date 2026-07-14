@@ -73,6 +73,12 @@ File at `assets/<sha256[0:2]>/<sha256>.<ext>`; write path per R4.
 ### settings (single doc)
 `textProvider`, `imageProvider`, `models { codexText?, geminiText, geminiImage, geminiImageEconomy }`, `concurrencyPerProvider`, `typography { minPtByAge }`, `watermarkText`, `diskWarnGb`, `storagePathsReadonly`. **No secrets** (FR-137); Gemini key only in Keychain (FR-105).
 
+Settings delivery is staged: Phase 1 owns this validated document and foundation-safe fields; provider credential/capability semantics are completed by feature 005, and `printerProfiles` management by feature 009. A field whose owning subsystem is not delivered reports `not_configured`/`not_available`; it is never fabricated as healthy (FR-137/138).
+
+### runtime local-HTTP trust state *(not a collection)*
+
+`canonicalOrigin = http://127.0.0.1:<verifiedBoundPort>` and a cryptographically random `csrfToken` exist only in process memory. The token rotates on every app start, is exposed only through a non-cacheable same-origin app bootstrap, and is compared on every unsafe request. Neither value is stored as a document, written to logs, included in exports, or accepted from forwarded-host headers (FR-147, FR-148). Health may expose the verified bind address and pass/fail state, never the token.
+
 ### studioGenerations
 Standalone Single Image Studio records (FR-140–146). Not owned by a Project.
 `id`, `customerId?`, `familyId?`, `prompt`, `negativeConstraints?`, `styleId`, `participants[] { characterId, characterVersionId, lookId?, lookVersionId? }`, `jobId`, `state`, `assetId?`, `priorAssetIds[]` (history), `provenance`, `createdAt`, `updatedAt`.

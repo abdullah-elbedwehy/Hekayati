@@ -16,7 +16,7 @@ Build a local, single-operator macOS web application that produces personalized 
 **Target Platform**: macOS (Apple Silicon + Intel), single machine, browser UI at `http://127.0.0.1:<port>`
 **Project Type**: Local web application (backend + frontend + worker in one process)
 **Performance Goals**: UI interactions <200 ms p95 (local); PDF render of 24-page interior <120 s; 2 concurrent image generations per provider (configurable 1–4); app cold start <10 s
-**Constraints**: Loopback-only binding (verified at startup); offline-capable except provider calls; no daemons besides the app itself; all state restart-safe; no secrets outside Keychain; 800-line file cap
+**Constraints**: Nonliteral listener configuration rejected before socket open and literal `127.0.0.1` binding verified after listen; canonical `Host`/origin + CSRF request boundary; no CORS/PNA opt-in; offline-capable except provider calls; no daemons besides the app itself; all state restart-safe; no secrets outside Keychain; 800-line file cap
 **Scale/Scope**: 1 operator; ~dozens of projects/year; ~10² characters; ~10⁴ assets; ~10⁴ jobs lifetime — comfortably inside embedded-engine envelope
 
 ## Constitution Check
@@ -51,7 +51,7 @@ No violations → Complexity Tracking table empty.
 specs/001-hekayati-product-bible/
 ├── spec.md                      # Product specification (source of truth)
 ├── plan.md                      # This file
-├── research.md                  # R1–R12 + feasibility gates G1–G4
+├── research.md                  # R1–R13 + feasibility gates G1–G4
 ├── data-model.md                # Entities, versioning, relationships
 ├── quickstart.md                # Operator setup & first book walkthrough
 ├── state-machines.md            # Project / job / page / approval FSMs
@@ -77,9 +77,10 @@ specs/001-hekayati-product-bible/
 
 ```text
 src/
-├── server/                # Fastify app, loopback guard, routes
+├── server/                # Fastify app, loopback + local HTTP trust guards, routes
 │   ├── routes/            # customers, characters, projects, pages, jobs, settings, export, health
-│   └── startup/           # bind check, migrations, integrity scan, seed templates
+│   ├── security/          # authority/origin/CSRF/CORS-PNA request boundary
+│   └── startup/           # post-listen bind check, migrations, integrity scan, seed templates
 ├── domain/                # Provider-free business logic
 │   ├── customers/  characters/  looks/  mentions/
 │   ├── story/             # config, templates, compile-to-generation-payload
@@ -118,6 +119,7 @@ tests/
 5. **Chromium as the Arabic typesetting engine** (R9): the only locally available, battle-tested Arabic shaping + BiDi + font-embedding stack; also unifies UI preview and PDF output (same HTML/CSS).
 6. **Printer truth lives in PrinterProfile** (R10): bleed/DPI/color/ICC/spine are per-printer data, never constants; spine width hard-blocks when unknown (FR-122).
 7. **Codex image mode gated, not assumed** (R6): G1-I expected to fail; product ships with Gemini images and an honest capability notice — no secret fallbacks (FR-100/102).
+8. **Loopback is a network boundary, not browser authentication** (R13): the server derives one canonical literal-IP origin from its verified listener; an earliest request hook rejects alternate authority before routing, a second guard enforces exact source origin plus a runtime-only CSRF token for unsafe methods, and cross-origin CORS/PNA opt-in headers are never emitted. Proxy trust stays disabled. This keeps the no-login operating model while closing DNS-rebinding and forged-browser-request paths (FR-147, FR-148).
 
 ## Complexity Tracking
 
@@ -137,3 +139,4 @@ Findings fixed during consistency pass (2026-07-14):
 4. C-08 default threshold (3 characters) had no measurement source → bound to gate G2 output; capability matrix carries the measured value; C-08 marked "tunable per matrix".
 5. Preview watermark check existed only as generation-time behavior → added to preflight rule list (FR-123/124) so "final PDF still contains watermark" and "preview missing watermark" are both mechanically detected.
 6. Template-from-story privacy stripping (FR-051) initially unmapped to a test → test-strategy §Privacy adds a dedicated fixture; task T-P3-07.
+7. Loopback-only startup did not protect the browser API from DNS rebinding or forged cross-origin mutations → added FR-147, FR-148, SC-014, C-17, R13, and Phase 1 negative-test traceability.

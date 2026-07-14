@@ -171,6 +171,28 @@ Exact local fonts are `Lemonada-SemiBold.ttf` v4.005 (display) and `IBMPlexSansA
 
 ---
 
+## R13 — Local HTTP browser trust boundary
+
+**Decision**: Treat loopback binding as only the first network layer, not as browser authentication. The application derives exactly one canonical origin, `http://127.0.0.1:<verifiedBoundPort>`, from a listener configured with the literal host `127.0.0.1`. Startup validates that literal before opening a socket, binds with Fastify proxy trust disabled, independently checks the effective address after `listen`, and keeps application routes fail-closed until that check passes. An earliest `onRequest`-class guard, before body parsing and route dispatch, accepts exactly one canonical HTTP authority and ignores all forwarded-host metadata.
+
+Every API request with an `Origin` header must match the canonical origin. Every unsafe method additionally requires either that exact `Origin`, or an exact-origin parsed `Referer` only when `Origin` is absent, plus a constant-time match on a cryptographically random per-process CSRF token sent in a custom header. The token is obtained from the same-origin bootstrap response, which is `Cache-Control: no-store`; it rotates on restart and never enters persistence, logs, exports, URLs, or error text. Safe methods are side-effect-free. Cross-origin CORS and Private Network Access preflights are rejected without opt-in headers. Tests use raw HTTP, not browser CORS behavior, and assert rejection before both a route-dispatch counter and a persisted mutation sentinel change (FR-147, FR-148, SC-014).
+
+**Rationale**:
+
+- A hostile public page can target a local HTTP service through DNS rebinding, form/navigation requests, permissive CORS, or Private Network Access. Binding only to loopback prevents LAN listeners but does not establish which browser origin initiated a request.
+- Exact literal authority blocks attacker-controlled hostnames that resolve to loopback; exact source validation and a runtime custom-header token independently protect state-changing routes.
+- A runtime-only token is sufficient for the one-process, one-operator model and naturally invalidates stale tabs without creating another stored credential.
+- Fastify's pre-routing hook order permits the boundary to reject before parsing attacker-controlled bodies or invoking product handlers.
+
+**Alternatives**:
+
+- _Loopback binding alone_: rejects remote sockets but leaves browser-mediated attacks; insufficient.
+- _Permissive or reflected CORS with an allow-list_: unnecessary for a same-origin application and expands the attack surface; rejected.
+- _Random port or token in the URL_: ports are discoverable and URL tokens leak into history/referrers; neither replaces authority/source checks.
+- _App login or locally trusted TLS certificate_: adds credential/certificate lifecycle complexity outside the single-operator v1 scope and still would not justify trusting forwarded authority; rejected for v1.
+
+---
+
 ## Feasibility gates summary (Phase 0 exit criteria)
 
 | Gate | Result | Evidence / consequence | Blocking for |

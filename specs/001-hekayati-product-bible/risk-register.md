@@ -20,6 +20,7 @@
 | RR-14 | Preview PDFs leak print-quality assets | L | L | Downsampled preview pipeline (C-06) + watermark + size budget (SC-007) | Designed |
 | RR-15 | Scope creep re-introducing out-of-scope features | M | M | Spec §Out-of-scope is amendment-gated; constitution II; analyze-stage checks | Continuous |
 | RR-16 | Single maintainer bus-factor on bespoke scheduler | L | M | Scheduler contract fully specified (not tribal knowledge); heavy behavior tests; ~small codebase by design | Phase 5 |
+| RR-17 | Hostile browser content reaches the loopback API through DNS rebinding, forged authority/source headers, CORS/PNA, or CSRF | M | H | Canonical literal-IP listener and authority, proxy trust disabled, exact-origin source checks, runtime-only CSRF token, no CORS/PNA opt-in, and raw-HTTP negative tests that prove zero route dispatch or mutation (FR-147/148, SC-014, R13) | Phase 1 |
 
 ## Feasibility gates (summary — normative detail in research.md)
 

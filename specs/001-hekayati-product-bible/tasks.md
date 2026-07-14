@@ -35,18 +35,19 @@ Format: `[ID] [P?] [Refs] Description` — **[P]** = parallelizable (different f
 **User-visible outcome**: app starts on 127.0.0.1, Arabic RTL shell renders, settings + health screens work, data survives restart. No AI needed for the demo.
 **Dependencies**: Phase 0.
 
-- [ ] T-P1-01 Scaffold single Node/TS package: Fastify server, Vite+React RTL SPA shell, Vitest, Playwright, lint (incl. provider-boundary import rule), 800-line file guard
-- [ ] T-P1-02 [P] Startup guard tests then impl: loopback-only bind verification (refuse otherwise), data-dir creation with 0700/0600 perms (`src/server/startup/`) [FR-110, FR-130, EC-H06]
-- [ ] T-P1-03 [P] Document store on better-sqlite3: repository layer (get/put/query, zod validation, schemaVersion migrations), WAL config; tests for crash-durability + migration (`src/domain/…/repo`, R2)
-- [ ] T-P1-04 [P] Content-addressed asset store with atomic temp+fsync+rename writes, dedup, refcount, orphan GC; crash-simulation tests (`src/assets/`) [FR-093, R4, EC-E09/E10]
-- [ ] T-P1-05 [P] Keychain wrapper via `security` CLI (execFile, no shell); resolve RR-08 (stdin mode or @napi-rs/keyring decision); tests with fake binary (`src/security/keychain.ts`) [FR-105, R8]
-- [ ] T-P1-06 [P] Log infrastructure with redaction layer + automated redaction tests (key patterns, image bytes) (`src/security/log.ts`) [FR-131]
-- [ ] T-P1-07 Settings document + screen (Arabic RTL): providers, model IDs, concurrency, typography minimums, watermark text; no secrets in doc [FR-137]
-- [ ] T-P1-08 Health/diagnostics screen + endpoints: DB, disk free (10 GB warn), integrity summary stub, bind address [FR-138]
-- [ ] T-P1-09 First-run experience: no-backup warning, seed-template installation hook (templates land Phase 3) [FR-133]
-- [ ] T-P1-10 E2E: start app → Arabic shell → settings persist → kill → restart → state intact
+- [ ] T-P1-01 Scaffold single Node/TS package: Fastify server, Vite+React RTL Citrus Playground shell, Vitest, Playwright, lint (incl. provider-boundary import rule), 800-line file guard, and no analytics/telemetry dependency [R1, C-16, FR-132, SC-012]
+- [ ] T-P1-02 [P] Startup guard tests then impl: reject every nonliteral/noncanonical listener host before socket open, bind only literal `127.0.0.1`, independently verify the effective post-listen address before readiness, and create data dirs with 0700/0600 perms (`src/server/startup/`) [FR-110, FR-130, FR-147, EC-H06, CHK213/214/222]
+- [ ] T-P1-03 [P] Write repository validation/migration/crash-durability tests, then implement the better-sqlite3 document store: get/put/query, zod boundaries, schemaVersion migrations, and WAL/FULL durability (`src/domain/…/repo`) [R2]
+- [ ] T-P1-04 [P] Write crash, dedup, orphan, and integrity fixtures, then implement the content-addressed asset store with atomic temp+fsync+rename writes, refcounts, orphan GC, plus startup/operator-triggered missing/checksum-mismatch reporting without mutation (`src/assets/`) [FR-093, FR-097 foundation stage, R4, EC-C07, EC-E09/E10]
+- [ ] T-P1-05 [P] Write fake-binary credential-isolation tests, resolve RR-08 (stdin mode or `@napi-rs/keyring` decision), then implement the Keychain wrapper without shell invocation (`src/security/keychain.ts`) [FR-105, R8, RR-08]
+- [ ] T-P1-06 [P] Write redaction tests for key patterns, runtime-token canaries, and image bytes, then implement central structured logging safe for later provider/export callers (`src/security/log.ts`) [FR-131 foundation stage, FR-148]
+- [ ] T-P1-11 Write the raw-HTTP negative suite, then implement the earliest pre-body/pre-route exact-authority guard, exact `Origin`/parsed-`Referer` source guard for every unsafe method, runtime-only no-store CSRF bootstrap/token rotation, proxy trust disabled, and no CORS/PNA opt-in; fixtures cover DNS rebinding, forwarded-host spoofing, preflights, malformed/opaque source headers, and missing/bad/stale tokens while asserting zero route dispatch and persisted mutations (`src/server/security/`) [FR-147/148, R13, RR-17, EC-H09–H13, CHK223–226]
+- [ ] T-P1-07 Write settings schema/restart/API/UI tests, then implement the validated persistent Arabic RTL settings screen for provider/model selections, concurrency, typography minimums, watermark, disk threshold, and read-only storage paths; no secrets in the document and deferred provider/printer cells remain explicit `not_configured` [FR-137 foundation stage, CHK426]
+- [ ] T-P1-08 Write diagnostic success/degraded-state tests, then implement health endpoints and Arabic screen for DB, disk free (10 GB default warning), asset-integrity summary, verified bind address, and explicit `not_configured`/`not_available` provider and queue cells [FR-138 foundation stage, CHK414/426]
+- [ ] T-P1-09 Write first-run persistence/accessibility tests, then implement the Arabic no-automatic-backup/export-is-not-backup warning plus a seed-template installation hook whose data lands in Phase 3 [FR-133 foundation stage, CHK215]
+- [ ] T-P1-10 E2E: start app → Arabic shell → settings persist → kill → restart → state intact; stale CSRF token fails, reload bootstraps a fresh token, canonical unsafe request succeeds, and a baseline network capture observes no external telemetry [FR-132 foundation stage, SC-012, SC-014]
 
-**Checkpoint**: quickstart §Install runs clean on a fresh Mac account. **DoD**: T-P1 tests green; SC-012 baseline screenshot recorded; no secret persists outside Keychain.
+**Checkpoint**: quickstart §Install runs clean on a fresh Mac account and the complete SC-014 negative suite rejects before dispatch with zero mutations while the canonical journey succeeds. **DoD**: T-P1 tests green; SC-012 baseline screenshot recorded; CHK213/214 and CHK222–226 evidenced; no secret or runtime CSRF token persists outside approved memory/Keychain boundaries.
 
 ---
 
@@ -103,7 +104,7 @@ Format: `[ID] [P?] [Refs] Description` — **[P]** = parallelizable (different f
 - [ ] T-P4-05 [P] Codex adapter (scope per G1-T outcome): execFile exec wrapper, auth-state detection, structured output per installed CLI, process-kill cancellation; image slot returns G1-I unavailableReason (`src/providers/codex/`) [FR-100–103]
 - [ ] T-P4-06 Prompt compilers per adapter: GenerationTask → provider prompts; versioned prompt templates; mandatory negative constraints; deny-list transformation flow (FR-071) with operator confirmation UI [CHK104/105]
 - [ ] T-P4-07 Reference budgeting logic from capability matrix values (not constants); provenance notes on reduction [CHK114/115]
-- [ ] T-P4-08 Settings integration: provider selection combos, connection tests, capability warnings (economy, Codex image unavailability), model availability surfacing [FR-095/098, US8]
+- [ ] T-P4-08 Settings/health integration: provider selection combos, key lifecycle, connection tests, auth/availability state, capability warnings (economy, Codex image unavailability), and model availability surfacing [FR-095/098, FR-137/138 provider stage, US8]
 - [ ] T-P4-09 Live-validation scripts (operator-triggered, not CI): one structured + one image smoke per configured provider [test-strategy §live]
 - [ ] T-P4-10 E2E: US8 scenarios incl. key lifecycle + secret-scan assertions (SC-005 partial)
 
@@ -123,7 +124,7 @@ Format: `[ID] [P?] [Refs] Description` — **[P]** = parallelizable (different f
 - [ ] T-P5-04 Quota-pause protocol + wait/switch decision flow + audit events [FR-096, SC-009, EC-D03]
 - [ ] T-P5-05 Restart recovery: bootId lease expiry, re-queue, tmp-GC sweep; kill-matrix failure-injection tests [FR-113, SC-002, EC-E01]
 - [ ] T-P5-06 Progress events, stall detection ("no progress" flag), waiting_review gate states [FR-111/114, EC-E06]
-- [ ] T-P5-07 Queue UI (Arabic): per-job blocking reasons, project pause/resume, cancel, retry, priority [FR-111, CHK410–412]
+- [ ] T-P5-07 Queue UI (Arabic): per-job blocking reasons, project pause/resume, cancel, retry, priority, and real queue-depth integration into the shared health surface [FR-111, FR-138 queue stage, CHK410–412]
 - [ ] T-P5-08 Monotonic-clock lease arithmetic (bootId + monotonicMs); wall-clock-jump tests [EC-E05, scheduler §leases]
 - [ ] T-P5-09 Disk-full / permission-failure pause-all + health alert integration [EC-E07/E13]
 
@@ -177,7 +178,7 @@ Format: `[ID] [P?] [Refs] Description` — **[P]** = parallelizable (different f
 **User-visible outcome**: deliverable interior + cover PDFs gated by preflight; printer profiles.
 **Dependencies**: Phase 7.
 
-- [ ] T-P8-01 Printer profile model + UI: trim/bleed/DPI/color/ICC/crop/spine/cover-template/blank-pages [FR-121/122]
+- [ ] T-P8-01 Printer profile model + settings UI: trim/bleed/DPI/color/ICC/crop/spine/cover-template/blank-pages, replacing the foundation `not_configured` printer cell [FR-121/122, FR-137 printer stage]
 - [ ] T-P8-02 Interior print PDF: full-res render, bleed geometry, optional crop marks, printer blanks at assembly only [FR-057/121, C-04]
 - [ ] T-P8-03 Cover spread PDF: back synopsis + brand, spine (profile/template only — hard block when unknown), front (child, name, title, environment); RTL binding geometry [FR-122, US7-AS2/3, EC-F04/F10]
 - [ ] T-P8-04 Ghostscript CMYK conversion path + converted-proof approval step [C-12, EC-F09, RR-11]
@@ -195,12 +196,12 @@ Format: `[ID] [P?] [Refs] Description` — **[P]** = parallelizable (different f
 **User-visible outcome**: portable project ZIPs; safe imports; verified deletion.
 **Dependencies**: Phases 2, 6.
 
-- [ ] T-P9-01 Export pipeline: pause-gate (C-07), manifest + checksums, content packaging per FR-125, automated secret-scan gate (`src/portability/export.ts`) [FR-125/126/129, EC-G11]
+- [ ] T-P9-01 Export pipeline + Arabic export flow: pause-gate (C-07), manifest + checksums, content packaging per FR-125, automated secret-scan gate, and visible “export is not a backup” warning (`src/portability/export.ts`) [FR-125/126/129, FR-133 export stage, EC-G11, CHK215]
 - [ ] T-P9-02 Import validation: structure, manifest versioning (migrate old / reject future), checksums, path-safety (traversal/symlink/executable), disk pre-check [FR-128, EC-G01–G05, EC-G09/G10]
 - [ ] T-P9-03 Import modes + conflict rules: as-new (ID remap), replace (confirmation), characters-only, templates-only [FR-127, EC-G06/G07/G12]
 - [ ] T-P9-04 Staged-then-committed atomic import; interruption rollback fixture [FR-128, EC-G08]
 - [ ] T-P9-05 Round-trip fidelity test: export → fresh instance import → deep-equality of project content
-- [ ] T-P9-06 E2E: US9 scenarios; SC-005 full sweep (DB dump + logs + archives)
+- [ ] T-P9-06 E2E: US9 scenarios including the export warning; SC-005 full sweep (DB dump + logs + archives) [FR-133, SC-005]
 
 **Checkpoint**: every EC-G fixture behaves as cataloged. **DoD**: CHK216–219, CHK024 satisfiable.
 
@@ -213,13 +214,13 @@ Format: `[ID] [P?] [Refs] Description` — **[P]** = parallelizable (different f
 **Dependencies**: all prior phases.
 
 - [ ] T-P10-01 Full failure-injection sweep: kill matrix × all pipelines; disk-full; network loss; provider fault storm (mock) [SC-002, test-strategy §4]
-- [ ] T-P10-02 Integrity scan end-to-end: manual asset deletion/corruption fixtures → flags + regeneration offers [FR-097, EC-C07, IM-20]
+- [ ] T-P10-02 Integrity scan end-to-end: exercise startup, periodic, and operator-triggered scans over manual asset deletion/corruption fixtures → flags plus per-owner regeneration offers, never automatic regeneration [FR-097 completion, EC-C07, IM-20]
 - [ ] T-P10-03 Privacy suite final run: payload-minimization snapshots, telemetry-absence network capture, permissions audit [FR-130–134, CHK206–215]
 - [ ] T-P10-04 Complete Arabic UI journey E2E from quickstart, timed against SC-001; SC-012 responsive audit
 - [ ] T-P10-05 [P] Performance validation vs plan.md goals (UI p95, 24pp render <120 s, cold start <10 s)
 - [ ] T-P10-06 [P] Operator documentation final pass: quickstart accuracy on a clean machine, troubleshooting table verification
 - [ ] T-P10-07 Run all five checklists; record evidence; fix every failed item or document accepted deviation with user sign-off
-- [ ] T-P10-08 Release checkpoint: constitution compliance review; RR-13 legal-review scheduling confirmed before commercial launch
+- [ ] T-P10-08 Release checkpoint: constitution compliance review; FR-135/RR-13 legal-review scheduling confirmed before commercial launch [FR-135, RR-13]
 
 **Checkpoint**: all checklists green/evidenced. **DoD**: SC-001…SC-012 all verified; risk register statuses current.
 

@@ -270,6 +270,7 @@ The normative edge-case catalog is `edge-case-catalog.md` (categories A–H, eac
 - Egyptian Arabic drifting into formal Arabic mid-story → flagged at review + regeneration of affected text only (FR-047).
 - Disk full mid-write → atomic temp-write+rename prevents half-written assets being treated as complete (FR-093).
 - App accidentally started with non-loopback binding → refuses to start (FR-110).
+- Hostile website targets the local API through DNS rebinding, CORS/PNA, or CSRF → rejected before any route handler; no state changes (FR-147, FR-148).
 - Manual deletion of an asset file outside the app → integrity check flags missing file, offers regeneration (FR-097).
 
 ---
@@ -462,6 +463,11 @@ Requirement IDs are stable and referenced by tasks, checklists, and the edge-cas
 - **FR-145**: Studio generation MUST NOT invalidate book approvals, mutate pages, or write into a project's illustration lineage. Optional "attach to page" / "use in project" is out of scope for v1 (operator downloads and uses externally, or regenerates inside the book flow).
 - **FR-146**: Cross-family character mixing in one studio request MUST be blocked (same scoping rule as FR-003). Description-only characters MAY be referenced without photo upload.
 
+### 3.24 Local HTTP Trust Boundary
+
+- **FR-147**: The local HTTP server MUST use one canonical origin, `http://127.0.0.1:<bound-port>`. Startup MUST reject any configured listener host other than the literal IPv4 address `127.0.0.1` before opening a socket, bind to that literal address, and then verify the effective post-listen address before marking the app ready. Wildcard, LAN, hostname-resolved, proxy-forwarded, IPv6, and alternate loopback addresses are forbidden. Before route dispatch, every request MUST have an HTTP authority (`Host`, or the protocol-equivalent authority) exactly equal to `127.0.0.1:<bound-port>`; missing, malformed, or alternate authority values (including attacker-controlled DNS names resolving to loopback) MUST receive a non-success response without application content or state access. Forwarded-host headers MUST NOT be trusted.
+- **FR-148**: The browser API MUST be same-origin only and MUST fail closed against cross-origin and forged state-changing requests. An `Origin` header, when present on any API request, MUST exactly match the canonical origin. Every state-changing request (`POST`, `PUT`, `PATCH`, `DELETE`, or any future unsafe method) MUST additionally carry (a) that exact `Origin`, or an exact-origin `Referer` only when `Origin` is absent, and (b) a per-process cryptographically random CSRF token obtained through the same-origin app bootstrap and returned in a custom request header. The bootstrap response containing the token MUST be served with `Cache-Control: no-store`. Missing, opaque (`null`), malformed, stale, or mismatched source headers/tokens MUST be rejected before body processing and route dispatch; safe methods MUST NOT mutate state. Hekayati MUST NOT enable cross-origin CORS, credentials, or Private Network Access: untrusted preflights are rejected and responses MUST NOT opt in with `Access-Control-Allow-Origin`, `Access-Control-Allow-Credentials`, or `Access-Control-Allow-Private-Network`. The CSRF token is runtime-only and MUST NOT be persisted, logged, exported, or treated as a user credential.
+
 ---
 
 ## 4. Key Entities _(summary — normative detail in `data-model.md`)_
@@ -500,6 +506,7 @@ Requirement IDs are stable and referenced by tasks, checklists, and the edge-cas
 - **SC-011**: Full-book approval invalidation, character-approval superseding, and locked-page immutability each have dedicated automated tests that pass.
 - **SC-012**: The complete operator journey is usable in Arabic RTL at 1440×900 and larger without horizontal scrolling or clipped controls.
 - **SC-013**: From the Single Image tab, the employee can produce one downloadable illustration with character references in ≤3 operator actions after characters exist (select refs → prompt → generate), without creating any Project/Story/Page records (verified by DB assertions in the independent test).
+- **SC-014**: The seeded local-HTTP negative suite rejects 100% of non-canonical bind/authority, DNS-rebinding, cross-origin CORS/PNA, and forged state-changing-request cases before route dispatch with zero persisted mutations; a valid same-origin journey still succeeds, and restart rotates the CSRF token without losing product state.
 
 ---
 
@@ -508,7 +515,7 @@ Requirement IDs are stable and referenced by tasks, checklists, and the edge-cas
 | ID   | Question                                  | Decision                                                                                                                                                                                            | Rationale                                                                |
 | ---- | ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
 | C-01 | "NoSQL" — does it mandate a NoSQL server? | It mandates a **flexible document data model**. Engine choice is a plan-level decision (research R2); an embedded document store satisfies the requirement if it preserves schema flexibility.      | One-person local ops; requirement's intent is flexibility, not a daemon. |
-| C-02 | No auth screen — any access control?      | None in v1 beyond loopback-only binding + OS user account. Documented as accepted risk in risk register.                                                                                            | Explicit operating context.                                              |
+| C-02 | No auth screen — any access control?      | No app login in v1. The OS user account plus the loopback and browser trust boundary in FR-147 and FR-148 constrain access; residual local-machine compromise remains RR-12.                         | Explicit operating context without treating loopback as authentication.  |
 | C-03 | What are the two ending pages?            | Ending 1 = personalized closing scene ("hero farewell"); Ending 2 = brand page ("صُنع خصيصًا لـ {الطفل}", logo area). Operator-editable.                                                            | Common picture-book convention; keeps story pages intact.                |
 | C-04 | Blank/printer-required pages?             | Added only during print assembly, shown in preflight report, invisible to preview numbering.                                                                                                        | Keeps customer-visible story stable (FR-057).                            |
 | C-05 | Page-count change after generation?       | Treated as story-structure invalidation with guided expand/shorten flow; nothing auto-regenerates.                                                                                                  | Constitution X.                                                          |
@@ -523,6 +530,7 @@ Requirement IDs are stable and referenced by tasks, checklists, and the edge-cas
 | C-14 | Watermark form?                           | Diagonal semi-transparent brand text on every preview page + "معاينة — غير مخصصة للطباعة" footer. Configurable text.                                                                                | Must survive screenshots; simple.                                        |
 | C-15 | Single Image vs book page regen?          | Separate Studio tab for one-off images; book page regeneration stays inside the project review UI (US5). Studio does not write into page lineage in v1 (FR-145).                                    | Keeps quick tests off the book state machine.                            |
 | C-16 | Brand / visual language?                  | **Citrus Playground (ملعب الليمون)** — kit `brand-kits/02-citrus-playground.html`; tokens and rules in root `DESIGN.md` / `PRODUCT.md`. Frontend work must use Impeccable + frontend-design skills. | Operator-chosen; gift energy with workshop clarity.                      |
+| C-17 | Does loopback binding alone trust browser requests? | No. The canonical literal-IP origin, exact authority check, same-origin source validation, runtime CSRF token, and fail-closed CORS/PNA policy in FR-147 and FR-148 are all required defense layers. | A public or compromised website can target local HTTP services even when it cannot bind them. |
 
 No open clarification markers remain. No decision above changes fundamental product behavior or carries material privacy/legal/financial consequence beyond what the risk register records.
 

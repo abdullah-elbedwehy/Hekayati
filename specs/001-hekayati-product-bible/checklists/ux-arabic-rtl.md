@@ -26,6 +26,7 @@
 - [ ] CHK413 Affected-items view on invalidation: what, why (matrix row), per-item actions (FR-033, IM mechanics)
 - [ ] CHK414 Health screen: DB, disk, integrity, providers, bind address (FR-138)
 - [ ] CHK415 Capability warnings persistent where specified (economy model, Codex image unavailability) (FR-102/108)
+- [ ] CHK426 Before provider/scheduler slices land, Phase 1 settings and health show explicit `not_configured`/`not_available` states for deferred FR-137/138 cells; they never omit a required row or display false health
 
 ## Error Clarity & Safety UX
 

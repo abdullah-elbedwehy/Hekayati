@@ -7,7 +7,7 @@
 1. macOS (Apple Silicon or Intel), ≥20 GB free disk (health screen warns below 10 GB).
 2. Node.js LTS (installer or `brew install node`).
 3. Ghostscript (`brew install ghostscript`) — only needed for CMYK printer profiles.
-4. Optional, for Codex mode: Codex CLI installed and logged in with the ChatGPT subscription account (`codex login`). Hekayati never touches this login; it only invokes the CLI.
+4. Optional, for Codex text mode: a current compatible Codex CLI logged in with the ChatGPT subscription account (`codex login`). Phase 0 passed on CLI 0.144.3 with exact model `gpt-5.5`; the same CLI rejected configured `gpt-5.6-sol` despite listing it in the catalog. Hekayati never reads or copies this login and disables that exact model when its direct health probe fails.
 5. Optional, for Gemini mode: a Gemini API key (entered later in Settings; stored in macOS Keychain).
 6. **Strongly recommended**: FileVault ON; Time Machine or equivalent — Hekayati has **no automatic backup** (the app reminds you: «لا يوجد نسخ احتياطي تلقائي»).
 
@@ -19,7 +19,7 @@ npm install
 npm run app     # builds if needed, starts server on 127.0.0.1, opens the browser UI
 ```
 
-The app refuses to start if it cannot bind to 127.0.0.1 exclusively. Data lives at `~/Library/Application Support/Hekayati/` (DB + assets). To stop: Ctrl-C; all state survives restarts.
+The app refuses to start unless its effective listener is the literal address `127.0.0.1`. Use the launcher-opened `http://127.0.0.1:<port>` URL; `localhost`, custom hostnames, proxies, and cross-origin access are intentionally rejected. An app restart rotates the browser-request token, so a tab left open across restart may require one reload. Data lives at `~/Library/Application Support/Hekayati/` (DB + assets). To stop: Ctrl-C; all product state survives restarts.
 
 ## First-run
 
@@ -46,11 +46,13 @@ Each implementation phase in `tasks.md` ends with a checkpoint runnable from thi
 
 ## Troubleshooting quick table
 
-| Symptom | Where to look |
-|---|---|
-| Generation blocked "consent not recorded" | Customer card → consent toggle (FR-004) |
-| Jobs paused "quota exhausted" | Queue banner → wait or switch decision (FR-096) |
-| Cover blocked "spine width unknown" | Printer profile → spine/template (FR-122) |
-| Model unavailable error | Settings → model IDs + connection test (FR-098) |
-| Missing asset flagged | Health → integrity scan → per-asset regenerate (FR-097) |
-| App won't start "bind" | Another process on the port, or non-loopback config (FR-110) |
+| Symptom                                   | Where to look                                                |
+| ----------------------------------------- | ------------------------------------------------------------ |
+| Generation blocked "consent not recorded" | Customer card → consent toggle (FR-004)                      |
+| Jobs paused "quota exhausted"             | Queue banner → wait or switch decision (FR-096)              |
+| Cover blocked "spine width unknown"       | Printer profile → spine/template (FR-122)                    |
+| Model unavailable error                   | Settings → model IDs + connection test (FR-098)              |
+| Missing asset flagged                     | Health → integrity scan → per-asset regenerate (FR-097)      |
+| App won't start "bind"                    | Another process on the port, or non-loopback config (FR-110) |
+| Local tab shows a stale-request error      | Reload the launcher-opened `127.0.0.1` URL (FR-148)          |
+| Request rejected for host/origin           | Remove proxy/custom hostname; use the exact launcher URL (FR-147, FR-148) |
