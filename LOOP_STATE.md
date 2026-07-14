@@ -1,12 +1,12 @@
 # Loop State
 
-- Last updated: 2026-07-14T20:19:14+03:00
+- Last updated: 2026-07-15T00:52:05+03:00
 - Authorization: full delivery loop approved via `prompts/codex-full-delivery-loop.md`
-- Current: 007 readiness pipeline
-- Done: [spec graph split, Citrus Playground design lock, bootstrap commit f95da4b, Phase 0 commit 81627c9, 002 readiness/analyze PASS, 002 Local foundation checkpoint PASS 4d84270, 003 readiness/analyze PASS 6d24e98, 003 Customer/character library checkpoint PASS d6384b9, 004 readiness/analyze PASS, 004 Story authoring/templates checkpoint PASS 5f4df5b, 005 readiness/analyze PASS, 005 AI provider boundary checkpoint PASS b076c36, 006 readiness/analyze PASS, 006 Durable job orchestration checkpoint PASS d81de62]
-- Blocked: [real Gemini G2/G4 until credential configured; affects real-provider image acceptance in 007, not 005 fixture/conformance completion or 006]
-- App runnable: yes — local Arabic shell, private family library, story/template authoring workspace, explicit provider Settings/Health boundary, and durable Arabic queue with restart-safe worker controls (no creative generation graph yet)
-- Next: advance 007 Creative generation and review through specify → clarify → plan → checklist → tasks → analyze
+- Current: 008 Arabic layout, preview, and approval implementation checkpoint
+- Done: [spec graph split, Citrus Playground design lock, bootstrap commit f95da4b, Phase 0 commit 81627c9, 002 readiness/analyze PASS, 002 Local foundation checkpoint PASS 4d84270, 003 readiness/analyze PASS 6d24e98, 003 Customer/character library checkpoint PASS d6384b9, 004 readiness/analyze PASS, 004 Story authoring/templates checkpoint PASS 5f4df5b, 005 readiness/analyze PASS, 005 AI provider boundary checkpoint PASS b076c36, 006 readiness/analyze PASS, 006 Durable job orchestration checkpoint PASS d81de62, 007 readiness/analyze PASS 59f7018, 007 Creative generation/review checkpoint PASS 50b94be, 008 readiness/analyze PASS 2edf50b]
+- Blocked: []
+- App runnable: yes — local Arabic shell, private family library, authoring workspace, explicit provider boundary, durable queue, complete mock creative graph, character sheets, per-page generation/history/locks, and mandatory Arabic review UI
+- Next: implement and verify T-P7-01–T-P7-06, then close the 008 checkpoint
 
 ## Slice status
 
@@ -17,8 +17,8 @@
 | 004 Story authoring/templates | implemented; checkpoint PASS (`5f4df5b`) |
 | 005 AI provider boundary | implemented; checkpoint PASS (`b076c36`) |
 | 006 Durable job orchestration | implemented; checkpoint PASS (`d81de62`) |
-| 007 Creative generation/review | readiness pipeline next |
-| 008 Arabic layout/preview | pending readiness |
+| 007 Creative generation/review | implemented; checkpoint PASS (`50b94be`) |
+| 008 Arabic layout/preview | readiness/analyze PASS (`2edf50b`); implementation in progress |
 | 009 Print production | pending readiness |
 | 010 Portability/deletion | pending readiness |
 | 011 Single Image Studio | pending readiness |
@@ -37,4 +37,8 @@
 - 005 implementation: checkpoint PASS. Verification: 34 files / 226 tests, 90.27% statements and 82.40% branches (provider boundary 83.68% branches), production build, 7/7 Playwright journeys, 0 dependency vulnerabilities, clean Node 22 lockfile install, exact provider/model/tier capability caching, safe all-category fixture conformance, no-startup-call and zero-browser-egress proof, credential-canary scans, real `SIGKILL`/restart persistence, sanitized 1920×1080 evidence, and an explicit Codex structured live PASS. Codex image and unconfigured Gemini paths remain honest SKIPs with zero request.
 - 006 readiness: analyze PASS after claim-token fencing, intent/request idempotency, exact bounded retries, privacy-safe diagnostics, current-consent-before-network resolution, owner-verified human gates, immutable provider successors, provider-wide quota/credential incidents, persistent storage stop/probe, indexed SQLite CAS, and restart/Arabic queue acceptance were made implementation-ready. Pending unapproved Flow work remains out of scope and untouched.
 - 006 implementation: checkpoint PASS and pushed as `d81de62`. Verification: 57 files / 388 tests, 89.57% statements and 81.77% branches (`src/jobs/**` 88.02% statements / 80.65% branches / 92.11% functions / 90.78% lines), production build, 8/8 Playwright journeys, 0 dependency vulnerabilities, clean Node 22 lockfile install, exhaustive 18-category failure policy, restart/asset/storage/consent/commit matrices, real `SIGKILL` recovery, stale-token rotation, three-width Arabic queue accessibility, synthetic evidence, and zero browser egress.
-- Implementation commits: `4d84270` (002); `d6384b9` (003); `5f4df5b` (004); `b076c36` (005); `d81de62` (006).
+- 007 readiness: analyze PASS after strict creative contracts, immutable lineage, five-view character-sheet finalization, complete pre-materialized graph, hash-bound prompt/capacity confirmations, exact provider-limit failure, page-operation isolation, closed IM-01–IM-21 behavior, human-review gates, and evidence checklists were made implementation-ready; pushed as `59f7018`.
+- 007 implementation: checkpoint PASS and pushed as `50b94be`. Verification: 77 files / 494 tests, 91.25% statements and 84.00% branches (`src/domain/creative/**` 96.40% statements / 91.20% branches / 97.56% functions / 98.14% lines; `src/jobs/**` 89.34% / 82.23% / 93.50% / 91.93%), production build, 10/10 Playwright journeys, 0 dependency vulnerabilities, clean Node 22 lockfile install, 30-node real-`SIGKILL` restart recovery, 12 independent page branches, no-retry safety refusal, revoked-consent zero dispatch, page-7 checksum isolation, full IM-01–IM-21 tests, rendered A5 Arabic character-sheet PDF, three-width accessible RTL review UI, zero browser egress, and honest Gemini `g2_limits_unverified` SKIP with zero request.
+- 008 readiness: analyze PASS after the customer-composition profile, exact layout/cover/source lineage, local durable workflow, preview mechanical/security gates, split preview/content-approval heads, action ledger, stable authorization hash, one-pass invalidation, IM-19/20 behavior, and strict 009 handoff were made implementation-ready; pushed as `2edf50b`.
+- Environment note: real Gemini image acceptance remains unavailable until a credential and exact G2/G4 facts are configured. This is a recorded live-check SKIP, not a loop blocker, fallback, or substitution.
+- Implementation commits: `4d84270` (002); `d6384b9` (003); `5f4df5b` (004); `b076c36` (005); `d81de62` (006); `50b94be` (007).
