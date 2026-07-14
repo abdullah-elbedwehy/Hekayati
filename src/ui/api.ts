@@ -15,6 +15,8 @@ import type {
   PhotoObservations,
   Settings,
   SettingsUpdate,
+  SettingsTargetChangePreview,
+  SettingsTargetChangeResult,
   SubjectRectangle,
   AuthoringPageCount,
   AuthoringOverrideResult,
@@ -32,6 +34,10 @@ import type {
   ProviderStatusSnapshot,
   ProviderTestResult,
   IllustrationStyleId,
+  JobState,
+  JobTarget,
+  QueueJobProjection,
+  QueueProjection,
 } from "./types";
 
 interface BootstrapResponse {
@@ -147,6 +153,20 @@ export class ApiClient {
     });
   }
 
+  previewSettingsTargetChange(
+    update: SettingsUpdate,
+  ): Promise<SettingsTargetChangePreview> {
+    return this.json("/api/settings/target-change/preview", "POST", update);
+  }
+
+  confirmSettingsTargetChange(input: {
+    update: SettingsUpdate;
+    expectedSettingsUpdatedAt: string;
+    impactHash: string;
+  }): Promise<SettingsTargetChangeResult> {
+    return this.json("/api/settings/target-change/confirm", "POST", input);
+  }
+
   providerStatus(): Promise<ProviderStatusSnapshot> {
     return this.request("/api/providers/status");
   }
@@ -187,6 +207,118 @@ export class ApiClient {
 
   health(): Promise<HealthSnapshot> {
     return this.request("/api/health");
+  }
+
+  jobs(): Promise<QueueProjection> {
+    return this.request("/api/jobs");
+  }
+
+  job(id: string): Promise<QueueJobProjection> {
+    return this.request(`/api/jobs/${encodeURIComponent(id)}`);
+  }
+
+  jobAction(
+    id: string,
+    action: "pause" | "resume" | "cancel" | "retry",
+    expected: { expectedRevision: number; expectedState: JobState },
+  ): Promise<QueueJobProjection> {
+    return this.json(
+      `/api/jobs/${encodeURIComponent(id)}/${action}`,
+      "POST",
+      expected,
+    );
+  }
+
+  setJobPriority(
+    id: string,
+    input: {
+      expectedRevision: number;
+      expectedState: JobState;
+      priority: number;
+    },
+  ): Promise<QueueJobProjection> {
+    return this.json(
+      `/api/jobs/${encodeURIComponent(id)}/priority`,
+      "PUT",
+      input,
+    );
+  }
+
+  pauseProjectJobs(
+    projectId: string,
+    impactHash: string,
+  ): Promise<{ affectedJobIds: string[] }> {
+    return this.json(
+      `/api/jobs/projects/${encodeURIComponent(projectId)}/pause`,
+      "POST",
+      { impactHash },
+    );
+  }
+
+  resumeProjectJobs(
+    projectId: string,
+    impactHash: string,
+  ): Promise<{ affectedJobIds: string[] }> {
+    return this.json(
+      `/api/jobs/projects/${encodeURIComponent(projectId)}/resume`,
+      "POST",
+      { impactHash },
+    );
+  }
+
+  decideQuota(input: {
+    incidentId: string;
+    actionId: string;
+    expectedRevision: number;
+    impactHash: string;
+    projectId: string | null;
+    standaloneScopeId: string | null;
+    decision: "wait" | "continue";
+    alternateTarget?: JobTarget;
+  }): Promise<{ successorJobIds: string[] }> {
+    const { incidentId, ...body } = input;
+    return this.json(
+      `/api/jobs/quota/${encodeURIComponent(incidentId)}/decision`,
+      "POST",
+      body,
+    );
+  }
+
+  resumeQuota(
+    incidentId: string,
+    input: {
+      actionId: string;
+      expectedRevision: number;
+      impactHash: string;
+      confirmedAffectedCount: number;
+    },
+  ) {
+    return this.json<{ affectedJobIds: string[] }>(
+      `/api/jobs/quota/${encodeURIComponent(incidentId)}/resume`,
+      "POST",
+      input,
+    );
+  }
+
+  resumeCredentials(
+    incidentId: string,
+    expectedRevision: number,
+    impactHash: string,
+  ) {
+    return this.json<{ affectedJobIds: string[] }>(
+      `/api/jobs/credentials/${encodeURIComponent(incidentId)}/resume`,
+      "POST",
+      { expectedRevision, impactHash },
+    );
+  }
+
+  resumeJobStorage(input: {
+    expectedRevision: number;
+    impactHash: string;
+    confirmedAffectedCount: number;
+    confirmed: true;
+  }): Promise<{ affectedJobIds: string[] }> {
+    return this.json("/api/jobs/storage/resume", "POST", input);
   }
 
   scanIntegrity(): Promise<IntegrityReport> {

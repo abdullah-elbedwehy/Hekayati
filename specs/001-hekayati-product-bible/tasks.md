@@ -117,15 +117,15 @@ Format: `[ID] [P?] [Refs] Description` — **[P]** = parallelizable (different f
 **User-visible outcome**: observable queue UI with pause/resume/cancel/retry/priority; restart recovery demonstrably safe.
 **Dependencies**: Phases 1, 2, 4.
 
-- [ ] T-P5-01 Scheduler core (tests first, from contract): states, DAG deps, priorities, atomic claim, per-provider concurrency, enqueue eligibility, and immediate pre-dispatch re-resolution of every provider reference plus current consent with zero adapter/network call on rejection (`src/jobs/`) [FR-004/021/025/109/112/114/134, EC-H14, CHK206/208]
-- [ ] T-P5-02 Idempotency keys + commit protocol (lease check, input-snapshot precondition, single transaction); duplicate-delivery, database-loss, deletion-during-work, stale/late/canceled rejection tests [FR-065/093, EC-C01/C06, EC-E02–E04/E08/E12]
-- [ ] T-P5-03 Failure taxonomy handling + retry policies exactly per contract table; per-row tests including rate limit, network loss, timeout, and provider-switch scope [FR-092/095/113, CHK106, EC-D09/D11–D12/D16]
-- [ ] T-P5-04 Quota-pause protocol + wait/switch decision flow + audit events [FR-096, SC-009, EC-D03]
-- [ ] T-P5-05 Restart recovery: bootId lease expiry, re-queue, tmp-GC sweep; kill-matrix failure-injection tests [FR-113, SC-002, EC-E01]
-- [ ] T-P5-06 Progress events, stall detection ("no progress" flag), waiting_review gate states [FR-111/114, EC-E06]
-- [ ] T-P5-07 Queue UI (Arabic): per-job blocking reasons, project pause/resume, cancel, retry, priority, and real queue-depth integration into the shared health surface [FR-111, FR-138 queue stage, CHK410–412]
-- [ ] T-P5-08 Monotonic-clock lease arithmetic (bootId + monotonicMs); wall-clock-jump tests [EC-E05, scheduler §leases]
-- [ ] T-P5-09 Disk-full / permission-failure pause-all + health alert integration [EC-E07/E13]
+- [x] T-P5-01 Scheduler core (tests first, from contract): states, DAG deps, priorities, atomic claim, per-provider concurrency, enqueue eligibility, and immediate pre-dispatch re-resolution of every provider reference plus current consent with zero adapter/network call on rejection (`src/jobs/`) [FR-004/021/025/109/112/114/134, EC-H14, CHK206/208]
+- [x] T-P5-02 Idempotency keys + commit protocol (lease check, input-snapshot precondition, single transaction); duplicate-delivery, database-loss, deletion-during-work, stale/late/canceled rejection tests [FR-065/093, EC-C01/C06, EC-E02–E04/E08/E12]
+- [x] T-P5-03 Failure taxonomy handling + retry policies exactly per contract table; per-row tests including rate limit, network loss, timeout, and provider-switch scope [FR-092/095/113, CHK106, EC-D09/D11–D12/D16]
+- [x] T-P5-04 Quota-pause protocol + wait/switch decision flow + audit events [FR-096, SC-009, EC-D03]
+- [x] T-P5-05 Restart recovery: bootId lease expiry, re-queue, tmp-GC sweep; kill-matrix failure-injection tests [FR-113, SC-002, EC-E01]
+- [x] T-P5-06 Progress events, stall detection ("no progress" flag), waiting_review gate states [FR-111/114, EC-E06]
+- [x] T-P5-07 Queue UI (Arabic): per-job blocking reasons, project pause/resume, cancel, retry, priority, and real queue-depth integration into the shared health surface [FR-111, FR-138 queue stage, CHK410–412]
+- [x] T-P5-08 Monotonic-clock lease arithmetic (bootId + monotonicMs); wall-clock-jump tests [EC-E05, scheduler §leases]
+- [x] T-P5-09 Disk-full / permission-failure pause-all + health alert integration [EC-E07/E13]
 
 **Checkpoint**: failure-injection suite green incl. kill matrix. **DoD**: CHK016 satisfiable; scheduler coverage ≥80%.
 

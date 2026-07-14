@@ -2,7 +2,7 @@
 
 **Feature ID**: `006-durable-job-orchestration`
 
-**Status**: Ready for implementation
+**Status**: Implemented — checkpoint PASS (2026-07-14)
 
 **Canonical bible**: [Hekayati product specification](../001-hekayati-product-bible/spec.md)
 

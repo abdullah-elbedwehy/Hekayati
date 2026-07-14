@@ -114,22 +114,27 @@ export class SettingsService {
   }
 
   update(input: unknown): Settings {
+    const preview = this.preview(input);
+    return this.repository.put(
+      settingsSchema.parse({ ...preview, updatedAt: new Date().toISOString() }),
+    );
+  }
+
+  preview(input: unknown): Settings {
     const update = settingsUpdateSchema.parse(input);
     const current = this.get();
-    return this.repository.put(
-      settingsSchema.parse({
-        ...current,
-        ...update,
-        models: { ...current.models, ...update.models },
-        typography: { ...current.typography, ...update.typography },
-        storagePathsReadonly: {
-          data: this.paths.root,
-          assets: this.paths.assets,
-        },
-        deferredStatus: current.deferredStatus,
-        updatedAt: new Date().toISOString(),
-      }),
-    );
+    return settingsSchema.parse({
+      ...current,
+      ...update,
+      models: { ...current.models, ...update.models },
+      typography: { ...current.typography, ...update.typography },
+      storagePathsReadonly: {
+        data: this.paths.root,
+        assets: this.paths.assets,
+      },
+      deferredStatus: current.deferredStatus,
+      updatedAt: current.updatedAt,
+    });
   }
 
   private createDefault(): Settings {

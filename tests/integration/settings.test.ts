@@ -282,7 +282,14 @@ describe("settings and health foundation", () => {
         gemini: { state: "not_checked" },
       },
     });
-    expect(health.queue).toEqual({ status: "not_available", depth: null });
+    expect(health.queue).toMatchObject({
+      status: "available",
+      workerStatus: "running",
+      depth: 0,
+      stalledCount: 0,
+      openQuotaIncidents: 0,
+      storage: { active: false, reason: null },
+    });
     expect(health.printerProfiles).toEqual({ status: "not_configured" });
     expect(health.listener).toEqual({
       status: "ok",

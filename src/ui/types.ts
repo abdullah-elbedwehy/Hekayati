@@ -127,8 +127,207 @@ export interface HealthSnapshot {
         selected: { text: ProviderId; image: ProviderId };
         connections: Record<ProviderId, ProviderProjection>;
       };
-  queue: { status: "not_available"; depth: null };
+  queue: JobHealthSnapshot | { status: "not_available"; depth: null };
   printerProfiles: { status: "not_configured" };
+}
+
+export type JobState =
+  | "created"
+  | "blocked"
+  | "queued"
+  | "claimed"
+  | "running"
+  | "succeeded"
+  | "failed"
+  | "paused"
+  | "canceled"
+  | "waiting_review";
+
+export type JobOperation = "text" | "structured" | "image";
+
+export interface JobTarget {
+  providerId: ProviderId;
+  modelId: string;
+  operation: JobOperation;
+  settingsHash: string;
+}
+
+export interface SettingsTargetChangePreview {
+  expectedSettingsUpdatedAt: string;
+  impactHash: string;
+  requiresConfirmation: boolean;
+  targets: JobTarget[];
+  affected: Array<{
+    id: string;
+    revision: number;
+    state: JobState;
+    projectId: string | null;
+    standaloneScopeId: string | null;
+    fromTarget: JobTarget;
+    toTarget: JobTarget;
+  }>;
+}
+
+export interface SettingsTargetChangeResult {
+  settings: Settings;
+  successorJobIds: string[];
+}
+
+export interface JobProgress {
+  attempt: number;
+  percent: number;
+  noteCode: string;
+  updatedAtMono: number;
+  noProgress: boolean;
+}
+
+export interface JobFailure {
+  category: string;
+  message: string;
+  retryable: boolean;
+  retryAfterMs?: number;
+}
+
+export interface JobProvenance {
+  provider: ProviderId;
+  modelId: string;
+  at: string;
+  inputVersionRefs: Record<string, string>;
+  promptVersion: string;
+  referenceAssetIds: string[];
+  attempt: number;
+  settingsSnapshotHash: string;
+}
+
+export interface JobEvent {
+  id: string;
+  createdAt: string;
+  jobId: string;
+  sequence: number;
+  kind: string;
+  attempt: number | null;
+  fromState: JobState | null;
+  toState: JobState | null;
+  reason: string | null;
+  noteCode: string | null;
+}
+
+export type QueueAction =
+  "pause" | "resume" | "cancel" | "retry" | "priority" | "open_gate";
+
+export interface QueueJobProjection {
+  id: string;
+  revision: number;
+  jobType: string;
+  projectId: string | null;
+  standaloneScopeId: string | null;
+  state: JobState;
+  stateReason: string | null;
+  priority: number;
+  queuePosition: number | null;
+  blockers: Array<{
+    id: string;
+    state: JobState;
+    reason: string | null;
+  }>;
+  attempts: number;
+  automaticRetries: number;
+  manualRetries: number;
+  progress: JobProgress | null;
+  noProgress: boolean;
+  target: JobTarget | null;
+  createdAt: string;
+  updatedAt: string;
+  failure: JobFailure | null;
+  provenance: JobProvenance | null;
+  resultRefs: string[];
+  gate: {
+    gateKind: string;
+    targetId: string;
+    targetVersionId: string;
+  } | null;
+  allowedActions: QueueAction[];
+  history: JobEvent[];
+}
+
+export interface QuotaIncident {
+  id: string;
+  revision: number;
+  providerId: ProviderId;
+  operation: JobOperation;
+  status: "open" | "resolved";
+  affectedScopeIds: string[];
+  alternateTargets?: JobTarget[];
+  resumeImpact: {
+    impactHash: string;
+    affectedCount: number;
+  } | null;
+  scopes: Array<{
+    projectId: string | null;
+    standaloneScopeId: string | null;
+    impactHash: string;
+    affectedCount: number;
+  }>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CredentialIncident {
+  id: string;
+  revision: number;
+  providerId: ProviderId;
+  status: "open" | "resolved";
+  affectedScopeIds: string[];
+  impactHash: string | null;
+  affectedCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface StorageControl {
+  active: boolean;
+  reason: "disk_write_failure" | "insufficient_disk_space" | null;
+  workerStatus: "stopped" | "running" | "halted";
+  lastRecoveryAt: string | null;
+  lastProbeAt: string | null;
+  lastProbeStatus: "failed" | "succeeded" | null;
+  resumeImpact: {
+    expectedRevision: number;
+    impactHash: string;
+    affectedCount: number;
+  } | null;
+}
+
+export interface QueueProjection {
+  checkedAt: string;
+  jobs: QueueJobProjection[];
+  counts: Record<JobState, number>;
+  stalledCount: number;
+  runningByProvider: Record<string, number>;
+  quotaIncidents: QuotaIncident[];
+  credentialIncidents: CredentialIncident[];
+  projectActions: Array<{
+    projectId: string;
+    pause: { impactHash: string; affectedCount: number };
+    resume: { impactHash: string; affectedCount: number };
+  }>;
+  storage: StorageControl;
+}
+
+export interface JobHealthSnapshot {
+  status: "available";
+  workerStatus: "stopped" | "running" | "halted";
+  depth: number;
+  counts: Record<JobState, number>;
+  runningByProvider: Record<string, number>;
+  stalledCount: number;
+  storage: {
+    active: boolean;
+    reason: StorageControl["reason"];
+  };
+  openQuotaIncidents: number;
+  openCredentialIncidents: number;
+  lastRecoveryAt: string | null;
 }
 
 export type LibraryStatus = "active" | "archived";

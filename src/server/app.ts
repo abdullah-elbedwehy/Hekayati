@@ -21,6 +21,18 @@ import { LibraryError } from "../domain/library/errors.js";
 import { LibraryService } from "../domain/library/index.js";
 import { SettingsService } from "../domain/settings/settings.js";
 import { SecuritySentinel } from "../domain/system/sentinel.js";
+import { JobError } from "../jobs/errors.js";
+import {
+  CredentialAvailabilityBroker,
+  ExactCapabilityBroker,
+  QuotaAvailabilityBroker,
+} from "../jobs/capabilities.js";
+import { JobRuntime, type JobRuntimeOptions } from "../jobs/runtime.js";
+import type { QuotaIncident } from "../jobs/schemas.js";
+import { createJobTarget } from "../jobs/targets.js";
+import type { ProviderTargetChangeCoordinator } from "../jobs/provider-target-change.js";
+import { ProviderTargetChangeError } from "../jobs/provider-target-change.js";
+import { probeSchedulerStorage } from "../jobs/storage-probe.js";
 import {
   createFileLogSink,
   Redactor,
@@ -41,10 +53,14 @@ import {
   type SeedTemplateInstaller,
 } from "./startup/seed-templates.js";
 import {
-  createProviderSubsystem,
+  createProviderRuntime,
   type ProviderRuntimeOptions,
 } from "../providers/runtime.js";
-import { ProviderServiceError } from "./providers/provider-service.js";
+import {
+  ProviderServiceError,
+  type ProviderService,
+} from "./providers/provider-service.js";
+import { createProviderTargetChangeCoordinator } from "./providers/provider-target-coordinator.js";
 
 export interface RuntimeOptions {
   dataDir?: string;
@@ -53,6 +69,7 @@ export interface RuntimeOptions {
   enableTestRoutes?: boolean;
   seedTemplateInstaller?: SeedTemplateInstaller;
   providers?: ProviderRuntimeOptions;
+  jobs?: JobRuntimeOptions;
 }
 
 export interface StartOptions {
@@ -72,6 +89,7 @@ export interface HekayatiRuntime {
   start(options?: StartOptions): Promise<string>;
   close(): Promise<void>;
   sentinelValue(): number;
+  jobs: JobRuntime;
 }
 
 export async function createRuntime(
@@ -137,40 +155,80 @@ async function assembleRuntime(
 ): Promise<HekayatiRuntime> {
   const sentinel = new SecuritySentinel(store);
   const boundary = new LocalRequestBoundary();
-  const { logger, providers, health } = createInfrastructure({
-    options,
-    paths,
-    store,
-    assets,
-    originals,
-    settings,
-    boundary,
-    initialIntegrity,
-  });
+  const { logger, providers, jobs, health, targetChanges } =
+    createInfrastructure({
+      options,
+      paths,
+      store,
+      assets,
+      originals,
+      settings,
+      boundary,
+      initialIntegrity,
+    });
   const metrics = { listenAttempts: 0, routeDispatches: 0 };
-  const photoIntake = new PhotoIntakeCoordinator(
+  const app = await configureHttpApp({
+    options,
     store,
     assets,
     originals,
-    settings,
-    library,
-  );
-  const app = createHttpApp(boundary, metrics, logger);
-  await registerMultipart(app);
-  registerApi(app, {
-    assets,
     settings,
     library,
     authoring,
-    photoIntake,
+    sentinel,
+    boundary,
+    metrics,
+    logger,
     health,
     providers,
-    boundary,
-    sentinel,
-    enableTestRoutes: options.enableTestRoutes ?? false,
+    jobs,
+    targetChanges,
   });
-  await registerUi(app, options);
-  return buildRuntime(app, store, boundary, sentinel, paths, metrics, logger);
+  return finish(app, store, boundary, sentinel, paths, metrics, logger, jobs);
+}
+
+async function configureHttpApp(input: {
+  options: RuntimeOptions;
+  store: DocumentStore;
+  assets: AssetStore;
+  originals: OriginalAssetStore;
+  settings: SettingsService;
+  library: LibraryService;
+  authoring: AuthoringService;
+  sentinel: SecuritySentinel;
+  boundary: LocalRequestBoundary;
+  metrics: RuntimeMetrics;
+  logger: StructuredLogger;
+  health: HealthService;
+  providers: ReturnType<typeof createProviderRuntime>["service"];
+  jobs: JobRuntime;
+  targetChanges: ProviderTargetChangeCoordinator;
+}): Promise<FastifyInstance> {
+  const photoIntake = new PhotoIntakeCoordinator(
+    input.store,
+    input.assets,
+    input.originals,
+    input.settings,
+    input.library,
+  );
+  const app = createHttpApp(input.boundary, input.metrics, input.logger);
+  await registerMultipart(app);
+  registerApi(app, {
+    assets: input.assets,
+    settings: input.settings,
+    library: input.library,
+    authoring: input.authoring,
+    photoIntake,
+    health: input.health,
+    providers: input.providers,
+    jobs: input.jobs,
+    targetChanges: input.targetChanges,
+    boundary: input.boundary,
+    sentinel: input.sentinel,
+    enableTestRoutes: input.options.enableTestRoutes ?? false,
+  });
+  await registerUi(app, input.options);
+  return app;
 }
 
 function createInfrastructure(input: {
@@ -187,10 +245,16 @@ function createInfrastructure(input: {
     createFileLogSink(join(input.paths.logs, "app.log")),
     new Redactor(input.store.secretRegistry),
   );
-  const providers = createProviderSubsystem(
+  const providerRuntime = createProviderRuntime(
     input.settings,
     logger.redactor,
     input.options.providers,
+  );
+  const jobs = createJobs(input, providerRuntime);
+  const targetChanges = createProviderTargetChangeCoordinator(
+    input.settings,
+    jobs,
+    providerRuntime.service,
   );
   const health = new HealthService(
     input.store,
@@ -200,9 +264,84 @@ function createInfrastructure(input: {
     input.paths,
     input.initialIntegrity,
     input.originals,
-    providers,
+    providerRuntime.service,
+    jobs,
   );
-  return { logger, providers, health };
+  return {
+    logger,
+    providers: providerRuntime.service,
+    jobs,
+    health,
+    targetChanges,
+  };
+}
+
+function createJobs(
+  input: Parameters<typeof createInfrastructure>[0],
+  providerRuntime: ReturnType<typeof createProviderRuntime>,
+): JobRuntime {
+  const exactCapabilities = new ExactCapabilityBroker(
+    providerRuntime.registry,
+    providerRuntime.capabilityCache,
+    input.options.providers?.monotonicNow,
+  );
+  const quotaAvailability =
+    input.options.jobs?.quotaAvailability ??
+    new QuotaAvailabilityBroker(exactCapabilities);
+  const credentialAvailability =
+    input.options.jobs?.credentialAvailability ??
+    new CredentialAvailabilityBroker(exactCapabilities);
+  return new JobRuntime(input.store, {
+    ...input.options.jobs,
+    concurrencyPerProvider:
+      input.options.jobs?.concurrencyPerProvider ??
+      input.settings.get().concurrencyPerProvider,
+    getConcurrencyPerProvider:
+      input.options.jobs?.getConcurrencyPerProvider ??
+      (input.options.jobs?.concurrencyPerProvider === undefined
+        ? () => input.settings.get().concurrencyPerProvider
+        : undefined),
+    storageProbe:
+      input.options.jobs?.storageProbe ??
+      (() =>
+        probeSchedulerStorage({
+          paths: input.paths,
+          database: input.store,
+          minimumFreeBytes: input.settings.get().diskWarnGb * 1024 ** 3,
+        })),
+    quotaAvailability,
+    credentialAvailability,
+    quotaAlternates:
+      input.options.jobs?.quotaAlternates ??
+      ((incident) =>
+        cachedQuotaAlternates(
+          providerRuntime.service,
+          input.settings,
+          incident,
+        )),
+  });
+}
+
+function cachedQuotaAlternates(
+  providers: ProviderService,
+  settings: SettingsService,
+  incident: QuotaIncident,
+) {
+  const current = settings.get();
+  return providers
+    .cachedAvailableTargets(incident.operation)
+    .filter((target) => target.providerId !== incident.providerId)
+    .map((target) =>
+      createJobTarget({
+        ...target,
+        configuration: {
+          imageTier:
+            target.providerId === "gemini" && target.operation === "image"
+              ? current.geminiImageTier
+              : null,
+        },
+      }),
+    );
 }
 
 async function registerMultipart(app: FastifyInstance): Promise<void> {
@@ -256,7 +395,7 @@ function createHttpApp(
   return app;
 }
 
-function buildRuntime(
+function finish(
   app: FastifyInstance,
   store: DocumentStore,
   boundary: LocalRequestBoundary,
@@ -264,22 +403,14 @@ function buildRuntime(
   paths: DataPaths,
   metrics: RuntimeMetrics,
   logger: StructuredLogger,
+  jobs: JobRuntime,
 ): HekayatiRuntime {
-  let closed = false;
-  const close = async (): Promise<void> => {
-    if (closed) return;
-    closed = true;
-    boundary.deactivate();
-    try {
-      await app.close();
-    } finally {
-      store.close();
-    }
-  };
+  const close = runtimeCloser(app, store, boundary, jobs);
   return {
     app,
     paths,
     metrics,
+    jobs,
     sentinelValue: () => sentinel.value(),
     start: async (options = {}) => {
       try {
@@ -293,6 +424,7 @@ function buildRuntime(
         logger.info("server_ready", {
           canonicalOrigin: boundary.bootstrap().canonicalOrigin,
         });
+        jobs.start();
         return boundary.bootstrap().canonicalOrigin;
       } catch (error) {
         await close();
@@ -301,6 +433,45 @@ function buildRuntime(
     },
     close,
   };
+}
+
+function runtimeCloser(
+  app: FastifyInstance,
+  store: DocumentStore,
+  boundary: LocalRequestBoundary,
+  jobs: JobRuntime,
+): () => Promise<void> {
+  let closed = false;
+  return async () => {
+    if (closed) return;
+    closed = true;
+    let failure: unknown;
+    try {
+      await jobs.stop();
+    } catch (error) {
+      failure = error;
+    }
+    try {
+      boundary.deactivate();
+    } catch (error) {
+      failure ??= error;
+    }
+    try {
+      await app.close();
+    } catch (error) {
+      failure ??= error;
+    }
+    try {
+      store.close();
+    } catch (error) {
+      failure ??= error;
+    }
+    if (failure) throw runtimeCloseError(failure);
+  };
+}
+
+function runtimeCloseError(error: unknown): Error {
+  return error instanceof Error ? error : new Error("RUNTIME_CLOSE_FAILED");
 }
 
 function isSqliteBusy(error: unknown): boolean {
@@ -353,7 +524,9 @@ function handleError(
   }
   if (
     error instanceof PhotoReservationError ||
-    error instanceof ProviderServiceError
+    error instanceof ProviderServiceError ||
+    error instanceof ProviderTargetChangeError ||
+    error instanceof JobError
   ) {
     void reply.code(error.statusCode).send({ code: error.code });
     return;

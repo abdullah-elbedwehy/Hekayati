@@ -3,13 +3,18 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     environment: "node",
-    include: ["tests/unit/**/*.test.ts", "tests/integration/**/*.test.ts"],
+    include: [
+      "tests/unit/**/*.test.ts",
+      "tests/integration/**/*.test.ts",
+      "tests/failure-injection/**/*.test.ts",
+    ],
     coverage: {
       provider: "v8",
       reporter: ["text", "json-summary"],
       include: [
         "src/assets/**/*.ts",
         "src/domain/**/*.ts",
+        "src/jobs/**/*.ts",
         "src/providers/**/*.ts",
         "src/security/**/*.ts",
         "src/server/security/**/*.ts",
@@ -27,6 +32,12 @@ export default defineConfig({
           branches: 80,
         },
         "src/providers/**/*.ts": {
+          lines: 80,
+          functions: 80,
+          statements: 80,
+          branches: 80,
+        },
+        "src/jobs/**/*.ts": {
           lines: 80,
           functions: 80,
           statements: 80,

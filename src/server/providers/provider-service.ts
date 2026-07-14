@@ -43,6 +43,12 @@ export interface ProviderHealthSnapshot {
   connections: Record<ProviderId, ProviderProjection>;
 }
 
+export interface CachedOperationTarget {
+  providerId: ProviderId;
+  modelId: string;
+  operation: "text" | "structured" | "image";
+}
+
 export class ProviderServiceError extends Error {
   readonly statusCode = 400;
 
@@ -147,6 +153,16 @@ export class ProviderService {
     };
   }
 
+  cachedAvailableTargets(
+    operation: CachedOperationTarget["operation"],
+  ): CachedOperationTarget[] {
+    return (["mock", "codex", "gemini"] as const).flatMap((providerId) => {
+      const projection = this.projection(providerId);
+      const modelId = availableModelId(projection, operation);
+      return modelId ? [{ providerId, modelId, operation }] : [];
+    });
+  }
+
   private projections(): Record<ProviderId, ProviderProjection> {
     return {
       mock: this.projection("mock"),
@@ -185,6 +201,26 @@ export class ProviderService {
       tier: settings.geminiImageTier,
     });
   }
+}
+
+function availableModelId(
+  projection: ProviderProjection,
+  operation: CachedOperationTarget["operation"],
+): string | null {
+  if (projection.state !== "available" || projection.authState !== "ok")
+    return null;
+  if (operation === "image") {
+    const image = projection.image;
+    return image?.available &&
+      image.modelId &&
+      image.maxReferenceImages !== null &&
+      image.reliableCharacterCount !== null
+      ? image.modelId
+      : null;
+  }
+  const text = projection.text;
+  if (!text?.available || !text.modelId) return null;
+  return operation === "structured" && !text.structured ? null : text.modelId;
 }
 
 function uncheckedProjection(): ProviderProjection {

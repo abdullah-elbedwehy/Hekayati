@@ -6,15 +6,18 @@ import { HealthView } from "./views/HealthView";
 import { HomeView } from "./views/HomeView";
 import { LibraryView } from "./views/LibraryView";
 import { ProjectsView } from "./views/ProjectsView";
+import { QueueView } from "./views/QueueView";
 import { SettingsView } from "./views/SettingsView";
 
-export type View = "home" | "library" | "projects" | "settings" | "health";
+export type View =
+  "home" | "library" | "projects" | "queue" | "settings" | "health";
 type ErrorCategory = "connect" | "stale";
 
 const navigation = [
   { id: "home" as const, label: "البداية" },
   { id: "library" as const, label: "مكتبة العائلات" },
   { id: "projects" as const, label: "المشاريع والقصص" },
+  { id: "queue" as const, label: "قائمة المهام" },
   { id: "settings" as const, label: "الإعدادات" },
   { id: "health" as const, label: "حالة النظام" },
 ];
@@ -32,6 +35,8 @@ export function App() {
       busy={state.busy}
       setView={state.setView}
       save={state.save}
+      onSettingsCommitted={state.setSettings}
+      onStaleSession={() => state.setError("stale")}
       refreshHealth={state.refreshHealth}
       acknowledgeBackup={state.acknowledgeBackup}
       backupState={state.backupState}
@@ -124,6 +129,8 @@ interface ShellProps {
   busy: boolean;
   setView: (view: View) => void;
   save: (settings: Settings) => Promise<void>;
+  onSettingsCommitted: (settings: Settings) => void;
+  onStaleSession: () => void;
   refreshHealth: (scan?: boolean) => Promise<void>;
   acknowledgeBackup: () => Promise<void>;
   backupState: "idle" | "saving" | "error";
@@ -196,12 +203,22 @@ function CurrentView(props: ShellProps) {
     return <HomeView health={props.health} onNavigate={props.setView} />;
   if (props.view === "library") return <LibraryView client={props.client} />;
   if (props.view === "projects") return <ProjectsView client={props.client} />;
+  if (props.view === "queue")
+    return (
+      <QueueView
+        client={props.client}
+        onOpenProjects={() => props.setView("projects")}
+        onOpenSettings={() => props.setView("settings")}
+      />
+    );
   if (props.view === "settings")
     return (
       <SettingsView
         client={props.client}
         settings={props.settings}
         onSave={props.save}
+        onCommitted={props.onSettingsCommitted}
+        onStaleSession={props.onStaleSession}
       />
     );
   return (

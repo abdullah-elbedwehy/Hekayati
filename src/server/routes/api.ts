@@ -9,10 +9,14 @@ import type { HealthService } from "../health/health-service.js";
 import type { LocalRequestBoundary } from "../security/request-boundary.js";
 import type { PhotoIntakeCoordinator } from "../photo-intake/photo-intake-coordinator.js";
 import type { ProviderService } from "../providers/provider-service.js";
+import type { JobRuntime } from "../../jobs/runtime.js";
+import type { ProviderTargetChangeCoordinator } from "../../jobs/provider-target-change.js";
 import { registerLibraryApi } from "./library-api.js";
 import { registerAuthoringApi } from "./authoring-api.js";
 import { registerPhotoIntakeApi } from "./photo-intake-api.js";
 import { registerProviderApi } from "./provider-api.js";
+import { registerJobApi } from "./job-api.js";
+import { registerSettingsApi } from "./settings-api.js";
 
 export interface ApiDependencies {
   assets: AssetStore;
@@ -22,6 +26,8 @@ export interface ApiDependencies {
   photoIntake: PhotoIntakeCoordinator;
   health: HealthService;
   providers: ProviderService;
+  jobs: JobRuntime;
+  targetChanges: ProviderTargetChangeCoordinator;
   boundary: LocalRequestBoundary;
   sentinel: SecuritySentinel;
   enableTestRoutes: boolean;
@@ -38,9 +44,7 @@ export function registerApi(
     return { appName: "حكايتي", direction: "rtl", ...boundary.bootstrap() };
   });
 
-  app.get("/api/settings", () => settings.get());
-
-  app.put("/api/settings", (request) => settings.update(request.body));
+  registerSettingsApi(app, settings, dependencies.targetChanges);
 
   app.get("/api/health", () => health.snapshot());
 
@@ -50,6 +54,7 @@ export function registerApi(
   registerAuthoringApi(app, dependencies.authoring, dependencies.library);
   registerPhotoIntakeApi(app, dependencies.photoIntake);
   registerProviderApi(app, dependencies.providers);
+  registerJobApi(app, dependencies.jobs, dependencies.jobs);
 
   if (dependencies.enableTestRoutes) {
     app.get("/api/testing/sentinel", () => ({ value: sentinel.value() }));

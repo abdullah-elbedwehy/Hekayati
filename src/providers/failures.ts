@@ -28,6 +28,10 @@ export const normalizedFailureSchema = z
     category: failureCategorySchema,
     message: z.string().trim().min(1).max(240),
     retryable: z.boolean(),
+    reasonCode: z
+      .string()
+      .regex(/^[A-Za-z0-9][A-Za-z0-9._:-]{0,159}$/)
+      .optional(),
     providerDetail: z.string().trim().min(1).max(1_500).optional(),
     retryAfterMs: z.number().int().positive().max(86_400_000).optional(),
   })
@@ -72,12 +76,14 @@ export function makeFailure(
     providerDetail?: string;
     retryAfterMs?: number;
     message?: string;
+    reasonCode?: string;
   } = {},
 ): NormalizedFailure {
   return normalizedFailureSchema.parse({
     category,
     message: options.message ?? safeMessages[category],
     retryable: retryableCategories.has(category),
+    reasonCode: options.reasonCode,
     providerDetail: options.providerDetail,
     retryAfterMs: options.retryAfterMs,
   });

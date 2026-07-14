@@ -149,7 +149,7 @@ function TierSelect(props: {
       </select>
       {props.draft.geminiImageTier === "economy" && (
         <small className="provider-warning">
-          ⚠ المستوى الاقتصادي قد يقلّل ثبات الشخصيات والتفاصيل.
+          تنبيه: المستوى الاقتصادي قد يقلّل ثبات الشخصيات والتفاصيل.
         </small>
       )}
     </div>

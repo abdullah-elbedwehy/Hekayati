@@ -27,11 +27,25 @@ export interface ProviderRuntimeOptions {
   monotonicNow?: () => number;
 }
 
+export interface ProviderSubsystem {
+  service: ProviderService;
+  registry: ProviderRegistry;
+  capabilityCache: CapabilityCache;
+}
+
 export function createProviderSubsystem(
   settings: SettingsService,
   redactor: Redactor,
   options: ProviderRuntimeOptions = {},
 ): ProviderService {
+  return createProviderRuntime(settings, redactor, options).service;
+}
+
+export function createProviderRuntime(
+  settings: SettingsService,
+  redactor: Redactor,
+  options: ProviderRuntimeOptions = {},
+): ProviderSubsystem {
   const clock = options.clock ?? (() => new Date());
   const cache = new CapabilityCache({ now: options.monotonicNow });
   const keychain =
@@ -54,13 +68,15 @@ export function createProviderSubsystem(
     settings: () => settings.get(),
     clock,
   });
-  return new ProviderService(
+  const registry = new ProviderRegistry([mock, codex, gemini]);
+  const service = new ProviderService(
     settings,
     credentials,
-    new ProviderRegistry([mock, codex, gemini]),
+    registry,
     cache,
     clock,
   );
+  return { service, registry, capabilityCache: cache };
 }
 
 function geminiConfiguration(

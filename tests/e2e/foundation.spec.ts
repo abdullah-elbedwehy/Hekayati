@@ -57,7 +57,7 @@ test("Arabic RTL foundation persists settings with no external telemetry", async
   await expect(
     page.getByRole("heading", { name: "أساس هادئ لكل حكاية" }),
   ).toBeVisible();
-  await expect(page.getByText("غير مُعَدّين بعد")).toBeVisible();
+  await expect(page.getByText("حالتهم ظاهرة في التشخيص")).toBeVisible();
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= window.innerWidth,
@@ -90,7 +90,17 @@ test("Arabic RTL foundation persists settings with no external telemetry", async
   await expect(
     page.getByRole("heading", { name: "حالة النظام" }),
   ).toBeVisible();
-  await expect(page.getByText("غير متاح", { exact: true })).toBeVisible();
+  await expect(
+    page
+      .getByRole("region", { name: "اتصال المزوّدين" })
+      .getByText("لم يُفحص", { exact: true })
+      .first(),
+  ).toBeVisible();
+  await expect(
+    page
+      .getByRole("region", { name: "تنفيذ المهام" })
+      .getByText("يعمل", { exact: true }),
+  ).toBeVisible();
   await expect(page.getByText("مقيّد بالجهاز", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "فحص الملفات الآن" }).click();
   await expect(
@@ -179,7 +189,7 @@ test("health UI identifies every affected asset and reason", async ({
   await page.getByRole("button", { name: "تحديث الحالة" }).click();
   await expect(page.getByTitle(assetId)).toBeVisible();
   await expect(page.getByText("بصمة الملف لا تطابق السجل")).toBeVisible();
-  await expect(page.getByText("5 جيجابايت — أقل من حد التحذير")).toBeVisible();
+  await expect(page.getByText("5 جيجابايت، أقل من حد التحذير")).toBeVisible();
 });
 
 async function expectAccessible(page: Page): Promise<void> {

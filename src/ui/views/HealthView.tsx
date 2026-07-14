@@ -2,8 +2,10 @@ import { StatusLine } from "../components/StatusLine";
 import type {
   HealthSnapshot,
   IntegrityReport,
+  JobHealthSnapshot,
   ProviderProjection,
 } from "../types";
+import { formatQueueNumber } from "../components/jobs/format";
 
 interface HealthViewProps {
   health: HealthSnapshot;
@@ -18,6 +20,7 @@ export function HealthView(props: HealthViewProps) {
       <HealthHeader busy={props.busy} onRefresh={props.onRefresh} />
       <LocalHealthSection {...props} />
       <ProviderHealth health={props.health} />
+      <QueueHealth health={props.health} />
       <DeferredHealth />
     </main>
   );
@@ -115,10 +118,10 @@ function StorageStatus({ health }: Pick<HealthViewProps, "health">) {
 
 function diskStatusText(health: HealthSnapshot): string {
   if (health.disk.status === "error" || health.disk.freeGb === null)
-    return "تعذّر القياس — راجع مجلد البيانات";
+    return "تعذّر القياس، راجع مجلد البيانات";
   if (health.disk.status === "warning")
-    return `${health.disk.freeGb} جيجابايت — أقل من حد التحذير`;
-  return `${health.disk.freeGb} جيجابايت — مساحة كافية`;
+    return `${health.disk.freeGb} جيجابايت، أقل من حد التحذير`;
+  return `${health.disk.freeGb} جيجابايت، مساحة كافية`;
 }
 
 function IntegrityIssues({ integrity }: { integrity: IntegrityReport }) {
@@ -152,16 +155,116 @@ function DeferredHealth() {
     <section className="section" aria-labelledby="deferred-heading">
       <div className="section-heading">
         <div>
-          <p className="eyebrow">مراحل لاحقة</p>
-          <h2 id="deferred-heading">حالات غير مكتملة</h2>
+          <p className="eyebrow">مرحلة الطباعة</p>
+          <h2 id="deferred-heading">إعداد لم يكتمل</h2>
         </div>
       </div>
       <div className="status-list">
-        <StatusLine label="عمق قائمة المهام" status="غير متاح" tone="pending" />
         <StatusLine label="ملفات الطباعة" status="غير مُعَدّة" tone="pending" />
       </div>
     </section>
   );
+}
+
+function QueueHealth({ health }: { health: HealthSnapshot }) {
+  if (health.queue.status !== "available") {
+    return (
+      <section className="section" aria-labelledby="queue-health-heading">
+        <h2 id="queue-health-heading">تنفيذ المهام</h2>
+        <StatusLine label="قائمة المهام" status="غير متاحة" tone="pending" />
+      </section>
+    );
+  }
+  const queue = health.queue;
+  return (
+    <section className="section" aria-labelledby="queue-health-heading">
+      <div className="section-heading">
+        <div>
+          <p className="eyebrow">قراءة محلية بلا فحص مزوّد</p>
+          <h2 id="queue-health-heading">تنفيذ المهام</h2>
+        </div>
+      </div>
+      <QueueHealthRows queue={queue} />
+    </section>
+  );
+}
+
+function QueueHealthRows({ queue }: { queue: JobHealthSnapshot }) {
+  return (
+    <div className="status-list">
+      <StatusLine
+        label="عامل التنفيذ"
+        status={workerHealthLabel(queue.workerStatus)}
+        tone={workerHealthTone(queue.workerStatus)}
+        detail={
+          queue.lastRecoveryAt
+            ? `آخر استعادة: ${formatDate(queue.lastRecoveryAt)}`
+            : "لا توجد استعادة مسجّلة"
+        }
+      />
+      <StatusLine
+        label="عمق القائمة"
+        status={`${formatQueueNumber(queue.depth)} مهمة`}
+        tone={queue.depth > 0 ? "warning" : "ok"}
+        detail={queueCounts(queue)}
+      />
+      <StatusLine
+        label="التنفيذ حسب المزوّد"
+        status={runningProviders(queue)}
+        tone="ok"
+      />
+      <StatusLine
+        label="مهام بلا تقدّم"
+        status={formatQueueNumber(queue.stalledCount)}
+        tone={queue.stalledCount > 0 ? "warning" : "ok"}
+      />
+      <StatusLine
+        label="حوادث الحصة المفتوحة"
+        status={formatQueueNumber(queue.openQuotaIncidents)}
+        tone={queue.openQuotaIncidents > 0 ? "warning" : "ok"}
+      />
+      <StatusLine
+        label="حوادث بيانات الاتصال"
+        status={formatQueueNumber(queue.openCredentialIncidents)}
+        tone={queue.openCredentialIncidents > 0 ? "error" : "ok"}
+      />
+      <StatusLine
+        label="إيقاف التخزين"
+        status={queue.storage.active ? "نشط" : "غير نشط"}
+        tone={queue.storage.active ? "error" : "ok"}
+        detail={queue.storage.reason ?? undefined}
+      />
+    </div>
+  );
+}
+
+function workerHealthTone(status: JobHealthSnapshot["workerStatus"]) {
+  if (status === "running") return "ok" as const;
+  return status === "halted" ? ("error" as const) : ("warning" as const);
+}
+
+function queueCounts(queue: JobHealthSnapshot): string {
+  return [
+    `انتظار ${formatQueueNumber(queue.counts.queued)}`,
+    `اعتماد ${formatQueueNumber(queue.counts.blocked)}`,
+    `تنفيذ ${formatQueueNumber(queue.counts.running + queue.counts.claimed)}`,
+    `توقف ${formatQueueNumber(queue.counts.paused)}`,
+    `مراجعة ${formatQueueNumber(queue.counts.waiting_review)}`,
+    `فشل ${formatQueueNumber(queue.counts.failed)}`,
+  ].join("، ");
+}
+
+function runningProviders(queue: JobHealthSnapshot): string {
+  const entries = Object.entries(queue.runningByProvider);
+  if (entries.length === 0) return "لا توجد مهمة جارية";
+  return entries
+    .map(([provider, count]) => `${provider}: ${formatQueueNumber(count)}`)
+    .join("، ");
+}
+
+function workerHealthLabel(status: JobHealthSnapshot["workerStatus"]): string {
+  if (status === "running") return "يعمل";
+  return status === "halted" ? "متوقف بسبب خطأ" : "متوقف";
 }
 
 function ProviderHealth({ health }: { health: HealthSnapshot }) {
@@ -281,7 +384,7 @@ function imageLimitsLabel(
     image.maxReferenceImages === null ||
     image.reliableCharacterCount === null
   ) {
-    return "غير مقاسة — إنشاء الصور محجوب";
+    return "غير مقاسة، إنشاء الصور محجوب";
   }
   return [
     image.maxReferenceImages,

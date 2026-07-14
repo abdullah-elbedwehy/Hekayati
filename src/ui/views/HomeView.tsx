@@ -49,6 +49,12 @@ function Welcome({ onNavigate }: Pick<HomeViewProps, "onNavigate">) {
           </button>
           <button
             className="button button--on-leaf"
+            onClick={() => onNavigate("queue")}
+          >
+            تابع قائمة المهام
+          </button>
+          <button
+            className="button button--on-leaf"
             onClick={() => onNavigate("health")}
           >
             افتح حالة النظام
@@ -91,17 +97,37 @@ function FoundationStatus({ health }: Pick<HomeViewProps, "health">) {
           status="جاهزة للعمل المحلي"
           tone="ok"
         />
-        <StatusLine
-          label="المزوّدون"
-          status="غير مُعَدّين بعد"
-          tone="pending"
-        />
-        <StatusLine
-          label="قائمة المهام"
-          status="غير متاحة بعد"
-          tone="pending"
-        />
+        <DynamicStatusLines health={health} />
       </div>
     </section>
   );
+}
+
+function DynamicStatusLines({ health }: { health: HealthSnapshot }) {
+  const providersReady = health.providers.status === "available";
+  const queueRunning =
+    health.queue.status === "available" &&
+    health.queue.workerStatus === "running";
+  return (
+    <>
+      <StatusLine
+        label="المزوّدون"
+        status={providersReady ? "حالتهم ظاهرة في التشخيص" : "غير مُعَدّين بعد"}
+        tone={providersReady ? "ok" : "pending"}
+      />
+      <StatusLine
+        label="قائمة المهام"
+        status={queueSummary(health)}
+        tone={queueRunning ? "ok" : "warning"}
+      />
+    </>
+  );
+}
+
+function queueSummary(health: HealthSnapshot): string {
+  if (health.queue.status !== "available") return "غير متاحة";
+  const depth = new Intl.NumberFormat("ar-EG-u-nu-latn").format(
+    health.queue.depth,
+  );
+  return `${depth} مهمة، العامل ${health.queue.workerStatus === "running" ? "يعمل" : "متوقف"}`;
 }
