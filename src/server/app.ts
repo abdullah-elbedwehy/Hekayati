@@ -16,6 +16,7 @@ import {
   type DataPaths,
 } from "../config/paths.js";
 import { DocumentStore } from "../domain/repository/document-store.js";
+import { AuthoringError, AuthoringService } from "../domain/authoring/index.js";
 import { LibraryError } from "../domain/library/errors.js";
 import { LibraryService } from "../domain/library/index.js";
 import { SettingsService } from "../domain/settings/settings.js";
@@ -36,7 +37,7 @@ import { PhotoIntakeCoordinator } from "./photo-intake/photo-intake-coordinator.
 import { LocalRequestBoundary } from "./security/request-boundary.js";
 import { assertListenerHost, verifyEffectiveAddress } from "./startup/bind.js";
 import {
-  deferredSeedTemplateInstaller,
+  productionSeedTemplateInstaller,
   type SeedTemplateInstaller,
 } from "./startup/seed-templates.js";
 
@@ -82,7 +83,7 @@ async function initializeRuntime(
   const store = openRuntimeStore(paths.database);
   try {
     await (
-      options.seedTemplateInstaller ?? deferredSeedTemplateInstaller
+      options.seedTemplateInstaller ?? productionSeedTemplateInstaller
     ).install(store);
     const assets = new AssetStore(store, paths.assets);
     const originals = new OriginalAssetStore(store, paths.originals);
@@ -99,6 +100,7 @@ async function initializeRuntime(
     const settings = new SettingsService(store, paths);
     settings.initialize();
     const library = new LibraryService(store);
+    const authoring = new AuthoringService(store, library);
     return await assembleRuntime(
       options,
       paths,
@@ -107,6 +109,7 @@ async function initializeRuntime(
       originals,
       settings,
       library,
+      authoring,
       initialIntegrity,
     );
   } catch (error) {
@@ -123,6 +126,7 @@ async function assembleRuntime(
   originals: OriginalAssetStore,
   settings: SettingsService,
   library: LibraryService,
+  authoring: AuthoringService,
   initialIntegrity: Awaited<ReturnType<AssetStore["scanIntegrity"]>>,
 ): Promise<HekayatiRuntime> {
   const sentinel = new SecuritySentinel(store);
@@ -154,6 +158,7 @@ async function assembleRuntime(
     assets,
     settings,
     library,
+    authoring,
     photoIntake,
     health,
     boundary,
@@ -306,6 +311,13 @@ function handleError(
   }
   if (error instanceof LibraryError) {
     void reply.code(error.statusCode).send({ code: error.code });
+    return;
+  }
+  if (error instanceof AuthoringError) {
+    void reply.code(error.statusCode).send({
+      code: error.code,
+      details: error.details,
+    });
     return;
   }
   if (error instanceof PhotoIntakeError) {

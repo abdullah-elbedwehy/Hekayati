@@ -260,3 +260,230 @@ export interface LibraryReferencePhoto {
   quality: PhotoQuality;
   createdAt: string;
 }
+
+export type AuthoringPageCount = 16 | 24;
+
+export interface AuthoringParticipantInput {
+  characterId: string;
+  narrativeRole: string;
+  appearance?: { type: "base" } | { type: "shared_look"; lookId: string };
+}
+
+export interface AuthoringProjectInput {
+  title: string;
+  mainChildId: string;
+  participants: AuthoringParticipantInput[];
+  occasion: string;
+  dedicationText: string;
+  storyType:
+    | "connected_adventure"
+    | "related_situations"
+    | "saved_template"
+    | "fully_custom";
+  templateId?: string | null;
+  templateSeedKey?: string | null;
+  pageCount: AuthoringPageCount;
+  tone:
+    | "light_funny"
+    | "adventurous"
+    | "warm_family"
+    | "magical"
+    | "educational_non_preachy"
+    | "custom";
+  customTone: string | null;
+  illustrationStyleId: "modern_cartoon" | "colorful_2d" | "soft_watercolor";
+  hiddenGoal: {
+    goal:
+      | "confidence"
+      | "enjoying_school"
+      | "reducing_phone_use"
+      | "sharing"
+      | "courage"
+      | "welcoming_sibling"
+      | "responsibility"
+      | "cooperation"
+      | "custom";
+    customGoal: string | null;
+    presentation: "indirect" | "acknowledged_ending";
+  } | null;
+  clothingNotes: string;
+  customNotes: string;
+  audienceAgeBand: "age_3_5" | "age_6_8" | "age_9_12";
+  readingLevel: "early" | "developing" | "independent";
+  sceneComplexity: "low" | "medium" | "high";
+  selectedNarrationPercent: number | null;
+  customStory: {
+    premise: string;
+    beginningBeat: string;
+    middleBeat: string;
+    endingBeat: string;
+    contentBoundaries: string[];
+  } | null;
+  endingPages: { farewellText: string; brandLine: string };
+}
+
+export interface AuthoringMentionProps {
+  action: string;
+  emotion: string;
+  position: string | null;
+  framing: string | null;
+  lookId: string | null;
+  heldObject: string | null;
+  gazeTarget: string | null;
+  speaks: boolean;
+  dialogue: string | null;
+}
+
+export type AuthoringSegment =
+  | { type: "text"; text: string }
+  | { type: "mention"; characterId: string; props: AuthoringMentionProps }
+  | {
+      type: "group";
+      groupKey: "hero" | "friends" | "family";
+      props?: AuthoringMentionProps;
+    }
+  | { type: "unresolved"; text: string };
+
+export interface AuthoringSceneContent {
+  purpose: string;
+  description: string;
+  documentSegments: AuthoringSegment[];
+  environment: string;
+  timeOfDay: string;
+  composition: string;
+  cameraFraming: string;
+  narrativeText: string;
+  dialogue: Array<{ speakerCharacterId: string; text: string }>;
+  twoImageMoment: boolean;
+}
+
+export interface AuthoringProjectWorkspace {
+  project: {
+    id: string;
+    customerId: string;
+    familyId: string;
+    status: string;
+    currentVersionId: string;
+  };
+  version: {
+    id: string;
+    storyConfig: Omit<AuthoringProjectInput, "participants"> & {
+      templateVersionId: string | null;
+      narrationDialogueBalance: {
+        suggestedNarrationPercent: number;
+        selectedNarrationPercent: number;
+        operatorEdited: boolean;
+        formulaVersion: "hekayati.balance.v1";
+      };
+      participants: Array<
+        Omit<AuthoringParticipantInput, "appearance"> & {
+          characterVersionId: string;
+          appearance:
+            | { type: "base" }
+            | {
+                type: "shared_look";
+                lookId: string;
+                lookVersionId: string;
+              }
+            | {
+                type: "project_override";
+                overrideId: string;
+                overrideVersionId: string;
+              };
+        }
+      >;
+    };
+  };
+  story: { id: string; status: "draft" | "complete"; currentVersionId: string };
+  storyVersion: { id: string; sceneVersionIds: string[] };
+  scenes: Array<{
+    scene: { id: string; storyPageIndex: number };
+    version: {
+      id: string;
+      needsAuthoring: boolean;
+      content: AuthoringSceneContent;
+    };
+  }>;
+  pageMap: Array<{
+    pageNumber: number;
+    kind: "title" | "dedication" | "story" | "farewell" | "brand";
+    storyPageIndex?: number;
+  }>;
+}
+
+export interface AuthoringOverrideResult {
+  projectVersion: { id: string };
+  override: { id: string; currentVersionId: string };
+  overrideVersion: { id: string };
+  event: { id: string; matrixRow: "IM-04" };
+}
+
+export interface AuthoringTemplateRecord {
+  id: string;
+  status: "active" | "archived" | "disabled";
+  template: {
+    id: string;
+    seedKey: string | null;
+    status: "active" | "archived" | "disabled";
+    currentVersionId: string;
+  };
+  version: {
+    id: string;
+    content: AuthoringTemplateContent;
+  };
+}
+
+export interface AuthoringTemplateContent {
+  name: string;
+  premise: string;
+  structure: Array<{ key: string; purpose: string }>;
+  environments: string[];
+  roleSlots: Array<{
+    slot: string;
+    label: string;
+    required: boolean;
+    requiredRelationship: RelationshipType | null;
+    narrativeRole: string;
+  }>;
+  variables: Array<{
+    key: string;
+    label: string;
+    type: "text" | "long_text" | "text_list";
+    required: boolean;
+    defaultValue: string | string[] | null;
+  }>;
+  possibleHiddenGoals: string[];
+  sceneGuidance: string[];
+  ageAdaptationRules: Array<{
+    ageBand: AuthoringProjectInput["audienceAgeBand"];
+    guidance: string;
+  }>;
+  contentBoundaries: string[];
+  endingPatterns: string[];
+}
+
+export interface MentionCandidate {
+  characterId: string;
+  displayName: string;
+  relationshipType: RelationshipType;
+  narrativeRole: string;
+  thumbnailUrl: string | null;
+  archived: boolean;
+}
+
+export interface PageCountPlan {
+  input: {
+    projectId: string;
+    expectedProjectVersionId: string;
+    expectedStoryVersionId: string;
+    from: AuthoringPageCount;
+    to: AuthoringPageCount;
+    sourceSceneVersionIds: string[];
+  };
+  operations: Array<{
+    type: "retain" | "add" | "merge" | "remove";
+    targetStoryPageIndex: number | null;
+    sourceSceneVersionIds: string[];
+  }>;
+  hash: string;
+}

@@ -5,14 +5,16 @@ import type { HealthSnapshot, Settings } from "./types";
 import { HealthView } from "./views/HealthView";
 import { HomeView } from "./views/HomeView";
 import { LibraryView } from "./views/LibraryView";
+import { ProjectsView } from "./views/ProjectsView";
 import { SettingsView } from "./views/SettingsView";
 
-export type View = "home" | "library" | "settings" | "health";
+export type View = "home" | "library" | "projects" | "settings" | "health";
 type ErrorCategory = "connect" | "stale";
 
 const navigation = [
   { id: "home" as const, label: "البداية" },
   { id: "library" as const, label: "مكتبة العائلات" },
+  { id: "projects" as const, label: "المشاريع والقصص" },
   { id: "settings" as const, label: "الإعدادات" },
   { id: "health" as const, label: "حالة النظام" },
 ];
@@ -193,6 +195,7 @@ function CurrentView(props: ShellProps) {
   if (props.view === "home")
     return <HomeView health={props.health} onNavigate={props.setView} />;
   if (props.view === "library") return <LibraryView client={props.client} />;
+  if (props.view === "projects") return <ProjectsView client={props.client} />;
   if (props.view === "settings")
     return <SettingsView settings={props.settings} onSave={props.save} />;
   return (

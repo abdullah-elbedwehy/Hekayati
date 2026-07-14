@@ -16,6 +16,15 @@ import type {
   Settings,
   SettingsUpdate,
   SubjectRectangle,
+  AuthoringPageCount,
+  AuthoringOverrideResult,
+  AuthoringProjectInput,
+  AuthoringProjectWorkspace,
+  AuthoringSceneContent,
+  AuthoringTemplateRecord,
+  AuthoringTemplateContent,
+  MentionCandidate,
+  PageCountPlan,
 } from "./types";
 
 interface BootstrapResponse {
@@ -269,6 +278,172 @@ export class ApiClient {
     return this.json("/api/library/photo-intake/cancel", "POST", {
       reservationToken,
     });
+  }
+
+  authoringTemplates(
+    includeHidden = false,
+  ): Promise<AuthoringTemplateRecord[]> {
+    return this.request(
+      `/api/authoring/templates?includeHidden=${includeHidden ? "true" : "false"}`,
+    );
+  }
+
+  createAuthoringTemplate(
+    content: AuthoringTemplateContent,
+  ): Promise<AuthoringTemplateRecord> {
+    return this.json("/api/authoring/templates", "POST", { content });
+  }
+
+  updateAuthoringTemplate(
+    templateId: string,
+    input: { expectedVersionId: string; content: AuthoringTemplateContent },
+  ): Promise<AuthoringTemplateRecord> {
+    return this.json(`/api/authoring/templates/${templateId}`, "PATCH", input);
+  }
+
+  duplicateAuthoringTemplate(
+    templateId: string,
+  ): Promise<AuthoringTemplateRecord> {
+    return this.json(
+      `/api/authoring/templates/${templateId}/duplicate`,
+      "POST",
+      {},
+    );
+  }
+
+  extractAuthoringTemplate(
+    familyId: string,
+    projectId: string,
+    name: string,
+  ): Promise<AuthoringTemplateRecord> {
+    return this.json(
+      `/api/authoring/projects/${projectId}/extract-template?familyId=${encodeURIComponent(familyId)}`,
+      "POST",
+      { name },
+    );
+  }
+
+  authoringProjects(familyId: string): Promise<AuthoringProjectWorkspace[]> {
+    return this.request(
+      `/api/authoring/projects?familyId=${encodeURIComponent(familyId)}`,
+    );
+  }
+
+  authoringProject(
+    familyId: string,
+    projectId: string,
+  ): Promise<AuthoringProjectWorkspace> {
+    return this.request(
+      `/api/authoring/projects/${projectId}?familyId=${encodeURIComponent(familyId)}`,
+    );
+  }
+
+  createAuthoringProject(
+    familyId: string,
+    input: AuthoringProjectInput,
+  ): Promise<AuthoringProjectWorkspace> {
+    return this.json(
+      `/api/authoring/families/${familyId}/projects`,
+      "POST",
+      input,
+    );
+  }
+
+  updateAuthoringProject(
+    familyId: string,
+    projectId: string,
+    input: { expectedVersionId: string; input: AuthoringProjectInput },
+  ): Promise<AuthoringProjectWorkspace> {
+    return this.json(
+      `/api/authoring/projects/${projectId}?familyId=${encodeURIComponent(familyId)}`,
+      "PATCH",
+      input,
+    );
+  }
+
+  appendAuthoringOverride(
+    familyId: string,
+    projectId: string,
+    input: {
+      expectedProjectVersionId: string;
+      expectedOverrideVersionId?: string;
+      characterId: string;
+      clothing: string;
+      appearanceOverrides: Record<string, string>;
+    },
+  ): Promise<AuthoringOverrideResult> {
+    return this.json(
+      `/api/authoring/projects/${projectId}/overrides?familyId=${encodeURIComponent(familyId)}`,
+      "POST",
+      input,
+    );
+  }
+
+  updateAuthoringScene(
+    familyId: string,
+    projectId: string,
+    storyPageIndex: number,
+    input: {
+      expectedStoryVersionId: string;
+      expectedSceneVersionId: string;
+      content: AuthoringSceneContent;
+    },
+  ): Promise<AuthoringProjectWorkspace> {
+    return this.json(
+      `/api/authoring/projects/${projectId}/scenes/${storyPageIndex}?familyId=${encodeURIComponent(familyId)}`,
+      "PATCH",
+      input,
+    );
+  }
+
+  authoringMentions(
+    familyId: string,
+    projectId: string,
+    query = "",
+  ): Promise<MentionCandidate[]> {
+    const params = new URLSearchParams({ familyId, query });
+    return this.request(
+      `/api/authoring/projects/${projectId}/mentions?${params.toString()}`,
+    );
+  }
+
+  preflightPageCount(
+    familyId: string,
+    projectId: string,
+    to: AuthoringPageCount,
+  ): Promise<PageCountPlan> {
+    return this.json(
+      `/api/authoring/projects/${projectId}/page-count/preflight?familyId=${encodeURIComponent(familyId)}`,
+      "POST",
+      { to },
+    );
+  }
+
+  confirmPageCount(
+    familyId: string,
+    projectId: string,
+    plan: PageCountPlan,
+  ): Promise<AuthoringProjectWorkspace> {
+    return this.json(
+      `/api/authoring/projects/${projectId}/page-count/confirm?familyId=${encodeURIComponent(familyId)}`,
+      "POST",
+      plan,
+    );
+  }
+
+  setAuthoringTemplateStatus(
+    templateId: string,
+    input: {
+      expectedVersionId: string;
+      expectedStatus: AuthoringTemplateRecord["status"];
+      status: AuthoringTemplateRecord["status"];
+    },
+  ): Promise<AuthoringTemplateRecord> {
+    return this.json(
+      `/api/authoring/templates/${templateId}/status`,
+      "POST",
+      input,
+    );
   }
 
   private json<T>(path: string, method: string, body: unknown): Promise<T> {
