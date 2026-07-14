@@ -21,6 +21,7 @@
 - [ ] CHK211 Template-from-story strips photos/names/mentions (FR-051 privacy fixture)
 - [ ] CHK212 No telemetry/analytics/external calls besides selected provider endpoints (FR-132 — network capture test)
 - [ ] CHK227 Every accepted upload atomically links a private exact original to metadata-clean working/thumbnail/required-face-crop derivatives and its owning version; runtime staging is opaque/non-product state, new photo-only character creation is atomic, ordinary browser/provider paths accept only explicit derivatives, and cancel/failure/restart leaves no DB or filesystem residue (FR-019/021/024/025)
+- [ ] CHK228 Preview browser/PDF render escapes all untrusted text, blocks scripts and HTTP(S)/file/CDN loads, embeds only bundled fonts and approved downsampled derivatives, strips local paths/internal IDs/contact/consent/provenance/attachments/forms/metadata, writes privately and atomically, and records zero external requests (FR-120/124/132, RR-14, EC-C20)
 
 ## Local-Only Operation
 

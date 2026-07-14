@@ -34,8 +34,8 @@ This partition owns all 120 current FR IDs exactly once. Numeric gaps remain int
 | 005 | SC-004 | — |
 | 006 | SC-002, SC-009 | C-09 |
 | 007 | SC-003, SC-011 | C-05, C-08, C-10 |
-| 008 | SC-007, SC-010 | C-03, C-06, C-14 |
-| 009 | SC-006, SC-008 | C-04, C-12 |
+| 008 | SC-008 direct; SC-007 preview half; SC-010 authorization-guard half | C-03, C-06, C-14, C-26–27 |
+| 009 | SC-006; SC-007 print half; SC-010 print-consumer completion; SC-008 print repeat | C-04, C-12 |
 | 010 | SC-005 | C-07 |
 | 011 | SC-013 | C-15 |
 
@@ -54,12 +54,12 @@ The canonical invalidation matrix remains one file because cascades cross featur
 | 005 | IM-17 | RR-01, RR-02, RR-04 | EC-D01–D02, D04–D08, D13–D15, D17–D18 |
 | 006 | — | RR-09, RR-16 | EC-D03, D09, D11–D12, D16; EC-E01–E06, E08, E12 |
 | 007 | IM-06, IM-08–10, IM-13 | RR-03, RR-07, RR-10 | EC-A09–A15; EC-B01–B10, B13; EC-C01–C02, C04–C06; EC-D10 |
-| 008 | IM-07, IM-11–12, IM-19 | RR-14 | EC-C03, C08–C10; EC-F11–F12 |
+| 008 | IM-07, IM-11–12, IM-19; real layout/preview/approval participant evidence for every affecting row | RR-14, RR-19 | EC-C03, C08–C10, C14–C20; EC-F06–F08, F11–F12 |
 | 009 | IM-14–15 | RR-05, RR-11 | EC-F01–F10, F13–F14 |
 | 010 | — | RR-06 | EC-E11; EC-G01–G13; EC-H03–H04, H07–H08 |
 | 011 | Outside the matrix by FR-145 | No dedicated RR | EC-C11–C13 |
 
-All IM-01–21, RR-01–18, and 115 current EC IDs are accounted for. Slice 007 owns implementation verification of the shared book invalidation engine across every row; slice 011 proves it emits none of those book events.
+All IM-01–21, RR-01–19, and current EC IDs are accounted for. Slice 007 owns the closed rule table; slice 008 proves the real layout/preview/approval participants are included in the original transaction/receipt for every affecting row; slice 011 proves it emits none of those book events.
 
 ## Checklist evidence
 
@@ -67,11 +67,11 @@ All IM-01–21, RR-01–18, and 115 current EC IDs are accounted for. Slice 007 
 |---|---|
 | Product CHK001–027 | 003: 001–006 and 027; 007: 007–008 and 012–015; 004: 009–011; 006: 016–017; 005: 018–019; 008: 020–021; 009: 022–023; 010: 024; 002/shared: 025; 011: 026 |
 | AI CHK101–120 | 005: 101–105, 111–115, 119–120; 006: 106–110, 116–118 |
-| Privacy CHK201–227 | 005: 201–203, 207 plus provider contribution to 220; 002: 204–205, 212–214, 222–226 plus foundation contribution to 220 and first-run portion of 215; 003: 206, 208, 210, 216, 227 plus upload contribution to 220; 010: 209, 217–219 plus export contribution to 220 and export-screen evidence for 215; 004: 211 |
-| Print CHK301–318 | 009, with 008 supplying layout/preview inputs |
-| UX CHK401–427 | 002: 401–405, 414, 416, 420–424, 426; 003: 427 plus slice rechecks of 401–405/420–424; 004: 406–409; 006: 410–412; 007: 413, 419; 005: 415; 010: 417–418; 011: 425 |
+| Privacy CHK201–228 | 005: 201–203, 207 plus provider contribution to 220; 002: 204–205, 212–214, 222–226 plus foundation contribution to 220 and first-run portion of 215; 003: 206, 208, 210, 216, 227 plus upload contribution to 220; 008: 228 plus preview contribution to 212; 010: 209, 217–219 plus export contribution to 220 and export-screen evidence for 215; 004: 211 |
+| Print CHK301–318 | 008 supplies CHK309–314 preview/layout producer evidence; 009 consumes that input and owns print-side completion plus the remaining checks |
+| UX CHK401–428 | 002: 401–405, 414, 416, 420–424, 426; 003: 427 plus slice rechecks of 401–405/420–424; 004: 406–409; 006: 410–412; 007: 413, 419; 005: 415; 008: 428 plus slice rechecks; 010: 417–418; 011: 425 |
 
-All 119 checklist IDs retain their canonical wording in the bible.
+All current checklist IDs retain their canonical wording in the bible.
 
 ## Research, gates, and master tasks
 
@@ -96,6 +96,6 @@ All 98 master task IDs remain in the bible. Phase preconditions, checkpoints, de
 - Product vision, gift-first rule, v1 scope/out-of-scope list, assumptions, examples E1–E8, all 11 user-story narratives, independent tests, and acceptance scenarios.
 - Integrated plan, architecture decisions, technical constraints, and project structure.
 - Research R1–R13, capability matrix, and feasibility gates G1-T, G1-I, G2, G3, G4.
-- Complete data model, provider/structured-output/scheduler contracts, state machines, invalidation matrix, edge catalog, risk register, test strategy, quickstart, checklists, and master tasks. Readiness additions retain stable IDs: 003 added FR-018/019/025, C-18–21, IM-21, RR-18, EC-A17/H14, CHK027/227/427, and T-P2-11/12; 004 adds C-23–25 and T-P3-09 while tightening the shared project/template/story/scene model.
+- Complete data model, provider/structured-output/scheduler contracts, state machines, invalidation matrix, edge catalog, risk register, test strategy, quickstart, checklists, and master tasks. Readiness additions retain stable IDs: 003 added FR-018/019/025, C-18–21, IM-21, RR-18, EC-A17/H14, CHK027/227/427, and T-P2-11/12; 004 adds C-23–25 and T-P3-09; 008 adds C-26–27, RR-19, EC-C14–C20, CHK228/428, exact PreviewOutput approval binding, composition-profile/cover handoff, and staged SC-007/010 evidence.
 
 These stay shared to avoid divergent contracts, copied privacy rules, competing state machines, or inconsistent cross-feature invalidation behavior.

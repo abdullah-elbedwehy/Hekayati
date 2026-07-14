@@ -163,14 +163,14 @@ Format: `[ID] [P?] [Refs] Description` — **[P]** = parallelizable (different f
 **User-visible outcome**: pages carry programmatically laid-out Arabic text; watermarked preview PDF; approval lifecycle with invalidation.
 **Dependencies**: Phase 6.
 
-- [ ] T-P7-01 Layout engine: quiet-region analysis, placement presets, gradient/panel aids, min-font floor, overflow warnings (tests over fixture artwork) (`src/layout/`) [FR-080–083, EC-C08–C10]
-- [ ] T-P7-02 Dialogue bubbles: modern minimal, speaker pointing, RTL text flow [FR-083, CHK313]
-- [ ] T-P7-03 HTML page templates (shared UI/PDF CSS): title, dedication, story, ending1 (hero farewell), ending2 (brand) [FR-055/056, C-03]
-- [ ] T-P7-04 Preview PDF pipeline: downsample ~150 DPI, watermark every page, ≤16 MB budget check (`src/pdf/preview.ts`) [FR-120/124, C-06/C-14, SC-007]
-- [ ] T-P7-05 Book approval records: preview_sent/approved/changes_requested + notes + affected pages; invalidation on customer-visible change; print-block enforcement [FR-085/086, SC-010/011]
-- [ ] T-P7-06 E2E: US6 scenarios incl. punctuation-only invalidation (IM-07) and internal-change non-invalidation (IM-18)
+- [ ] T-P7-01 Strict revisioned Project-v2/layout/cover/workflow/PreviewOutput/cycle/action-ledger schemas + repositories; atomic restart-safe migration; exact story PageReview versus special selection unions; operational observation vs pageContentHash; deterministic pageContent/composition/layout/customerContent/approvalBundle/contentAuthorization hash membership; placement/quietness/floors/aids/warnings; initial locked derivation without Page mutation and unlock-required replacement (`src/layout/`) [FR-080–083, EC-C08–C10/C18/C20]
+- [ ] T-P7-02 Dialogue bubbles: modern minimal RTL flow, deterministic speaker anchor only when supported, labeled non-pointing fallback when indeterminate, overflow and multi-speaker fixtures [FR-083, EC-C09/C17, CHK313]
+- [ ] T-P7-03 Closed default/eligibility CompositionSourcePolicy with policy/selection/text-source provenance; revision/lock-checked special-page/cover APIs; closed cover warnings/readiness; escaped offline shared templates for all five interiors + front/back proofs with exact text/asset checksums; bundled-only resources, exact 16/24 map [FR-055/056/080/132, C-03/C-27, EC-C20]
+- [ ] T-P7-04 Automatic durable local `page_layout` → persisted `pdf_pending` → `preview_pdf`; immutable PreviewOutput with customerContentHash, previewDerivativePolicyHash, exact page/review-or-selection evidence, revision-0 cycle/gate; page-box/font/PPI/watermark/footer/≤16MB/no-egress validation; rename-before-metadata atomic commit and SIGKILL/ENOSPC/fence recovery (`src/pdf/preview.ts`) [FR-093/113/120/124, C-06/C-14, RR-14, SC-007]
+- [ ] T-P7-05 Split current-preview/current-cycle/current-content-approval heads; exact gate/action-ledger lifecycle with strict scopes and optional prior-authorization CAS; only approval succeeds, same-content changes-requested revokes authorization; assembled invalidation + missing IM-06/08/09/11/12/13/19/20 emitters; IM-14 predicate; strict ApprovedBookSnapshot with customerContentHash/contentAuthorizationHash, materialization/pre-execution/commit guards, IM-19 continuity and IM-20 exact-repair recovery [FR-085–087, C-26/C-27, RR-19, SC-010/011]
+- [ ] T-P7-06 E2E + goldens: US6, source/cover readiness, story-review/special union, lock-only hash stability, gate/head/idempotency races, initial-block zero-job vs later-block no-artifact, IM-07/11/12/14/18/19/20 incl. in-flight IM-19 + exact IM-20 repair, kill recovery, PDF/UI visual/mechanical evidence, 390/1440/1920 RTL/a11y/no-egress/staged scans
 
-**Checkpoint**: preview approved → text edit → approval invalidated → new preview cycle. **DoD**: CHK020/021 satisfiable; Arabic layout goldens green.
+**Checkpoint**: automatic exact-snapshot preview approved → punctuation edit → prior preview/approval invalidated → old-preview action rejected → new preview cycle approved. **DoD**: SC-008, the preview half of SC-007, and the authorization-guard half of SC-010 pass; CHK020, CHK228, CHK309–314 preview/layout producer evidence, and CHK428 are satisfiable; 008 supplies the guard/evidence half of CHK021, which remains open until 009 proves actual producer consumption and zero work. Print watermark absence and actual print-producer guard consumption remain staged to 009.
 
 ---
 
@@ -180,15 +180,15 @@ Format: `[ID] [P?] [Refs] Description` — **[P]** = parallelizable (different f
 **User-visible outcome**: deliverable interior + cover PDFs gated by preflight; printer profiles.
 **Dependencies**: Phase 7.
 
-- [ ] T-P8-01 Printer profile model + settings UI: trim/bleed/DPI/color/ICC/crop/spine/cover-template/blank-pages, replacing the foundation `not_configured` printer cell [FR-121/122, FR-137 printer stage]
-- [ ] T-P8-02 Interior print PDF: full-res render, bleed geometry, optional crop marks, printer blanks at assembly only [FR-057/121, C-04]
-- [ ] T-P8-03 Cover spread PDF: back synopsis + brand, spine (profile/template only — hard block when unknown), front (child, name, title, environment); RTL binding geometry [FR-122, US7-AS2/3, EC-F04/F10]
+- [ ] T-P8-01 Printer profile model + settings UI: trim/bleed/DPI/color/ICC/crop/spine/cover-template/blank-pages, replacing the foundation `not_configured` printer cell; enforce 008's pure portrait + per-dimension tolerance + safe-rectangle containment compatibility predicate and hard-block every failed term for explicit migration [FR-087/121/122, C-27, FR-137 printer stage]
+- [ ] T-P8-02 Interior print PDF: consume only the strict 008 ApprovedBookSnapshot, pin its stable contentAuthorizationHash plus exact approval/gate/output/composition/page/layout/composition-input/text-source/source-asset versions/checksums, use exact full-resolution assets, apply compatible bleed geometry/optional crop marks and printer blanks at assembly only; never read mutable latest heads or preview derivatives [FR-057/086/121, C-04/C-26]
+- [ ] T-P8-03 Cover spread PDF: map the exact approved 008 front/back CoverCompositionVersion into back + profile/template spine + front RTL binding geometry; invent/change no customer-visible copy/artwork and hard-block unknown spine [FR-086/122, US7-AS2/3, EC-F04/F10]
 - [ ] T-P8-04 Ghostscript CMYK conversion path + converted-proof approval step [C-12, EC-F09, RR-11]
-- [ ] T-P8-05 Preflight engine: all FR-123 rules incl. watermark presence/absence both ways; seeded defect fixture per category (SC-006) (`src/pdf/preflight.ts`) [FR-123/124, EC-F01–F14]
+- [ ] T-P8-05 Preflight engine: materialization calls 008 guard in-transaction (block ⇒ zero job); existing jobs re-run before execution and commit (later block ⇒ stale/canceled history but zero indexed artifact/current head) against stable contentAuthorizationHash + referenced-integrity predicates, not attention/status revisions; all FR-123 fixtures, IM-19-in-flight allowed, IM-20 exact-repair recovery [FR-086/123/124, SC-006/007/010, EC-F01–F14]
 - [ ] T-P8-06 Arabic font licensing + embedding verification; shaping golden suite wired to CI [SC-008, CHK310/311]
 - [ ] T-P8-07 E2E: US7 scenarios; physical-proof checklist entry recorded (CHK317 manual)
 
-**Checkpoint**: preflight fixture suite 100% detection. **DoD**: CHK301–316 satisfiable; SC-006/007/008 green.
+**Checkpoint**: preflight fixture suite 100% detection. **DoD**: CHK301–316 satisfiable; SC-006/007/008/010 green, including executed authorization-guard consumption and zero print work on every mismatch.
 
 ---
 

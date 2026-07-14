@@ -34,8 +34,8 @@
 
 ## Outputs
 
-- [ ] CHK020 Preview PDF: watermark every page, downsampled, ≤16 MB @24pp (SC-007)
-- [ ] CHK021 Approval invalidation on any customer-visible change; print blocked until re-approval (FR-086, SC-010)
+- [ ] CHK020 Exact-snapshot preview PDF: A4/tolerance page boxes, customer-view cover proofs + canonical 16/24 interiors, watermark/footer every page, hash-pinned deterministic ~150-DPI derivatives, hard ≤16 MB @24pp ready/send gate, embedded Arabic fonts, zero egress/prohibited features (FR-120/124, SC-007)
+- [ ] CHK021 Split preview-cycle/content-approval heads bind exact customerContentHash + PreviewOutput/cycle/gate evidence; stale action fails; visible change invalidates authorization. 009 guard failure at materialization creates zero job, while later failure commits no artifact/head; IM-19 continuity and IM-20 exact-repair semantics match the matrix (FR-085/086, C-26, SC-010)
 - [ ] CHK022 Interior PDF passes preflight; Arabic golden corpus passes (SC-006/008)
 - [ ] CHK023 Cover blocked without spine width/template; produced correctly with printer template (FR-122, US7-AS2/3)
 - [ ] CHK024 Export/import round-trip full fidelity; deletion removes media from disk (US9)

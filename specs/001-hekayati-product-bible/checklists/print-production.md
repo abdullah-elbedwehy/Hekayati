@@ -16,18 +16,18 @@
 
 - [ ] CHK307 Effective image resolution ≥ profile DPI (default 300) verified per placed image (EC-F02)
 - [ ] CHK308 RGB default; CMYK conversion runs only with profile ICC; failure blocks; converted proof approval step exists (C-12, EC-F09)
-- [ ] CHK309 Preview downsampled ~150 DPI; ≤16 MB @24pp (C-06, SC-007)
+- [ ] CHK309 Complete preview (cover proofs + 24 interiors) has pinned A4/tolerance page boxes, uses only hash-pinned deterministic ~150-DPI derivatives and is ≤16 MB before ready/send; dimensions, PPI and bytes are mechanically reported (C-06, FR-120, SC-007)
 
 ## Arabic Typography
 
 - [ ] CHK310 Shaping golden corpus passes in produced PDFs: connected forms, lam-alef, tashkeel, punctuation, mixed-direction (SC-008, gate G3)
 - [ ] CHK311 Both licensed Arabic fonts embedded (subset) — verified by PDF font inspection (EC-F06)
-- [ ] CHK312 Text never below age-band minimum (14pt/12pt defaults); fallback chain warns instead of shrinking (FR-082)
-- [ ] CHK313 Dialogue bubbles point to correct speakers on fixture set (FR-083)
+- [ ] CHK312 Text never below age-band minimum (14pt/12pt defaults); fallback chain warns instead of shrinking and blocks ready output while unresolved (FR-082)
+- [ ] CHK313 Dialogue bubbles point only to deterministically anchored speakers; ambiguous/missing anchors use a labeled non-pointing fallback and warning (FR-083, EC-C17)
 
 ## Watermark & Preflight
 
-- [ ] CHK314 Watermark on every preview page; absent from every print page; both preflight-enforced (FR-124, EC-F11/F13)
+- [ ] CHK314 Watermark + required footer on every preview page is enforced by 008's preview validator; absence from every print page is separately enforced by 009 preflight (FR-124, EC-F11/F13)
 - [ ] CHK315 Each FR-123 defect category has a seeded fixture caught by preflight — suite fails otherwise (SC-006)
 - [ ] CHK316 Preflight failure list is specific (what, where, expected vs actual) and blocks "deliverable" marking
 

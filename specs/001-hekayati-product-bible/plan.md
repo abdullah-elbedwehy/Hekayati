@@ -116,11 +116,13 @@ tests/
 2. **Document model on embedded SQLite** (R2): NoSQL flexibility at the data-model layer, ACID underneath — the queue, version preconditions, and import atomicity all need real transactions. Engine hidden behind repositories (swap-friendly).
 3. **Provider contract as the only AI boundary** (R5–R7): domain compiles a provider-free GenerationRequest; adapters compile prompts, normalize errors to the fixed taxonomy, and attach provenance. Mock adapter is a first-class citizen enabling Phases 1–3 with zero AI dependency.
 4. **Character-sheet-first consistency strategy** (R12): approved sheet images become the reference anchor for all page generations — the single highest-leverage mitigation for identity drift.
-5. **Chromium as the Arabic typesetting engine** (R9): the only locally available, battle-tested Arabic shaping + BiDi + font-embedding stack; also unifies UI preview and PDF output (same HTML/CSS).
-6. **Printer truth lives in PrinterProfile** (R10): bleed/DPI/color/ICC/spine are per-printer data, never constants; spine width hard-blocks when unknown (FR-122).
+5. **Chromium as the Arabic typesetting engine** (R9): the only locally available, battle-tested Arabic shaping + BiDi + font-embedding stack; also unifies UI preview and PDF output from one escaped immutable composition input. A versioned A4 customer-composition profile owns approved normalized layout/cover regions; it is distinct from printer mechanics (C-27).
+6. **Printer truth lives in PrinterProfile** (R10): bleed/DPI/color/ICC/spine are per-printer data, never constants; spine width hard-blocks when unknown (FR-122). Printer profiles may not silently reflow the approved composition: incompatible trim/aspect/safe-area requirements require explicit composition migration and re-approval (FR-087).
 7. **Codex image mode gated, not assumed** (R6): G1-I expected to fail; product ships with Gemini images and an honest capability notice — no secret fallbacks (FR-100/102).
 8. **Loopback is a network boundary, not browser authentication** (R13): the server derives one canonical literal-IP origin from its verified listener; an earliest request hook rejects alternate authority before routing, a second guard enforces exact source origin plus a runtime-only CSRF token for unsafe methods, and cross-origin CORS/PNA opt-in headers are never emitted. Proxy trust stays disabled. This keeps the no-login operating model while closing DNS-rebinding and forged-browser-request paths (FR-147, FR-148).
 9. **Photo intake is local, streaming, and non-biometric** (R12, C-19/C-20): multipart uploads are byte-capped while streaming, content-sniffed then decoded, and committed only after a privacy-clean working copy plus its immutable `ReferencePhoto` record are valid. `sips` handles HEIC conversion and sharp handles deterministic image checks/transforms; semantic conflicts come from explicit operator observations. Originals remain local-only and are never provider-eligible.
+10. **Approval binds one exact preview bundle** (C-26): immutable PreviewOutput content pins book/page/layout/cover/settings hashes and the exact PDF asset. Approval actions use revision/hash CAS; one approved-book snapshot reader is the only print handoff. Watermark-only re-render can flag the old preview without changing content approval, while stale content can never borrow a prior action.
+11. **Invalidation is one assembled transaction**: creative, layout/preview/approval, and print participants are registered before any producer emits. The original event transaction freezes every affected artifact and consequence hash; downstream second consumers and retroactive replay resolution are forbidden.
 
 ## Complexity Tracking
 
@@ -134,10 +136,15 @@ tests/
 
 Findings fixed during consistency pass (2026-07-14):
 
-1. Spec FR-087 initially implied print-profile change "may not require approval" ambiguously → tightened: never invalidates content approval, always re-triggers preflight. Matrix row IM-14 matches.
+1. Spec FR-087 initially implied every printer-profile change could reflow approved content without approval → tightened: composition-compatible print mechanics never invalidate content approval and always re-trigger preflight; incompatible trim/aspect/safe-area requirements hard-block for explicit composition migration. Matrix row IM-14 matches.
 2. Research R8 argv-exposure concern lacked a risk entry → added RR-08 with Phase 1 verification action.
 3. Edge case E-05 (system clock changes) had no owning requirement → scheduler contract §Leases now specifies monotonic-clock lease arithmetic; task T-P5-08 covers it.
 4. C-08 default threshold (3 characters) had no measurement source → bound to gate G2 output; capability matrix carries the measured value; C-08 marked "tunable per matrix".
 5. Preview watermark check existed only as generation-time behavior → added to preflight rule list (FR-123/124) so "final PDF still contains watermark" and "preview missing watermark" are both mechanically detected.
 6. Template-from-story privacy stripping (FR-051) initially unmapped to a test → test-strategy §Privacy adds a dedicated fixture; task T-P3-07.
 7. Loopback-only startup did not protect the browser API from DNS rebinding or forged cross-origin mutations → added FR-147, FR-148, SC-014, C-17, R13, and Phase 1 negative-test traceability.
+8. Full-book approval bound only a numeric `bookVersion`, which could not distinguish multiple preview files or IM-19 watermark-only changes → added exact immutable PreviewOutput/approval-bundle binding, stale-action CAS, and an approved-book snapshot guard (FR-085/086, C-26).
+9. US7 created customer-visible cover content after approval even though cover edits invalidate approval → moved normalized customer-view front/back cover composition into feature 008 preview approval; feature 009 only maps the approved version into printer spread/spine geometry.
+10. Layout had no approved geometry boundary before printer profiles → added a versioned customer composition profile and explicit incompatible-profile migration; compatible printer-only changes remain IM-14 (FR-087, C-27).
+11. Page locks and first layout conflicted because layout used the mutable Page head → separated downstream PageLayoutHead so initial derivation can preserve a frozen Page; successor layout requires unlock.
+12. The closed invalidation table had no real downstream transaction participant contract → added an assembled one-pass registry, frozen receipt replay, and exact 008/009 artifact ports.

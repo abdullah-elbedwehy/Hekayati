@@ -10,13 +10,25 @@ created → blocked(unmet dependencies) → queued → claimed → running → s
    └──────────────────────────────────────┴─────────┴─────────├→ failed(permanent)
                                                              ├→ paused(quota|operator|dependency|credentials|storage|retry_exhausted)
                                                              └→ canceled
-waiting_review → succeeded  # only an owning feature's explicit version-checked review transaction
+waiting_review → succeeded  # only an owning feature's explicit version-checked positive-acceptance transaction
 any pre-terminal state → canceled (operator)
 ```
 
 A retryable failure within policy appends failure/retry history and returns the same job to `queued` with delayed eligibility; it does not create an observable transient `failed` state. Exhaustion follows the policy table's pause disposition. Permanent invalid/stale work enters `failed`. Every state also carries a bounded stable reason; history is append-only.
 
+A negative review outcome or changes request MUST NOT call the positive gate-completion path. The owning feature records the negative outcome and atomically cancels/supersedes that exact gate; its descendants remain blocked and cannot be promoted. A successor version/output receives a new gate with a new target version and dependency lineage.
+
 Full diagrams: `../state-machines.md`.
+
+## Job kinds and execution boundaries
+
+The persisted request/target pair is a closed union:
+
+- Provider job: `request.kind: text|structured|image` plus one non-null exact `{ providerId, modelId, operation, settingsHash }` target.
+- Local deterministic job: strict `{ kind: local, payloadHash }` plus `target: null`. A registered definition uses the job type and payload hash to load one bounded, versioned descriptor from its owning strict repository, revalidates that descriptor against the job input snapshot, and then executes only local code.
+- Human gate: strict `{ kind: human_gate, gateKind, targetId, targetVersionId }` plus `target: null`; it enters `waiting_review` and has no worker execution.
+
+The scheduler rejects every mismatched pair, unregistered job type, descriptor hash mismatch, unknown descriptor key, or descriptor containing bytes, paths, secrets, provider fields, or an arbitrary payload. Local jobs use the same dependencies, leases, claim fencing, idempotency, normalized failure history, cancel/restart behavior, and atomic result protocol as provider jobs. They never invoke provider capability checks, consent/reference resolution, adapters, provider concurrency pools, quota/credential incidents, or provider retry selection. Their registered definition maps local failures into the fixed taxonomy and retry/disposition rules below; it cannot silently select another implementation or change a request on retry.
 
 ## Claiming & leases
 
@@ -27,7 +39,7 @@ Full diagrams: `../state-machines.md`.
 
 ## Idempotency & commit protocol
 
-- A producer supplies one opaque stable `intentId` for a logical generation intent. `idempotencyKey = hash(jobType + canonical request/input-version snapshot + exact provider/model/operation + settingsHash + intentId)`; a unique index enforces it. The job also stores the independent canonical `requestHash`. Same key + same hash returns the existing job; same key + different hash is a hard collision error (edge E-03). Automatic retries reuse both. Explicit regeneration and provider retargeting create linked successor jobs with a new intent/key; a succeeded job is immutable.
+- A producer supplies one opaque stable `intentId` for a logical generation intent. `idempotencyKey = hash(jobType + canonical request/input-version snapshot + execution identity + intentId)`, where execution identity is the exact provider/model/operation/settings tuple for a provider job, the registered local definition plus descriptor payload hash for a local job, or the exact gate kind/target/version for a human gate; a unique index enforces it. The job also stores the independent canonical `requestHash`. Same key + same hash returns the existing job; same key + different hash is a hard collision error (edge E-03). Automatic retries reuse both. Explicit regeneration and provider retargeting create linked successor jobs with a new intent/key; a succeeded job is immutable.
 - **Commit is transactional and preconditioned**:
   1. verify job state is `running` AND lease worker/boot/claim token + attempt all match AND the monotonic lease is unexpired;
   2. verify `inputSnapshot` version lineage still current for the target (FR-065);
@@ -37,12 +49,12 @@ Full diagrams: `../state-machines.md`.
 ## Dependencies & ordering
 
 - DAG via `dependsOn[]`. Enqueue atomically rejects missing, duplicate, self, cyclic, or forbidden cross-scope edges. A job is `blocked` until every dependency is `succeeded`. Paused, failed, canceled, and `waiting_review` dependencies remain visible blockers; no hidden cascade cancels descendants.
-- Canonical chain (FR-114): character inputs → character sheet → **character approval (waiting_review)** → story plan → story → scenes → image prompts → page illustrations (fan-out, parallel) → **internal review (waiting_review)** → preview PDF → **customer approval (waiting_review)** → print PDFs.
+- Canonical chain (FR-114): character inputs → character sheet → **character approval (waiting_review)** → story plan → story → scenes → image prompts → page illustrations (fan-out, parallel) → **internal review (waiting_review)** → local page layouts/preview PDF → **customer approval (waiting_review)** → local print PDFs.
 - **Standalone exception**: job type `studio_image` (FR-142) has empty `dependsOn`, nullable `projectId`, and never enters the book chain or `waiting_review` stages. It still uses leases, idempotency, atomic commit, failure taxonomy, and quota-pause.
 - Priority: project priority integer 1–5 (default 3), then FIFO by creation sequence/ID. Reprioritization affects unclaimed work only. Page-illustration fan-out respects `concurrencyPerProvider` (default 2, C-09). Studio jobs share the same per-provider concurrency pool unless settings later add a separate cap (v1: shared pool).
 - Failure of one page-illustration job never blocks sibling pages (independent subtrees). Studio failures never block book jobs and vice versa.
 
-## Pre-dispatch validation
+## Provider pre-dispatch validation
 
 Before enqueue, the scheduler applies the same current consent and provider-reference metadata checks to the proposed immutable input snapshot; rejection creates no job. This early decision is advisory against later change, never a cached authorization.
 
@@ -54,6 +66,8 @@ After claim and before any capability/adapter network call, the worker MUST re-r
 4. current customer consent is `granted` for every direct photo and every approved sheet whose trusted transitive lineage is `photo_derived`; a wholly `description_only` sheet has zero photo lineage and follows FR-004's exception.
 
 Missing/changed versions or references become `stale_dependency` / `missing_reference_asset` before bytes are loaded. Missing or refused consent transitions the job to `paused(dependency)` with `PHOTO_CONSENT_NOT_RECORDED` or `PHOTO_CONSENT_NOT_GRANTED`; after the operator records a new decision, retry repeats the full validation. A passing metadata/consent check is followed by one exact provider/model capability ticket for the bounded batch, then the worker repeats the current guard to close that check's gap. Only then does the resolver read selected clean derivatives into an ephemeral `ResolvedImageRequest`; adapters have no asset-store access. Description-only requests and wholly description-derived sheets skip the consent gate. Tests assert zero adapter/capability invocation and zero network access for every initially rejected fixture, including consent revoked after enqueue (EC-H14).
+
+Local jobs do not enter this provider pre-dispatch path. Their registered definition performs the equivalent exact descriptor/input/current-head/fence validation without loading prohibited bytes until its typed executor requires them. A local layout/PDF result still cannot commit after cancellation, lease loss, descriptor change, input-head change, or storage failure.
 
 ## Failure taxonomy & retry policy (FR-092)
 

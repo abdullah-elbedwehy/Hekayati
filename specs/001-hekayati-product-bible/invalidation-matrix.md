@@ -21,9 +21,9 @@ Legend: ✖ = invalidated/stale, ⚠ = flagged for re-check (no invalidation), �
 | IM-09 | Page count change (16↔24) | — | — | ✖ structure (guided expand/shorten flow, FR-058) | ✖ | ✖ affected pages | ✖ | ✖ | ✖ | ✖ |
 | IM-10 | Illustration regenerated (operator action) | — | — | — | — | (self: new version) | ⚠ recompute placement | ✖ | ✖ | ✖ |
 | IM-11 | Layout-only recalculation | — | — | — | — | — | (self) | ✖ | ✖ | ✖ |
-| IM-12 | Dedication / title / cover content edit | — | — | — | — | — | — | ✖ | ✖ | ✖ |
+| IM-12 | Dedication / title / cover content edit | — | — | — | — | — | ✖ affected title/dedication special-page layout(s); cover composition is the changed version itself | ✖ | ✖ | ✖ |
 | IM-13 | Illustration style change (project-wide) | — | ⚠ sheet style mismatch warning | — | — | ✖ all unlocked pages | ✖ | ✖ | ✖ | ✖ |
-| IM-14 | Printer profile change (bleed/DPI/color/ICC/crop) | — | — | — | — | — | — | — | — | ✖ re-preflight + re-produce print files only (FR-087) |
+| IM-14 | Composition-compatible printer profile change (bleed/DPI/color/ICC/crop/spine mechanics) | — | — | — | — | — | — | — | — | ✖ re-preflight + re-produce print files only (FR-087) |
 | IM-15 | Spine width / cover template change | — | — | — | — | — | — | — | — | ✖ cover PDF only |
 | IM-16 | Template edited (new template version) | — | — | — existing stories pinned to old version (FR-052) | — | — | — | — | — | — |
 | IM-17 | Provider/model switch (settings) | — | — | — | — | — future work only (FR-095) | — | — | — | — |
@@ -39,6 +39,12 @@ Legend: ✖ = invalidated/stale, ⚠ = flagged for re-check (no invalidation), �
 3. Affected-items view shows: what, why (matrix row id), and per-item actions (regenerate / keep-stale / unlock-and-edit for locked).
 4. `bookVersion` bump ⟷ exactly the rows marked ✖ under Book approval (FR-086 definition of customer-visible).
 5. Every invalidation writes an `auditEvents` record (SC-010 evidence).
+6. Preview and approval consequences are applied by the same original transaction/receipt as creative consequences. The artifact participant set is assembled before any producer can emit; a second downstream consumer is forbidden. A consumed event freezes its affected IDs and consequence hash, so later-created layouts/previews/approvals are never retroactively attached on replay.
+7. Preview ✖ marks the exact current `PreviewOutput` stale. Book approval ✖ changes the bound cycle to `invalidated`; ⚠ appends an attention reason while preserving state. Separate current-preview/current-content-approval heads plus `customerContentHash` distinguish an old file from unchanged approved content. Mutable preview/attention revisions do not alter `contentAuthorizationHash`.
+8. Locked creative Page records and creative heads remain byte-identical. Initial downstream layout derivation may create a separate `PageLayoutHead` from that frozen reviewed snapshot; replacing an existing layout requires explicit unlock. Invalidation can mark the downstream layout stale and the Page `locked_stale`, but cannot advance either content head.
+9. IM-14 applies only when the printer profile preserves the approved composition profile. Incompatible trim/aspect/safe-area requirements hard-block and enter an explicit composition migration that creates IM-11/12 consequences and a new approval cycle (FR-087, C-27).
+10. When a PreviewOutput is staled before its cycle reaches `approved`, the same invalidation transaction cancels/supersedes its still-`waiting_review` approval gate; the route and queue can no longer act on it, and descendants remain blocked. A gate already succeeded by approval is immutable: a ✖ row invalidates the cycle/authorization guard, while sole IM-19 preserves approved content authorization and adds only the documented attention reason.
+11. IM-20 attention does not silently become approval invalidation. The print guard blocks while any exact source/full-resolution asset it would consume fails checksum/integrity. Repairing or restoring byte-identical content and re-verifying the expected checksum may remove that runtime block without a new customer approval; different bytes require a new version and the applicable visible-change row. A corrupt/missing preview PDF alone remains stale evidence but is not a print input.
 
 ## Worked examples (from spec §8)
 

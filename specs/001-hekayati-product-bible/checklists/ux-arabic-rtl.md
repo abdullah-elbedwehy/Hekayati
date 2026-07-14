@@ -44,5 +44,6 @@
 - [ ] CHK423 Reduced-motion preference respected for progress animations
 - [ ] CHK424 Long Arabic names/titles truncate with tooltips, never break layout (FR-083 analog in UI)
 - [ ] CHK427 Customer, consent, character, look, upload-warning, and subject-selection flows are keyboard-operable with programmatic labels, associated/announced errors, meaningful selectable-image names, ≥44px targets, visible focus, and no drag-only or color-only action (WCAG 2.2 AA)
+- [ ] CHK428 Layout/preview/approval UI exposes all five placement modes, exact warning/cause/version state, preview download, preview-sent/approved/changes-requested actions, and affected items in Arabic RTL; keyboard, focus, labels, 44px targets, mixed BiDi, reduced motion, axe, and no-overflow pass at 390×844, 1440×900, and 1920×1080 (FR-080–087, SC-012)
 
 Phase 1 baseline evidence for language/direction, health, no-backup copy, keyboard focus, WCAG 2.2 axe rules, 1440×900 plus narrow/wide fit, and reduced motion is recorded in `specs/002-local-foundation/IMPLEMENTATION_NOTES.md`. The corresponding global/composite boxes remain open until the complete product journey exists.

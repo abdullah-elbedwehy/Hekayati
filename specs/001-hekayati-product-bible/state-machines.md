@@ -8,7 +8,8 @@
 draft ──configure──▶ characters_ready ──sheets generated──▶ awaiting_character_approval
 awaiting_character_approval ──approval recorded──▶ generating (plan→story→scenes→prompts→illustrations)
 generating ──all pages done──▶ internal_review
-internal_review ──operator OK──▶ preview_ready ──preview PDF──▶ awaiting_customer_approval
+internal_review ──operator OK──▶ automatic preview workflow(layout_pending → pdf_pending → rendering/validating)
+validated preview output committed──▶ preview_ready ──operator records preview sent──▶ awaiting_customer_approval
 awaiting_customer_approval ──approved──▶ approved ──print PDFs + preflight pass──▶ print_ready
 awaiting_customer_approval ──changes requested──▶ revising ──edits──▶ (re-enter generating/internal_review for affected scope)
 approved ──any customer-visible change──▶ revising (approval invalidated, FR-086)
@@ -16,12 +17,12 @@ any ──operator──▶ paused ⇄ previous state
 any ──operator (confirmed)──▶ archived | deleted(permanent)
 ```
 
-Notes: transitions marked with approvals are `waiting_review` job gates — never automatic (FR-114). `revising` re-runs only invalidated scope (matrix), never whole-book (Constitution VII).
+Notes: transitions marked with approvals are `waiting_review` job gates — never automatic (FR-114). `revising` re-runs only invalidated scope (matrix), never whole-book (Constitution VII). Preview workflow is orthogonal after approval: a watermark-only replacement preview with the same `customerContentHash` advances preview/cycle heads while preserving project `approved` or `print_ready`; it does not regress the lifecycle to `preview_ready`. A changes-requested outcome on that successor explicitly revokes the same-content authorization and enters `revising`.
 
 ## 2. Job
 
 See `contracts/job-scheduler-contract.md` for the normative machine:
-`created → blocked → queued → claimed → running → { succeeded | queued(notBefore retry) | failed(permanent) | paused(reason-specific) | canceled }` plus `waiting_review → succeeded` only through an owning feature's explicit version-checked review transaction. Every claim carries worker + boot + unique claim-token fencing; late/stale/canceled commits are rejected invariants, never state shortcuts. A blocked descendant requires all dependencies to reach `succeeded`; failure/cancel/gate states remain visible blockers rather than silently canceling the subtree.
+`created → blocked → queued → claimed → running → { succeeded | queued(notBefore retry) | failed(permanent) | paused(reason-specific) | canceled }` plus `waiting_review → succeeded` only through an owning feature's explicit version-checked positive-acceptance transaction. A negative outcome cancels/supersedes the gate and leaves descendants blocked. Every claim carries worker + boot + unique claim-token fencing; late/stale/canceled commits are rejected invariants, never state shortcuts. A blocked descendant requires all dependencies to reach `succeeded`; failure/cancel/gate states remain visible blockers rather than silently canceling the subtree.
 
 ## 3. Page
 
@@ -47,14 +48,30 @@ none → sheet_generating → sheet_ready → preview_sent → approved
 approved + character version bump ⇒ approved(superseded)   # binds to old version forever (FR-033)
 ```
 
-## 5. Book (customer) approval
+## 5. Preview output and book (customer) approval
 
 ```text
-none → preview_sent → approved ──customer-visible change──▶ invalidated (cause recorded)
-preview_sent → changes_requested(notes, affectedPages)
-invalidated → (new preview) → preview_sent → …
-print PDFs producible ONLY from state=approved with matching bookVersion (FR-086, SC-010)
+layout_pending ──all exact layouts + cover ready──▶ pdf_pending
+layout_pending ──unresolved layout warning──▶ operator_action_required ──explicit fix──▶ layout_pending
+pdf_pending ──durable job materialized──▶ rendering → validating → ready
+rendering/validating ──failure/restart──▶ queued|paused|failed per scheduler policy
+ready ──matrix row marks Preview PDF ✖──▶ stale(cause/event recorded)
 ```
+
+Preview content is immutable. A render may reach `ready` only when its exact project/book/page-layout/cover/settings snapshot is still current and the mechanical validation report passes. Stale, canceled, late-fence, partial, over-budget, or invalid output never advances the project preview head.
+
+```text
+preview commit → ready_to_send(exact PreviewOutput + cycle + gate + approvalBundleHash, revision 0)
+ready_to_send → preview_sent
+preview_sent → approved ──customer-visible change──▶ invalidated (cause recorded)
+preview_sent → changes_requested(notes, affectedScopes) # cancel/supersede exact gate; revoke same-content prior authorization; descendants stay blocked
+invalidated → (new preview) → preview_sent → …
+IM-19 watermark-only change: PreviewOutput → stale; approved state/contentAuthorizationHash stay valid with attention tied to the old exact preview
+IM-20 referenced-asset integrity failure: guard blocks while checksum fails; byte-identical repair/reverification may restore the same authorization
+print PDFs producible ONLY through currentContentApprovalId + succeeded exact gate + matching customerContentHash/contentAuthorizationHash + healthy referenced assets (FR-085/086, SC-010)
+```
+
+All manual actions use expected project/output/approval/gate revision, expected prior content-approval ID/revision when present, and the exact current ready preview. `preview_sent` is an operator attestation that the file was sent manually; Hekayati performs no WhatsApp action. Only `approved` succeeds the exact gate, advances `currentContentApprovalId`, and can unblock descendants. `changes_requested` records the negative outcome, moves the project to `revising`, cancels/supersedes the gate, and invalidates/clears any prior same-customerContentHash authorization in the same owner transaction. Stale/non-current preview, mismatched bundle/gate, invalid page/cover scope, or a second stale-tab action fails with zero state change.
 
 ## 6. Provider availability (per provider)
 

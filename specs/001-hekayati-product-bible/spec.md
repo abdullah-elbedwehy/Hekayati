@@ -160,14 +160,15 @@ The employee produces a watermarked preview PDF (downsampled), sends it via What
 
 **Why this priority**: Customer approval is required before print, but preview generation depends on Stories 1–5.
 
-**Independent Test**: From a completed mock-generated book, produce the preview PDF; verify watermark on every page, downsampled images, correct page order/count; record approval; then edit page text and verify approval invalidated and a new preview required.
+**Independent Test**: From a completed mock-generated book, produce the preview PDF; verify watermark on every page, downsampled images, correct page order/count; record approval against that exact immutable preview output and book snapshot; then edit page text and verify the preview and approval are invalidated and the old preview cannot be approved or used to authorize print.
 
 **Acceptance Scenarios**:
 
-1. **Given** a completed book, **When** preview is generated, **Then** every page carries a visible watermark, images are downsampled below print resolution, and file size is WhatsApp-friendly (≤ 16 MB target).
+1. **Given** a completed book and customer-view cover composition, **When** preview is generated, **Then** it contains watermarked front/back cover proof pages around the exact 16/24-page interior map, images are downsampled below print resolution, and the complete preview is WhatsApp-friendly (≤ 16 MB hard ready/send gate at the default policy).
 2. **Given** a recorded full-book approval on book version V, **When** any customer-visible content changes (text, image, page order, cover), **Then** the approval is marked invalidated with the causing change listed, and print PDF generation is blocked until a new preview approval is recorded.
 3. **Given** an internal-only change (e.g., job log fix, retention cleanup), **When** it occurs, **Then** approval is NOT invalidated (per invalidation matrix).
 4. **Given** punctuation-only text corrections, **When** saved, **Then** preview approval is invalidated (visible text changed) but illustrations are NOT flagged for regeneration.
+5. **Given** a preview is no longer the current ready output for its exact book snapshot, **When** the employee attempts to mark it sent or approved, **Then** the action is rejected with zero state change; approval records always identify the exact preview file the customer received.
 
 ---
 
@@ -375,9 +376,9 @@ Requirement IDs are stable and referenced by tasks, checklists, and the edge-cas
 
 ### 3.12 Approvals & Invalidation
 
-- **FR-085**: Two manual approval types: character approval (FR-032) and full-book customer approval. Records: preview sent, approved, changes requested, revision notes, affected pages, timestamp, approved book version.
-- **FR-086**: Any customer-visible modification after full-book approval MUST invalidate the approval and require a new preview cycle before print output. Customer-visible = story text (including punctuation), illustrations, page order/count, dedication, title, covers.
-- **FR-087**: The normative invalidation rules are `invalidation-matrix.md`; internal-only changes (logs, job records, retention cleanup) do not invalidate content approvals; print-profile changes re-trigger preflight only.
+- **FR-085**: Two manual approval types: character approval (FR-032) and full-book customer approval. Each ready full-book preview MUST atomically create one revision-0 `ready_to_send` cycle and one human gate targeting that exact immutable PreviewOutput. It binds `customerContentHash`, exact review/selection/layout/text/source evidence, watermark/derivative settings, strict page-or-cover feedback scopes, and timestamp. Preview actions MUST use an append-only key/request-hash ledger plus project/output/cycle/gate and optional prior-content-approval revision checks. Preview commit advances current-preview/current-cycle heads only; approved alone succeeds the gate and advances `currentContentApprovalId`. Changes requested cancels the gate and revokes any prior same-content authorization. Any action on a stale/non-current/gate/snapshot mismatch fails with zero state change.
+- **FR-086**: Any customer-visible modification after full-book approval MUST invalidate both the affected preview output and approval, record the cause, and require a new preview cycle before print. Customer-visible = story text (including punctuation), illustrations, layout, page order/count, dedication, title, covers. The print guard starts from `currentContentApprovalId`, verifies its succeeded exact gate, matching `customerContentHash`, stable `contentAuthorizationHash`, and referenced asset integrity; feature 009 calls it at materialization, pre-execution, and commit. Sole IM-19 or a newer unapproved same-content preview preserves authorization and project approved/print-ready status while forbidding new actions on stale files. IM-20 blocks only while referenced exact checksums fail; byte-identical repair/reverification may restore the same authorization.
+- **FR-087**: The normative invalidation rules are `invalidation-matrix.md`; internal-only changes (logs, job records, retention cleanup) do not invalidate content approvals. A printer-profile change is composition-compatible only when it remains portrait, both trim dimensions match the approved profile within its pinned tolerance without scaling, and the approved safe rectangle is wholly inside the printer safe rectangle; compatible printer mechanics re-trigger print production/preflight only. Any failed predicate MUST hard-block and require an explicit composition migration, new layout/cover versions, and a new preview approval; it MUST NOT be hidden inside IM-14.
 
 ### 3.13 AI Provider Orchestration (Provider-Neutral Core)
 
@@ -428,7 +429,7 @@ Requirement IDs are stable and referenced by tasks, checklists, and the edge-cas
 
 ### 3.19 PDF Outputs
 
-- **FR-120**: Three outputs: watermarked preview PDF (downsampled, ≤ ~16 MB target), print-ready interior PDF, print-ready cover spread PDF (back + spine + front).
+- **FR-120**: Three outputs: immutable watermarked preview PDF output (downsampled, hard ≤16 MB ready/send gate at default settings, bound to an exact book/page/layout/cover/settings snapshot and containing customer-view front/back cover proofs outside interior numbering), print-ready interior PDF, print-ready cover spread PDF (back + spine + front).
 - **FR-121**: Print defaults (overridable per printer profile): A4 portrait, 300 DPI effective images, 3 mm bleed, safe margins, optional crop marks, RGB or CMYK output selection with ICC profile.
 - **FR-122**: Printer profiles MUST be first-class settings objects; printer-supplied cover templates are importable; spine width MUST come from configuration or template — never guessed (block otherwise).
 - **FR-123**: Preflight MUST detect: wrong dimensions, wrong page count, missing images, low effective resolution, text overflow, missing fonts, missing bleed, unsafe margins, invalid cover spread, unknown spine width, corrupt PDF, color conversion failure, watermark present in print file / missing in preview.
@@ -489,6 +490,7 @@ Requirement IDs are stable and referenced by tasks, checklists, and the edge-cas
 - **GenerationJob** — durable unit with type, dependencies, idempotency key, lease, attempts, normalized failure, provenance.
 - **Asset** — content-addressed media file (checksum, type, dimensions, provenance); stored on filesystem, indexed in DB.
 - **ApprovalRecord** — character or book approval bound to versions; invalidation state.
+- **PreviewOutput** — immutable preview PDF asset plus exact book/composition/cover/page/layout/composition-input/source-asset snapshot and checksums, watermark/settings checksum, render job, cross-linked approval cycle/gate, validation report, and revisioned stale projection; full-book approval identifies one exact output.
 - **PrinterProfile** — trim/bleed/DPI/color/ICC/crop-marks/spine or cover template.
 - **ExportArchive** — manifest-versioned ZIP record.
 - **SettingsProfile** — provider/model/concurrency/typography config (no secrets).
@@ -504,10 +506,10 @@ Requirement IDs are stable and referenced by tasks, checklists, and the edge-cas
 - **SC-004**: 100% of provider outputs pass schema validation before persistence; malformed outputs never appear as product content.
 - **SC-005**: Secret-scan of every export archive and full log corpus finds zero credentials (automated in CI and on every export).
 - **SC-006**: Print preflight catches 100% of the seeded defect fixture set (each FR-123 category has at least one fixture).
-- **SC-007**: Preview PDFs are ≤ 16 MB for 24-page books at default settings and carry watermarks on every page; print PDFs contain none.
+- **SC-007**: Complete preview PDFs for 24-page books, including both cover-proof pages, are ≤16 MB at default settings and carry watermarks on every PDF page; print PDFs contain none. Feature 008 proves the preview half; feature 009 proves the print half before this criterion is globally complete.
 - **SC-008**: Arabic text in generated PDFs is correctly shaped and RTL-ordered (golden-file visual regression on a shaping-sensitive corpus, including connected letters, lam-alef ligatures, diacritics, punctuation).
 - **SC-009**: Every quota-exhaustion event results in paused (not failed, not switched) remaining work and an operator decision record; zero automatic provider switches in audit history.
-- **SC-010**: An approved book version can never reach print output after a customer-visible change without a new recorded approval (enforced and tested via the invalidation matrix).
+- **SC-010**: An approved book version can never reach print output after a customer-visible change without a new exact-preview-bound approval (enforced via the invalidation matrix and the print-authorization check). Feature 008 proves the guard; feature 009 proves every print producer consumes it before this criterion is globally complete.
 - **SC-011**: Full-book approval invalidation, character-approval superseding, and locked-page immutability each have dedicated automated tests that pass.
 - **SC-012**: The complete operator journey is usable in Arabic RTL at 1440×900 and larger without horizontal scrolling or clipped controls.
 - **SC-013**: From the Single Image tab, the employee can produce one downloadable illustration with character references in ≤3 operator actions after characters exist (select refs → prompt → generate), without creating any Project/Story/Page records (verified by DB assertions in the independent test).
@@ -543,6 +545,8 @@ Requirement IDs are stable and referenced by tasks, checklists, and the edge-cas
 | C-23 | What minimum makes a fully custom story actionable? | `fully_custom` requires a non-empty premise, a beginning/middle/ending beat (each non-empty), and at least one content boundary before the configuration can become generation-ready. The UI identifies each missing field; drafts may still be saved. | Prevents vague provider input while preserving incremental authoring and EC-B12's specific failure. |
 | C-24 | How do built-in group mentions get their members? | `@البطل` resolves to the configured `mainChildId`; `@الأصدقاء` resolves to selected project participants whose family relationship is `friend`; `@العيلة` resolves to selected participants whose relationship is a family relation (`main_child`, parent, sibling, or grandparent), excluding friend, teacher, and pet. Expansion uses the project's pinned participant IDs, is deduplicated in project order, and a zero-member result blocks compile. | Deterministic, local, ID-bound behavior avoids hidden inference or mutable ad-hoc groups. |
 | C-25 | What is copied when a completed story is duplicated into another family? | A same-family duplicate may retain version-pinned participants and looks. A different-family duplicate copies only non-identifying structure/configuration into a draft with role slots; it carries no source customer/family/character/version/photo/mention IDs, names, dedication, or notes and cannot become ready until every required role is explicitly remapped to the target family. | Fail-closed privacy boundary prevents cross-customer identity leakage while retaining the reusable-story workflow. |
+| C-26 | What exactly does full-book customer approval bind to? | One immutable PreviewOutput/cycle/gate bundle: exact PDF asset, customerContentHash (composition/cover/order/page/layout/text/source bytes only), review/selection evidence, preview settings, and gate target. `contentAuthorizationHash` adds the immutable approved outcome while excluding mutable status/attention/operational revisions. Current preview cycle and current content authorization are separate heads, so a new watermark preview cannot borrow the action or erase unchanged approved content. | Closes same-bookVersion and multi-preview ambiguity while preserving auditable stale-file protection and the matrix's non-content exceptions. |
+| C-27 | How can layout be approved before the printer profile without IM-14 silently changing composition? | Feature 008 uses one versioned 210 × 297 mm A4 portrait customer-composition profile with a pinned 0.5 mm tolerance and normalized safe/placement regions. Compatibility requires portrait orientation, both printer trim dimensions within tolerance without scaling, and full containment of the composition safe rectangle in the printer safe rectangle. Bleed/DPI/color/ICC/crop/spine/blanks are printer-only. Any failed term requires explicit composition migration, new layouts/cover composition, and re-approval. | Separates customer-visible composition from printer mechanics while preserving the matrix's print-only profile rule. |
 
 No open clarification markers remain. No decision above changes fundamental product behavior or carries material privacy/legal/financial consequence beyond what the risk register records.
 

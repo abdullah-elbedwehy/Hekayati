@@ -59,6 +59,13 @@
 | EC-C11 | Studio generate while book jobs run                    | Both allowed; studio job has no `projectId`; book pages/approvals unchanged | FR-142/145, SC-013         |
 | EC-C12 | Studio with cross-family characters                    | Blocked before enqueue (same as FR-003/146)                                 | FR-146, EC-H02             |
 | EC-C13 | Studio without characters (prompt-only)                | Allowed; provenance records zero refs; safety/style rules still apply       | FR-141/143                 |
+| EC-C14 | Old/stale preview approved from another tab            | Exact preview/bundle/revision CAS rejects with zero state change; current ready output remains unchanged | FR-085/086, C-26 |
+| EC-C15 | Watermark changes after customer approval              | IM-19 marks that exact preview stale and cancels its gate only if still waiting; the separate prior content-approval head/hash and project approved/print-ready state survive. A replacement preview gets a new cycle and cannot borrow the action | IM-19, C-26 |
+| EC-C16 | App dies during preview render or after file prepare    | Durable local job resumes; uncommitted temp/renamed orphan is compensated; exactly one validated PreviewOutput/asset may become current | FR-093/113/120 |
+| EC-C17 | Dialogue speaker position is missing/ambiguous          | A speaker-labeled non-pointing RTL bubble/panel plus warning is used; no pointer is guessed | FR-083 |
+| EC-C18 | Reviewed page is locked before first layout             | Initial layout derives into a separate downstream head without changing Page/creative heads; any replacement/recalculation requires explicit unlock | FR-064/080, Constitution X |
+| EC-C19 | Printer trim conflicts with approved composition profile | Print production hard-blocks and offers explicit composition migration/new approval; it cannot apply IM-14 or silently reflow | FR-087/121, C-27 |
+| EC-C20 | Untrusted text contains markup, remote URLs, or bidi controls | Text is escaped and bidi-isolated under the layout policy; renderer blocks HTTP(S)/file/CDN loads and scripts, records zero external requests, and exposes a safe warning for prohibited controls | FR-080/083/132 |
 
 ## D — AI providers
 
