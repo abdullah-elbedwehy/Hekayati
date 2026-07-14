@@ -121,7 +121,11 @@ type ProviderEligibleReference =
   | {
       source: 'approved_character_sheet'; characterSheetId: string;
       customerId: string; familyId: string; characterId: string;
-      characterVersionId: string; lookVersionId: string; sheetAssetId: string;
+      characterVersionId: string;
+      appearance:
+        | { type: 'base'; lookId: null; lookVersionId: null }
+        | { type: 'shared_look'; lookId: string; lookVersionId: string };
+      sheetAssetId: string;
     };
 
 // Created in memory only by the pre-dispatch resolver after all current-state checks.
@@ -149,7 +153,7 @@ interface ImageResult {
 }
 ```
 
-The provider-reference resolver accepts a `reference_photo` only when its immutable record still points to the supplied `providerAssetId`, that asset has role `reference_photo` and `exifStripped=true`, the customer/family/character links match, and the photo ID occurs in the pinned owner version: `CharacterVersion.referencePhotoIds` for a character owner or `LookVersion.referencePhotoIds` for the supplied `lookId`/version whose identity belongs to that character. It accepts a sheet only when the sheet is approved for the pinned versions and the asset has role `sheet_view`. Current customer consent is required for every direct photo and every sheet whose trusted `referenceLineage.source=photo_derived`; a sheet with wholly `description_only` lineage follows FR-004's zero-photo exception. The private original namespace, full-frame face working images, thumbnails, and raw `AssetStore` IDs are not valid inputs.
+The provider-reference resolver accepts a `reference_photo` only when its immutable record still points to the supplied `providerAssetId`, that asset has role `reference_photo` and `exifStripped=true`, the customer/family/character links match, and the photo ID occurs in the pinned owner version: `CharacterVersion.referencePhotoIds` for a character owner or `LookVersion.referencePhotoIds` for the supplied `lookId`/version whose identity belongs to that character. It accepts a sheet only when the sheet is approved for the pinned character version and exact appearance union, and the asset has role `sheet_view`; base appearance carries null look IDs, while shared-look appearance requires exact owned look/version IDs. Current customer consent is required for every direct photo and every sheet whose trusted `referenceLineage.source=photo_derived`; a sheet with wholly `description_only` lineage follows FR-004's zero-photo exception. The private original namespace, full-frame face working images, thumbnails, and raw `AssetStore` IDs are not valid inputs.
 
 After validation, the resolver reads only the selected clean derivative and constructs an ephemeral `ResolvedImageRequest`. The adapter receives those bytes and safe metadata but no raw ID capable of loading another asset. The draft, resolved bytes, intake tokens, and originals are never logged or persisted as provider payloads. `Provenance.referenceAssetIds` is copied from the already validated `provenanceAssetId` values. Any resolution failure occurs before adapter invocation and before any network call.
 

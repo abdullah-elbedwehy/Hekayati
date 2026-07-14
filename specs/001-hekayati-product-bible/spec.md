@@ -311,7 +311,7 @@ Requirement IDs are stable and referenced by tasks, checklists, and the edge-cas
 
 ### 3.4 Character Sheets & Character Approval
 
-- **FR-030**: System MUST generate character sheets containing: reference thumbnails, illustrated face, front view, three-quarter view, full body view, main outfit, character name — bound to a specific character version + look version.
+- **FR-030**: System MUST generate character sheets containing: reference thumbnails, illustrated face, front view, three-quarter view, full body view, main outfit, character name — bound to a specific character version and exact appearance selection. Base appearance carries no fabricated look ID; a shared-look appearance MUST also bind its exact look + look-version IDs.
 - **FR-031**: System MUST export a compact character sheet PDF suitable for WhatsApp.
 - **FR-032**: System MUST record manual character approval: approved / changes requested, customer notes, timestamp, approved character-sheet version.
 - **FR-033**: When an approved character changes (base profile edit), system MUST: create a new version, mark the prior approval as superseded (not valid for the new version), flag downstream illustrations that used prior versions as potentially stale, present an affected-items view with per-item regeneration choices, and MUST NOT regenerate anything automatically.
