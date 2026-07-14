@@ -1,5 +1,5 @@
 import type { ChangeEvent, FamilyScope } from "../library/index.js";
-import { AuthoringServiceBase } from "./authoring-service-base.js";
+import { GeneratedStoryServiceBase } from "./generated-story-service-base.js";
 import { calculateNarrationBalance } from "./balance.js";
 import {
   assertPageCountPlanIntegrity,
@@ -89,7 +89,7 @@ export type CharacterRemovalResolution =
   | { type: "replace"; replacementCharacterId: string }
   | { type: "remove_mentions" };
 
-export class AuthoringService extends AuthoringServiceBase {
+export class AuthoringService extends GeneratedStoryServiceBase {
   listProjects(scope: FamilyScope): ProjectWorkspace[] {
     this.assertFamilyScope(scope);
     return this.repositories.projects

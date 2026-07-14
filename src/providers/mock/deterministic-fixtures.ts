@@ -1,14 +1,12 @@
 import { createHash } from "node:crypto";
+import { deflateSync } from "node:zlib";
 
 import type { ResolvedImageRequest } from "../contract.js";
 import type { GenerationTaskV1 } from "../generation-task.js";
 import { MANDATORY_NEGATIVE_CONSTRAINTS } from "../prompt/styles.js";
 import { canonicalJson } from "../provenance.js";
 
-const BASE_PNG = Buffer.from(
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
-  "base64",
-);
+const PNG_SIGNATURE = Buffer.from("89504e470d0a1a0a", "hex");
 
 export function deterministicHash(value: unknown): string {
   return createHash("sha256").update(canonicalJson(value)).digest("hex");
@@ -44,8 +42,39 @@ export function deterministicImageHash(request: ResolvedImageRequest): string {
 }
 
 export function deterministicPng(hash: string): Uint8Array {
-  const suffix = Buffer.from(hash, "hex");
-  return new Uint8Array(Buffer.concat([BASE_PNG, suffix]));
+  const color = Buffer.from(hash, "hex").subarray(0, 3);
+  const header = Buffer.alloc(13);
+  header.writeUInt32BE(1, 0);
+  header.writeUInt32BE(1, 4);
+  header.set([8, 6, 0, 0, 0], 8);
+  const pixel = Buffer.from([0, color[0], color[1], color[2], 255]);
+  return new Uint8Array(
+    Buffer.concat([
+      PNG_SIGNATURE,
+      pngChunk("IHDR", header),
+      pngChunk("IDAT", deflateSync(pixel)),
+      pngChunk("IEND", Buffer.alloc(0)),
+    ]),
+  );
+}
+
+function pngChunk(type: "IHDR" | "IDAT" | "IEND", data: Buffer): Buffer {
+  const name = Buffer.from(type, "ascii");
+  const length = Buffer.alloc(4);
+  length.writeUInt32BE(data.byteLength);
+  const checksum = Buffer.alloc(4);
+  checksum.writeUInt32BE(crc32(Buffer.concat([name, data])));
+  return Buffer.concat([length, name, data, checksum]);
+}
+
+function crc32(data: Buffer): number {
+  let crc = 0xffffffff;
+  for (const byte of data) {
+    crc ^= byte;
+    for (let bit = 0; bit < 8; bit += 1)
+      crc = (crc >>> 1) ^ (crc & 1 ? 0xedb88320 : 0);
+  }
+  return (crc ^ 0xffffffff) >>> 0;
 }
 
 function storyPlanFixture(

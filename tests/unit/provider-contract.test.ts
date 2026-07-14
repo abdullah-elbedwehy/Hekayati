@@ -149,7 +149,11 @@ describe("provider-neutral contract", () => {
           familyId: "family-1",
           characterId: "character-a",
           characterVersionId: "character-version-a",
-          lookVersionId: "look-version-a",
+          appearance: {
+            type: "shared_look",
+            lookId: "look-a",
+            lookVersionId: "look-version-a",
+          },
           sheetAssetId: "asset-sheet-1",
         },
       ],

@@ -5,6 +5,7 @@ import {
   type GenerationTaskV1,
   structuredSchemaIdSchema,
 } from "./generation-task.js";
+import { creativeCapacityPlanSchema } from "../contracts/creative-policy.js";
 import { normalizedFailureSchema, type NormalizedFailure } from "./failures.js";
 
 const safeId = z
@@ -157,7 +158,22 @@ export const providerEligibleReferenceSchema = z.discriminatedUnion("source", [
       familyId: safeId,
       characterId: safeId,
       characterVersionId: safeId,
-      lookVersionId: safeId,
+      appearance: z.discriminatedUnion("type", [
+        z
+          .object({
+            type: z.literal("base"),
+            lookId: z.null(),
+            lookVersionId: z.null(),
+          })
+          .strict(),
+        z
+          .object({
+            type: z.literal("shared_look"),
+            lookId: safeId,
+            lookVersionId: safeId,
+          })
+          .strict(),
+      ]),
       sheetAssetId: safeId,
     })
     .strict(),
@@ -166,6 +182,8 @@ export const providerEligibleReferenceSchema = z.discriminatedUnion("source", [
 export const imageRequestDraftSchema = z
   .object({
     styleId: z.enum(["modern_cartoon", "colorful_2d", "soft_watercolor"]),
+    capacityPlan: creativeCapacityPlanSchema.optional(),
+    variationKey: safeId.optional(),
     scene: compiledSceneForImageSchema,
     referenceImages: z.array(providerEligibleReferenceSchema).max(100),
     negativeConstraints: z.array(safeDetail).min(1).max(40),
@@ -210,6 +228,8 @@ export const resolvedImageRequestSchema = z
   .object({
     schemaVersion: z.literal(1),
     styleId: z.enum(["modern_cartoon", "colorful_2d", "soft_watercolor"]),
+    capacityPlan: creativeCapacityPlanSchema.optional(),
+    variationKey: safeId.optional(),
     scene: compiledSceneForImageSchema,
     referenceImages: z.array(resolvedProviderReferenceSchema).max(100),
     negativeConstraints: z.array(safeDetail).min(1).max(40),

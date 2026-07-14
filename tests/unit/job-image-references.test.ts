@@ -191,7 +191,6 @@ describe("image reference resolution", () => {
     ["familyId", "family-other"],
     ["characterId", "character-other"],
     ["characterVersionId", "character-version-other"],
-    ["lookVersionId", "look-version-other"],
     ["sheetAssetId", "01J00000000000000000000099"],
   ] as const)(
     "rejects changed sheet %s lineage before reading bytes",
@@ -215,6 +214,33 @@ describe("image reference resolution", () => {
       expect(reads).toBe(0);
     },
   );
+
+  it("rejects changed sheet appearance lineage before reading bytes", async () => {
+    let reads = 0;
+    const metadata = {
+      ...sheetMetadata(),
+      appearance: {
+        type: "shared_look" as const,
+        lookId: "look-other",
+        lookVersionId: "look-version-other",
+      },
+    };
+    const resolver = new LibraryImageReferenceResolver(
+      unusedPhotoLibrary(),
+      {
+        get: () => sheetAsset(),
+        read: async () => {
+          reads += 1;
+          return bytes;
+        },
+      },
+      successfulSheetReader(metadata),
+    );
+    await expect(resolver.inspect(sheetDraft())).rejects.toMatchObject({
+      code: "SHEET_REFERENCE_MISMATCH",
+    });
+    expect(reads).toBe(0);
+  });
 
   it("checks photo-derived sheet consent before asset metadata or bytes", async () => {
     let metadataReads = 0;
@@ -386,7 +412,11 @@ function sheetDraft() {
         familyId: "family-1",
         characterId: "character-1",
         characterVersionId: "character-version-1",
-        lookVersionId: "look-version-1",
+        appearance: {
+          type: "shared_look",
+          lookId: "look-1",
+          lookVersionId: "look-version-1",
+        },
         sheetAssetId: "01J00000000000000000000011",
       },
     ],
@@ -433,7 +463,11 @@ function sheetMetadata(): ApprovedSheetMetadata {
     familyId: "family-1",
     characterId: "character-1",
     characterVersionId: "character-version-1",
-    lookVersionId: "look-version-1",
+    appearance: {
+      type: "shared_look",
+      lookId: "look-1",
+      lookVersionId: "look-version-1",
+    },
     sheetAssetId: "01J00000000000000000000011",
     lineageSource: "description_only",
   };

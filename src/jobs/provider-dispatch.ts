@@ -50,6 +50,7 @@ export function createProviderJobDefinition(input: {
   gateway: ProviderDispatchGateway;
   commit: RegisteredJobDefinition["commit"];
   discard?: RegisteredJobDefinition["discard"];
+  normalizeError?: RegisteredJobDefinition["normalizeError"];
 }): RegisteredJobDefinition {
   return {
     jobType: input.jobType,
@@ -64,6 +65,7 @@ export function createProviderJobDefinition(input: {
       }),
     commit: input.commit,
     discard: input.discard,
+    normalizeError: input.normalizeError,
   };
 }
 

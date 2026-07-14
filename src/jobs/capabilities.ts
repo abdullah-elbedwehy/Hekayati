@@ -21,6 +21,7 @@ export interface ExactCapabilityInput {
   target: JobTarget;
   referenceCount: number;
   participantCount: number;
+  reliableCharacterCountAcknowledged?: boolean;
 }
 
 export interface ExactCapabilityPort {
@@ -99,7 +100,9 @@ function validateInput(input: ExactCapabilityInput): void {
     !Number.isInteger(input.referenceCount) ||
     input.referenceCount < 0 ||
     !Number.isInteger(input.participantCount) ||
-    input.participantCount < 0
+    input.participantCount < 0 ||
+    (input.reliableCharacterCountAcknowledged !== undefined &&
+      typeof input.reliableCharacterCountAcknowledged !== "boolean")
   )
     throw new JobError("JOB_CAPABILITY_INPUT_INVALID", 400);
 }
@@ -138,7 +141,8 @@ function assertImageAvailable(
     throw new JobError("JOB_REFERENCE_LIMIT_UNAVAILABLE");
   if (
     image.reliableCharacterCount === null ||
-    input.participantCount > image.reliableCharacterCount
+    (input.participantCount > image.reliableCharacterCount &&
+      input.reliableCharacterCountAcknowledged !== true)
   )
     throw new JobError("JOB_CHARACTER_LIMIT_UNAVAILABLE");
 }

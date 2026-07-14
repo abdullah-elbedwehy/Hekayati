@@ -7,16 +7,24 @@ import { HomeView } from "./views/HomeView";
 import { LibraryView } from "./views/LibraryView";
 import { ProjectsView } from "./views/ProjectsView";
 import { QueueView } from "./views/QueueView";
+import { CreativeView } from "./views/CreativeView";
 import { SettingsView } from "./views/SettingsView";
 
 export type View =
-  "home" | "library" | "projects" | "queue" | "settings" | "health";
+  | "home"
+  | "library"
+  | "projects"
+  | "creative"
+  | "queue"
+  | "settings"
+  | "health";
 type ErrorCategory = "connect" | "stale";
 
 const navigation = [
   { id: "home" as const, label: "البداية" },
   { id: "library" as const, label: "مكتبة العائلات" },
   { id: "projects" as const, label: "المشاريع والقصص" },
+  { id: "creative" as const, label: "الإبداع والمراجعة" },
   { id: "queue" as const, label: "قائمة المهام" },
   { id: "settings" as const, label: "الإعدادات" },
   { id: "health" as const, label: "حالة النظام" },
@@ -203,6 +211,7 @@ function CurrentView(props: ShellProps) {
     return <HomeView health={props.health} onNavigate={props.setView} />;
   if (props.view === "library") return <LibraryView client={props.client} />;
   if (props.view === "projects") return <ProjectsView client={props.client} />;
+  if (props.view === "creative") return <CreativeView client={props.client} />;
   if (props.view === "queue")
     return (
       <QueueView

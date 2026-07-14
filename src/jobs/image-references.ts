@@ -28,7 +28,9 @@ export interface ApprovedSheetMetadata {
   familyId: string;
   characterId: string;
   characterVersionId: string;
-  lookVersionId: string;
+  appearance:
+    | { type: "base"; lookId: null; lookVersionId: null }
+    | { type: "shared_look"; lookId: string; lookVersionId: string };
   sheetAssetId: string;
   lineageSource: "description_only" | "photo_derived";
 }
@@ -206,7 +208,9 @@ function guardedSheet(
     characterId: sheet.characterId,
     versionRefs: {
       characterVersionId: sheet.characterVersionId,
-      lookVersionId: sheet.lookVersionId,
+      ...(sheet.appearance.type === "shared_look"
+        ? { lookVersionId: sheet.appearance.lookVersionId }
+        : {}),
     },
     selectedAssetId: asset.id,
     provenanceAssetId: asset.id,
@@ -225,7 +229,9 @@ function assertSheetMetadata(
     reference.familyId,
     reference.characterId,
     reference.characterVersionId,
-    reference.lookVersionId,
+    reference.appearance.type,
+    reference.appearance.lookId,
+    reference.appearance.lookVersionId,
     reference.sheetAssetId,
   ];
   const actual = [
@@ -234,7 +240,9 @@ function assertSheetMetadata(
     sheet.familyId,
     sheet.characterId,
     sheet.characterVersionId,
-    sheet.lookVersionId,
+    sheet.appearance.type,
+    sheet.appearance.lookId,
+    sheet.appearance.lookVersionId,
     sheet.sheetAssetId,
   ];
   if (expected.some((value, index) => value !== actual[index]))

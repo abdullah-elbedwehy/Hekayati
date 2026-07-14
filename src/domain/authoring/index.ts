@@ -2,6 +2,7 @@ export * from "./balance.js";
 export * from "./book-structure.js";
 export * from "./errors.js";
 export * from "./extraction.js";
+export * from "./generated-story-service-base.js";
 export * from "./mentions.js";
 export * from "./project-service.js";
 export * from "./removal.js";

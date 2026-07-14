@@ -20,6 +20,15 @@ import { AuthoringError, AuthoringService } from "../domain/authoring/index.js";
 import { LibraryError } from "../domain/library/errors.js";
 import { LibraryService } from "../domain/library/index.js";
 import { SettingsService } from "../domain/settings/settings.js";
+import {
+  CreativeInvalidationService,
+  configuredCreativeLimits,
+  CreativeError,
+  CreativePageService,
+  CreativePipelineService,
+  CreativeSheetPipeline,
+  CreativeSheetService,
+} from "../domain/creative/index.js";
 import { SecuritySentinel } from "../domain/system/sentinel.js";
 import { JobError } from "../jobs/errors.js";
 import {
@@ -28,6 +37,10 @@ import {
   QuotaAvailabilityBroker,
 } from "../jobs/capabilities.js";
 import { JobRuntime, type JobRuntimeOptions } from "../jobs/runtime.js";
+import { createCreativeJobDefinitions } from "../jobs/creative-definitions.js";
+import { createLibraryImageReferenceResolver } from "../jobs/image-references.js";
+import { PreDispatchCoordinator } from "../jobs/pre-dispatch.js";
+import { ProviderDispatchGateway } from "../jobs/provider-dispatch.js";
 import type { QuotaIncident } from "../jobs/schemas.js";
 import { createJobTarget } from "../jobs/targets.js";
 import type { ProviderTargetChangeCoordinator } from "../jobs/provider-target-change.js";
@@ -90,6 +103,15 @@ export interface HekayatiRuntime {
   close(): Promise<void>;
   sentinelValue(): number;
   jobs: JobRuntime;
+  creative: CreativeRuntime;
+}
+
+export interface CreativeRuntime {
+  sheets: CreativeSheetService;
+  sheetPipeline: CreativeSheetPipeline;
+  pipeline: CreativePipelineService;
+  pages: CreativePageService;
+  invalidation: CreativeInvalidationService;
 }
 
 export async function createRuntime(
@@ -155,36 +177,40 @@ async function assembleRuntime(
 ): Promise<HekayatiRuntime> {
   const sentinel = new SecuritySentinel(store);
   const boundary = new LocalRequestBoundary();
-  const { logger, providers, jobs, health, targetChanges } =
-    createInfrastructure({
-      options,
-      paths,
-      store,
-      assets,
-      originals,
-      settings,
-      boundary,
-      initialIntegrity,
-    });
-  const metrics = { listenAttempts: 0, routeDispatches: 0 };
-  const app = await configureHttpApp({
+  const context = {
     options,
+    paths,
     store,
     assets,
     originals,
     settings,
     library,
     authoring,
+  };
+  const infrastructure = createInfrastructure({
+    ...context,
+    boundary,
+    initialIntegrity,
+  });
+  const metrics = { listenAttempts: 0, routeDispatches: 0 };
+  const app = await configureHttpApp({
+    ...context,
+    ...infrastructure,
     sentinel,
     boundary,
     metrics,
-    logger,
-    health,
-    providers,
-    jobs,
-    targetChanges,
   });
-  return finish(app, store, boundary, sentinel, paths, metrics, logger, jobs);
+  return finish(
+    app,
+    store,
+    boundary,
+    sentinel,
+    paths,
+    metrics,
+    infrastructure.logger,
+    infrastructure.jobs,
+    infrastructure.creative,
+  );
 }
 
 async function configureHttpApp(input: {
@@ -202,6 +228,7 @@ async function configureHttpApp(input: {
   health: HealthService;
   providers: ReturnType<typeof createProviderRuntime>["service"];
   jobs: JobRuntime;
+  creative: CreativeRuntime;
   targetChanges: ProviderTargetChangeCoordinator;
 }): Promise<FastifyInstance> {
   const photoIntake = new PhotoIntakeCoordinator(
@@ -222,6 +249,7 @@ async function configureHttpApp(input: {
     health: input.health,
     providers: input.providers,
     jobs: input.jobs,
+    creative: input.creative,
     targetChanges: input.targetChanges,
     boundary: input.boundary,
     sentinel: input.sentinel,
@@ -238,19 +266,22 @@ function createInfrastructure(input: {
   assets: AssetStore;
   originals: OriginalAssetStore;
   settings: SettingsService;
+  library: LibraryService;
+  authoring: AuthoringService;
   boundary: LocalRequestBoundary;
   initialIntegrity: Awaited<ReturnType<AssetStore["scanIntegrity"]>>;
 }) {
-  const logger = new StructuredLogger(
-    createFileLogSink(join(input.paths.logs, "app.log")),
-    new Redactor(input.store.secretRegistry),
-  );
+  const logger = createRuntimeLogger(input);
   const providerRuntime = createProviderRuntime(
     input.settings,
     logger.redactor,
     input.options.providers,
   );
-  const jobs = createJobs(input, providerRuntime);
+  const creative = createCreativeRuntime(input);
+  const jobs = createJobs(input, providerRuntime, creative);
+  creative.sheets.bindScheduler(jobs.scheduler);
+  creative.sheetPipeline.bindScheduler(jobs.scheduler);
+  creative.pipeline.bindScheduler(jobs.scheduler);
   const targetChanges = createProviderTargetChangeCoordinator(
     input.settings,
     jobs,
@@ -271,14 +302,54 @@ function createInfrastructure(input: {
     logger,
     providers: providerRuntime.service,
     jobs,
+    creative,
     health,
     targetChanges,
+  };
+}
+
+function createRuntimeLogger(
+  input: Parameters<typeof createInfrastructure>[0],
+): StructuredLogger {
+  return new StructuredLogger(
+    createFileLogSink(join(input.paths.logs, "app.log")),
+    new Redactor(input.store.secretRegistry),
+  );
+}
+
+function createCreativeRuntime(
+  input: Parameters<typeof createInfrastructure>[0],
+): CreativeRuntime {
+  const sheets = new CreativeSheetService(input.store, input.assets, null);
+  const capacityLimits = (
+    target: Parameters<typeof configuredCreativeLimits>[0],
+  ) => configuredCreativeLimits(target, input.options.providers?.geminiLimits);
+  return {
+    sheets,
+    sheetPipeline: new CreativeSheetPipeline(
+      input.store,
+      input.library,
+      input.authoring,
+      input.settings,
+      sheets,
+      { capacityLimits },
+    ),
+    pipeline: new CreativePipelineService(
+      input.store,
+      input.library,
+      input.authoring,
+      input.settings,
+      { capacityLimits },
+    ),
+    pages: new CreativePageService(input.store),
+    invalidation: new CreativeInvalidationService(input.store),
   };
 }
 
 function createJobs(
   input: Parameters<typeof createInfrastructure>[0],
   providerRuntime: ReturnType<typeof createProviderRuntime>,
+  creative: CreativeRuntime,
 ): JobRuntime {
   const exactCapabilities = new ExactCapabilityBroker(
     providerRuntime.registry,
@@ -291,8 +362,51 @@ function createJobs(
   const credentialAvailability =
     input.options.jobs?.credentialAvailability ??
     new CredentialAvailabilityBroker(exactCapabilities);
-  return new JobRuntime(input.store, {
+  const preDispatch = new PreDispatchCoordinator(
+    exactCapabilities,
+    createLibraryImageReferenceResolver(
+      input.library,
+      input.assets,
+      creative.sheets,
+    ),
+  );
+  const gateway = new ProviderDispatchGateway(providerRuntime.registry);
+  const holder: { runtime: JobRuntime | null } = { runtime: null };
+  const definitions = createCreativeJobDefinitions({
+    pipeline: creative.pipeline,
+    sheets: creative.sheets,
+    assets: input.assets,
+    preDispatch,
+    gateway,
+    scheduler: () => {
+      if (!holder.runtime) throw new Error("JOB_RUNTIME_NOT_READY");
+      return holder.runtime.scheduler;
+    },
+  });
+  const runtime = new JobRuntime(
+    input.store,
+    createJobRuntimeOptions(
+      input,
+      providerRuntime,
+      definitions,
+      quotaAvailability,
+      credentialAvailability,
+    ),
+  );
+  holder.runtime = runtime;
+  return runtime;
+}
+
+function createJobRuntimeOptions(
+  input: Parameters<typeof createInfrastructure>[0],
+  providerRuntime: ReturnType<typeof createProviderRuntime>,
+  definitions: ReturnType<typeof createCreativeJobDefinitions>,
+  quotaAvailability: JobRuntimeOptions["quotaAvailability"],
+  credentialAvailability: JobRuntimeOptions["credentialAvailability"],
+): JobRuntimeOptions {
+  return {
     ...input.options.jobs,
+    definitions: [...definitions, ...(input.options.jobs?.definitions ?? [])],
     concurrencyPerProvider:
       input.options.jobs?.concurrencyPerProvider ??
       input.settings.get().concurrencyPerProvider,
@@ -319,7 +433,7 @@ function createJobs(
           input.settings,
           incident,
         )),
-  });
+  };
 }
 
 function cachedQuotaAlternates(
@@ -404,6 +518,7 @@ function finish(
   metrics: RuntimeMetrics,
   logger: StructuredLogger,
   jobs: JobRuntime,
+  creative: CreativeRuntime,
 ): HekayatiRuntime {
   const close = runtimeCloser(app, store, boundary, jobs);
   return {
@@ -411,6 +526,7 @@ function finish(
     paths,
     metrics,
     jobs,
+    creative,
     sentinelValue: () => sentinel.value(),
     start: async (options = {}) => {
       try {
@@ -518,6 +634,12 @@ function handleError(
     });
     return;
   }
+  if (error instanceof CreativeError) {
+    void reply
+      .code(error.statusCode)
+      .send({ code: error.code, details: error.details });
+    return;
+  }
   if (error instanceof PhotoIntakeError) {
     void reply.code(error.statusCode).send(error.toSafeResponse());
     return;
@@ -531,6 +653,14 @@ function handleError(
     void reply.code(error.statusCode).send({ code: error.code });
     return;
   }
+  handleUnexpectedError(error, reply, logger);
+}
+
+function handleUnexpectedError(
+  error: unknown,
+  reply: FastifyReply,
+  logger: StructuredLogger,
+): void {
   const status = clientErrorStatus(error);
   if (status !== null) {
     void reply.code(status).send({

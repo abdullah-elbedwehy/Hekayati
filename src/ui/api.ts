@@ -39,22 +39,16 @@ import type {
   QueueJobProjection,
   QueueProjection,
 } from "./types";
+import { CreativeApiClient } from "./creative-api-client";
+import { ApiError } from "./api-error";
+
+export { ApiError } from "./api-error";
 
 interface BootstrapResponse {
   appName: string;
   direction: "rtl";
   canonicalOrigin: string;
   csrfToken: string;
-}
-
-export class ApiError extends Error {
-  constructor(
-    readonly category: "stale_session" | "request_failed",
-    readonly code = "REQUEST_FAILED",
-    readonly status = 0,
-  ) {
-    super(category === "stale_session" ? "STALE_SESSION" : code);
-  }
 }
 
 export interface CustomerInput {
@@ -130,8 +124,10 @@ export interface PhotoCommitResult {
   referencePhoto?: LibraryReferencePhoto;
 }
 
-export class ApiClient {
-  private constructor(private readonly csrfToken: string) {}
+export class ApiClient extends CreativeApiClient {
+  private constructor(csrfToken: string) {
+    super(csrfToken);
+  }
 
   static async connect(): Promise<ApiClient> {
     const response = await fetch("/api/bootstrap", { cache: "no-store" });
@@ -621,43 +617,6 @@ export class ApiClient {
       "POST",
       input,
     );
-  }
-
-  private json<T>(path: string, method: string, body: unknown): Promise<T> {
-    return this.request(path, { method, body: JSON.stringify(body) });
-  }
-
-  private async request<T>(path: string, init: RequestInit = {}): Promise<T> {
-    const unsafe =
-      init.method !== undefined && !["GET", "HEAD"].includes(init.method);
-    const headers = new Headers(init.headers);
-    headers.set("accept", "application/json");
-    if (init.body !== undefined && !(init.body instanceof FormData))
-      headers.set("content-type", "application/json");
-    if (unsafe) headers.set("x-hekayati-csrf", this.csrfToken);
-    const response = await fetch(path, { ...init, headers, cache: "no-store" });
-    const errorBody = response.ok ? null : await responseJson(response);
-    if (response.status === 403 && !errorBody)
-      throw new ApiError("stale_session", "STALE_SESSION", response.status);
-    if (!response.ok) {
-      const code =
-        errorBody && typeof errorBody.code === "string"
-          ? errorBody.code
-          : "REQUEST_FAILED";
-      throw new ApiError("request_failed", code, response.status);
-    }
-    if (response.status === 204) return undefined as T;
-    return (await response.json()) as T;
-  }
-}
-
-async function responseJson(
-  response: Response,
-): Promise<{ code?: unknown } | null> {
-  try {
-    return (await response.json()) as { code?: unknown };
-  } catch {
-    return null;
   }
 }
 

@@ -6,7 +6,8 @@ import { CodexProvider } from "./codex/adapter.js";
 import type { CodexRunner } from "./codex/process-runner.js";
 import { GeminiProvider } from "./gemini/adapter.js";
 import type { GeminiTransport } from "./gemini/client.js";
-import { MockProvider } from "./mock/adapter.js";
+import { MockProvider, type MockStructuredFixture } from "./mock/adapter.js";
+import type { MockFaultScript } from "./mock/fault-script.js";
 import { ProviderRegistry } from "./registry.js";
 import {
   GeminiCredentialService,
@@ -25,6 +26,8 @@ export interface ProviderRuntimeOptions {
   };
   clock?: () => Date;
   monotonicNow?: () => number;
+  mockFaults?: MockFaultScript;
+  mockStructuredFixture?: MockStructuredFixture;
 }
 
 export interface ProviderSubsystem {
@@ -54,7 +57,12 @@ export function createProviderRuntime(
   const credentials = new GeminiCredentialService(keychain, redactor, () =>
     cache.invalidate("gemini"),
   );
-  const mock = new MockProvider({ clock, settings: settings.get() });
+  const mock = new MockProvider({
+    clock,
+    faults: options.mockFaults,
+    settings: settings.get(),
+    structuredFixture: options.mockStructuredFixture,
+  });
   const codex = new CodexProvider({
     runner: options.codexRunner,
     modelId: () => settings.get().models.codexText,

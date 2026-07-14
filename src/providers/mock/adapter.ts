@@ -16,8 +16,10 @@ import {
   type TextResult,
 } from "../contract.js";
 import { makeFailure } from "../failures.js";
+import type { GenerationTaskV1 } from "../generation-task.js";
+import { compileProviderPrompt } from "../prompt/compiler.js";
 import { parseStructuredOutput } from "../structured-outputs.js";
-import { createProvenance } from "../provenance.js";
+import { canonicalJson, createProvenance } from "../provenance.js";
 import {
   deterministicHash,
   deterministicImageHash,
@@ -30,18 +32,27 @@ export interface MockProviderOptions {
   clock?: () => Date;
   faults?: MockFaultScript;
   settings?: unknown;
+  structuredFixture?: MockStructuredFixture;
 }
+
+export type MockStructuredFixture = (
+  task: GenerationTaskV1,
+  hash: string,
+) => unknown;
 
 export class MockProvider implements AiProvider {
   readonly providerId = "mock" as const;
   private readonly clock: () => Date;
   private readonly faults: MockFaultScript;
   private readonly settings: unknown;
+  private readonly structuredFixture: MockStructuredFixture;
 
   constructor(options: MockProviderOptions = {}) {
     this.clock = options.clock ?? (() => new Date());
     this.faults = options.faults ?? new MockFaultScript();
     this.settings = options.settings ?? { provider: "mock" };
+    this.structuredFixture =
+      options.structuredFixture ?? deterministicStructuredFixture;
   }
 
   getCapabilities(): Promise<ProviderCapabilities> {
@@ -86,13 +97,22 @@ export class MockProvider implements AiProvider {
   ): Promise<ProviderResult<T>> {
     const parsed = structuredRequestSchema.safeParse(requestInput);
     if (!parsed.success) return invalidInput();
+    const compiled = compileProviderPrompt({
+      provider: "mock",
+      styleId:
+        parsed.data.task.schemaId === "PagePrompt"
+          ? parsed.data.task.payload.styleId
+          : "modern_cartoon",
+      prompt: canonicalJson(parsed.data.task),
+    });
+    if (!compiled.ok) return compiled;
     const fault = this.faults.take("structured");
     const failure = await runFaultDelay(fault, control);
     if (failure) return { ok: false, failure };
     const hash = deterministicHash(parsed.data);
     const raw =
       fault?.rawStructured ??
-      JSON.stringify(deterministicStructuredFixture(parsed.data.task, hash));
+      JSON.stringify(this.structuredFixture(parsed.data.task, hash));
     const output = parseStructuredOutput(
       parsed.data.schemaId,
       raw,
@@ -112,6 +132,15 @@ export class MockProvider implements AiProvider {
   ): Promise<ProviderResult<ImageResult>> {
     const parsed = resolvedImageRequestSchema.safeParse(requestInput);
     if (!parsed.success) return invalidInput();
+    const compiled = compileProviderPrompt({
+      provider: "mock",
+      styleId: parsed.data.styleId,
+      prompt: canonicalJson({
+        scene: parsed.data.scene,
+        negativeConstraints: parsed.data.negativeConstraints,
+      }),
+    });
+    if (!compiled.ok) return compiled;
     const failure = await runFaultDelay(this.faults.take("image"), control);
     if (failure) return { ok: false, failure };
     const hash = deterministicImageHash(parsed.data);

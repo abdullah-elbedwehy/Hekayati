@@ -15,6 +15,7 @@ import {
   type PageCountPlan,
 } from "./book-structure.js";
 import { failAuthoring } from "./errors.js";
+import { sameFamilyDuplicatePlan } from "./duplication-plan.js";
 import {
   compileAuthoringSegments,
   type CompileParticipant,
@@ -162,6 +163,37 @@ export abstract class AuthoringServiceBase {
     this.repositories.stories.update({
       ...workspace.story,
       status: complete ? "complete" : "draft",
+      currentVersionId: version.id,
+      updatedAt: at,
+    });
+    return version;
+  }
+
+  protected appendGeneratedStoryVersion(
+    workspace: ProjectWorkspace,
+    scenes: SceneRecord[],
+    planJson: unknown,
+    at: string,
+  ): StoryVersion {
+    const complete = this.storyIsComplete(
+      workspace.version.storyConfig.pageCount,
+      scenes,
+    );
+    if (!complete) failAuthoring("STORY_STRUCTURE_INCOMPLETE");
+    this.store.assertSafeForPersistence(planJson);
+    const version = this.repositories.storyVersions.insert({
+      ...baseDocument(this.idFactory(), at),
+      storyId: workspace.story.id,
+      previousVersionId: workspace.storyVersion.id,
+      source: "generated",
+      planJson,
+      sceneVersionIds: scenes.map(({ version: scene }) => scene.id),
+      pageCountChange: null,
+      completedAt: at,
+    });
+    this.repositories.stories.update({
+      ...workspace.story,
+      status: "complete",
       currentVersionId: version.id,
       updatedAt: at,
     });
@@ -757,13 +789,4 @@ function requiredSceneText(content: SceneContent): boolean {
     content.cameraFraming,
     content.narrativeText,
   ].every((value) => value.trim().length > 0);
-}
-
-function sameFamilyDuplicatePlan(source: ProjectWorkspace) {
-  return {
-    type: "same_family_duplicate",
-    sourceProjectId: source.project.id,
-    sourceProjectVersionId: source.version.id,
-    sourceStoryVersionId: source.storyVersion.id,
-  };
 }

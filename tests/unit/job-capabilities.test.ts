@@ -56,6 +56,26 @@ describe("exact job capability brokers", () => {
     ).resolves.toMatchObject({ operation: "image" });
   });
 
+  it("permits verified participant excess only with explicit acknowledgement", async () => {
+    const exact = broker(
+      capabilities({ image: imageCapability({ reliableCharacterCount: 1 }) }),
+    );
+    const input = {
+      ...request(target("image", "mock-image-v1")),
+      referenceCount: 2,
+      participantCount: 2,
+    };
+    await expect(exact.acquireExact(input)).rejects.toMatchObject({
+      code: "JOB_CHARACTER_LIMIT_UNAVAILABLE",
+    });
+    await expect(
+      exact.acquireExact({
+        ...input,
+        reliableCharacterCountAcknowledged: true,
+      }),
+    ).resolves.toMatchObject({ operation: "image" });
+  });
+
   it.each([
     [
       "text unavailable",

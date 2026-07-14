@@ -4,6 +4,7 @@ import type {
   StructuredRequest,
   TextRequest,
 } from "../providers/contract.js";
+import { verifyCreativeCapacityPlan } from "../contracts/creative-policy.js";
 import type {
   ExactCapabilityPort,
   ExactCapabilityTicket,
@@ -66,15 +67,12 @@ export class PreDispatchCoordinator {
       job.request.kind === "image"
         ? await this.imageReferences.inspect(job.request.request)
         : [];
-    const ticket = await this.capabilities.acquireExact({
-      batchId,
+    const ticket = await this.acquireTicket(
+      job,
       target,
-      referenceCount: firstReferences.length,
-      participantCount:
-        job.request.kind === "image"
-          ? job.request.request.scene.participants.length
-          : 0,
-    });
+      batchId,
+      firstReferences.length,
+    );
     assertExactTicket(ticket, target, batchId);
     await guard.assertCurrent(job);
     if (job.request.kind === "image") {
@@ -98,6 +96,52 @@ export class PreDispatchCoordinator {
       };
     }
     throw new JobError("JOB_REQUEST_TARGET_MISMATCH");
+  }
+
+  private acquireTicket(
+    job: Readonly<JobRecord>,
+    target: JobTarget,
+    batchId: string,
+    referenceCount: number,
+  ): Promise<ExactCapabilityTicket> {
+    const isImage = job.request.kind === "image";
+    const capacityAcknowledgement = isImage
+      ? capacityAcknowledgementFor(job.request.request, target)
+      : false;
+    return this.capabilities.acquireExact({
+      batchId,
+      target,
+      referenceCount,
+      participantCount: isImage
+        ? job.request.request.scene.participants.length
+        : 0,
+      ...(capacityAcknowledgement
+        ? { reliableCharacterCountAcknowledged: true }
+        : {}),
+    });
+  }
+}
+
+function capacityAcknowledgementFor(
+  request: ImageRequestDraft,
+  target: JobTarget,
+): boolean {
+  if (!request.capacityPlan) return false;
+  try {
+    return verifyCreativeCapacityPlan({
+      plan: request.capacityPlan,
+      target,
+      referenceAssetIds: request.referenceImages.map((reference) =>
+        reference.source === "reference_photo"
+          ? reference.providerAssetId
+          : reference.sheetAssetId,
+      ),
+      participantIds: request.scene.participants.map(
+        (participant) => participant.characterRef.characterId,
+      ),
+    }).reliableCharacterCountAcknowledged;
+  } catch (error) {
+    throw new JobError("JOB_CAPACITY_PLAN_MISMATCH", 409, { cause: error });
   }
 }
 
