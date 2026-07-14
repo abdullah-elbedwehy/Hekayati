@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
 import {
@@ -7,6 +8,7 @@ import {
   readFile,
   rm,
   stat,
+  symlink,
   writeFile,
 } from "node:fs/promises";
 import { join } from "node:path";
@@ -26,6 +28,39 @@ afterEach(async () =>
 );
 
 describe("content-addressed asset store", () => {
+  it("rejects symlinked hash directories and files without touching their targets", async () => {
+    const directoryFixture = await assetFixture();
+    const directoryInput = assetInput("symlink-directory");
+    const directoryHash = createHash("sha256")
+      .update(directoryInput.bytes)
+      .digest("hex");
+    const externalDirectory = join(
+      directoryFixture.directory.path,
+      "external-dir",
+    );
+    await mkdir(externalDirectory, { mode: 0o700 });
+    await symlink(
+      externalDirectory,
+      join(directoryFixture.paths.assets, directoryHash.slice(0, 2)),
+    );
+    await expect(directoryFixture.assets.put(directoryInput)).rejects.toThrow(
+      "INVALID_ASSET_DIRECTORY",
+    );
+
+    const fileFixture = await assetFixture();
+    const fileInput = assetInput("symlink-file");
+    const fileHash = createHash("sha256").update(fileInput.bytes).digest("hex");
+    const prefix = join(fileFixture.paths.assets, fileHash.slice(0, 2));
+    const externalFile = join(fileFixture.directory.path, "external-file");
+    await mkdir(prefix, { mode: 0o700 });
+    await writeFile(externalFile, "must remain", { mode: 0o600 });
+    await symlink(externalFile, join(prefix, `${fileHash}.bin`));
+    await expect(fileFixture.assets.put(fileInput)).rejects.toThrow(
+      "INVALID_ASSET_FILE",
+    );
+    expect(await readFile(externalFile, "utf8")).toBe("must remain");
+  });
+
   it("atomically stores, secures, and deduplicates identical bytes", async () => {
     const fixture = await assetFixture();
     const input = {
@@ -409,7 +444,7 @@ async function assetFixture() {
   const store = new DocumentStore(paths.database);
   const assets = new AssetStore(store, paths.assets);
   cleanups.push(async () => store.close());
-  return { paths, store, assets };
+  return { directory, paths, store, assets };
 }
 
 async function waitForMarker(

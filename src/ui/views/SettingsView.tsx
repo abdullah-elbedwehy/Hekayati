@@ -163,6 +163,7 @@ function FoundationSection(props: DraftProps) {
       <div className="form-grid form-grid--three">
         <RuntimeFields {...props} />
         <TypographyFields {...props} />
+        <PhotoLimitFields {...props} />
       </div>
     </section>
   );
@@ -224,6 +225,31 @@ function TypographyFields({ draft, setDraft }: DraftProps) {
         max={36}
         onChange={(value) =>
           updateTypography(setDraft, "minimumAge6PlusPt", value)
+        }
+      />
+    </>
+  );
+}
+
+function PhotoLimitFields({ draft, setDraft }: DraftProps) {
+  return (
+    <>
+      <NumberField
+        label="أقصى حجم للصورة، ميجابايت"
+        value={draft.photoUploadMaxMb}
+        min={1}
+        max={100}
+        onChange={(value) =>
+          setDraft((current) => ({ ...current, photoUploadMaxMb: value }))
+        }
+      />
+      <NumberField
+        label="أقصى دقة للصورة، ميجابكسل"
+        value={draft.photoMaxMegapixels}
+        min={1}
+        max={200}
+        onChange={(value) =>
+          setDraft((current) => ({ ...current, photoMaxMegapixels: value }))
         }
       />
     </>

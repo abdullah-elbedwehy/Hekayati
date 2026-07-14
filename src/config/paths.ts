@@ -13,6 +13,7 @@ import { join, resolve } from "node:path";
 export interface DataPaths {
   root: string;
   assets: string;
+  originals: string;
   logs: string;
   database: string;
   ownershipMarker: string;
@@ -32,6 +33,7 @@ export function resolveDataPaths(override?: string): DataPaths {
   return {
     root,
     assets: join(root, "assets"),
+    originals: join(root, "originals"),
     logs: join(root, "logs"),
     database: join(root, "hekayati.db"),
     ownershipMarker: join(root, ".hekayati-data-root.json"),
@@ -41,7 +43,7 @@ export function resolveDataPaths(override?: string): DataPaths {
 export async function prepareDataPaths(paths: DataPaths): Promise<void> {
   process.umask(0o077);
   await prepareOwnedRoot(paths);
-  for (const directory of [paths.assets, paths.logs])
+  for (const directory of [paths.assets, paths.originals, paths.logs])
     await preparePrivateDirectory(directory);
 }
 

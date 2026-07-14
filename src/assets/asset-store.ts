@@ -1,14 +1,13 @@
 import { createHash, randomUUID } from "node:crypto";
+import { constants } from "node:fs";
 import {
-  access,
   chmod,
+  lstat,
   mkdir,
   open,
-  readFile,
   readdir,
   rename,
   rm,
-  stat,
 } from "node:fs/promises";
 import { basename, dirname, extname, join } from "node:path";
 import { isDeepStrictEqual } from "node:util";
@@ -151,6 +150,11 @@ export interface AssetStoreHooks {
   afterRenameSync?(): Promise<void> | void;
 }
 
+export interface PreparedAsset {
+  record: AssetRecord;
+  isNew: boolean;
+}
+
 export class AssetStore {
   private readonly repository: DocumentRepository<AssetRecord>;
   private readonly hashLocks = new Map<string, Promise<void>>();
@@ -176,6 +180,54 @@ export class AssetStore {
     return this.withHashLock(hash, () =>
       this.putLocked(input.bytes, metadata, extension, hash),
     );
+  }
+
+  async prepare(input: AssetInput): Promise<PreparedAsset> {
+    const extension = normalizeExtension(input.extension);
+    const metadata = metadataFromInput(input);
+    this.store.assertSafeForPersistence(metadata);
+    this.store.secretRegistry.assertSafeBinaryPayload(input.bytes);
+    const hash = sha256(input.bytes);
+    const existing = this.findBySha(hash);
+    if (existing) {
+      assertCompatibleMetadata(existing, extension, metadata);
+      await this.atomicWrite(this.pathForRecord(existing), input.bytes, hash);
+      return { record: existing, isNew: false };
+    }
+    const now = new Date().toISOString();
+    const record = assetRecordSchema.parse({
+      ...metadata,
+      id: ulid(),
+      schemaVersion: 1,
+      createdAt: now,
+      updatedAt: now,
+      sha256: hash,
+      extension,
+      bytes: input.bytes.byteLength,
+      refCount: 1,
+    });
+    await this.atomicWrite(this.pathForRecord(record), input.bytes, hash);
+    return { record, isNew: true };
+  }
+
+  /** Commit inside the caller's DocumentStore transaction. */
+  commitPrepared(prepared: PreparedAsset): AssetRecord {
+    const parsed = assetRecordSchema.parse(prepared.record);
+    const existing = this.findBySha(parsed.sha256);
+    if (existing) {
+      assertCompatibleMetadata(
+        existing,
+        parsed.extension,
+        metadataFromInput({ ...parsed, bytes: Buffer.alloc(0) }),
+      );
+      return this.incrementReference(existing);
+    }
+    return this.repository.put(parsed);
+  }
+
+  async discardPrepared(prepared: PreparedAsset): Promise<void> {
+    if (!prepared.isNew || this.findBySha(prepared.record.sha256)) return;
+    await this.removeUnlinkedFile(prepared.record);
   }
 
   private async putLocked(
@@ -221,6 +273,14 @@ export class AssetStore {
 
   list(): AssetRecord[] {
     return this.repository.list();
+  }
+
+  async read(assetId: string): Promise<Buffer> {
+    const record = this.requireRecord(assetId);
+    const bytes = await readManagedFile(this.pathForRecord(record));
+    if (sha256(bytes) !== record.sha256)
+      throw new Error("ASSET_CHECKSUM_MISMATCH");
+    return bytes;
   }
 
   retain(assetId: string): AssetRecord {
@@ -350,8 +410,7 @@ export class AssetStore {
     bytes: Buffer,
     expectedHash: string,
   ): Promise<void> {
-    await mkdir(dirname(target), { recursive: true, mode: 0o700 });
-    await chmod(dirname(target), 0o700);
+    await prepareManagedDirectory(dirname(target));
     if (await fileMatches(target, expectedHash)) return;
 
     const temporary = join(dirname(target), `.hekayati-tmp-${randomUUID()}`);
@@ -374,9 +433,7 @@ export class AssetStore {
   ): Promise<IntegrityIssue["reason"] | null> {
     const target = this.pathForRecord(record);
     try {
-      const info = await stat(target);
-      if (!info.isFile()) return "missing";
-      return sha256(await readFile(target)) === record.sha256
+      return sha256(await readManagedFile(target)) === record.sha256
         ? null
         : "checksum_mismatch";
     } catch (error) {
@@ -449,10 +506,36 @@ async function fileMatches(
   expectedHash: string,
 ): Promise<boolean> {
   try {
-    await access(file);
-    return sha256(await readFile(file)) === expectedHash;
-  } catch {
-    return false;
+    return sha256(await readManagedFile(file)) === expectedHash;
+  } catch (error) {
+    if (isMissing(error)) return false;
+    throw error;
+  }
+}
+
+async function prepareManagedDirectory(directory: string): Promise<void> {
+  await mkdir(directory, { recursive: true, mode: 0o700 });
+  const info = await lstat(directory);
+  if (!info.isDirectory() || info.isSymbolicLink())
+    throw new Error("INVALID_ASSET_DIRECTORY");
+  await chmod(directory, 0o700);
+}
+
+async function readManagedFile(file: string): Promise<Buffer> {
+  let handle;
+  try {
+    handle = await open(file, constants.O_RDONLY | constants.O_NOFOLLOW);
+  } catch (error) {
+    if (isMissing(error)) throw error;
+    throw new Error("INVALID_ASSET_FILE", { cause: error });
+  }
+  try {
+    const info = await handle.stat();
+    if (!info.isFile() || info.nlink !== 1)
+      throw new Error("INVALID_ASSET_FILE");
+    return await handle.readFile();
+  } finally {
+    await handle.close();
   }
 }
 

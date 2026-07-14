@@ -1,6 +1,7 @@
 import { statfs } from "node:fs/promises";
 
 import type { AssetStore, IntegrityReport } from "../../assets/asset-store.js";
+import type { OriginalAssetStore } from "../../assets/original-asset-store.js";
 import { DEFAULT_DISK_WARNING_GB } from "../../config/defaults.js";
 import type { DataPaths } from "../../config/paths.js";
 import type { DocumentStore } from "../../domain/repository/document-store.js";
@@ -34,6 +35,7 @@ export class HealthService {
     private readonly boundary: LocalRequestBoundary,
     private readonly paths: DataPaths,
     initialIntegrity: IntegrityReport,
+    private readonly originals?: OriginalAssetStore,
   ) {
     this.integrity = initialIntegrity;
   }
@@ -59,9 +61,23 @@ export class HealthService {
   }
 
   async scanIntegrity(): Promise<IntegrityReport> {
-    this.integrity = await this.assets.scanIntegrity();
+    const derived = await this.assets.scanIntegrity();
+    this.integrity = this.originals
+      ? mergeIntegrityReports(derived, await this.originals.scanIntegrity())
+      : derived;
     return this.integrity;
   }
+}
+
+export function mergeIntegrityReports(
+  ...reports: readonly IntegrityReport[]
+): IntegrityReport {
+  return {
+    checked: reports.reduce((total, report) => total + report.checked, 0),
+    healthy: reports.reduce((total, report) => total + report.healthy, 0),
+    issues: reports.flatMap((report) => report.issues),
+    scannedAt: new Date().toISOString(),
+  };
 }
 
 function databaseStatus(store: DocumentStore): HealthSnapshot["database"] {

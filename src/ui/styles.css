@@ -84,7 +84,8 @@ body {
 
 button,
 input,
-select {
+select,
+textarea {
   font: inherit;
 }
 
@@ -415,7 +416,7 @@ button:disabled {
 }
 
 .button {
-  min-height: 42px;
+  min-height: 44px;
   padding: 9px 16px;
   border-radius: 8px;
   border: 1px solid transparent;

@@ -1,9 +1,10 @@
 import { StatusLine } from "../components/StatusLine";
+import type { View } from "../App";
 import type { HealthSnapshot } from "../types";
 
 interface HomeViewProps {
   health: HealthSnapshot;
-  onNavigate: (view: "settings" | "health") => void;
+  onNavigate: (view: View) => void;
 }
 
 export function HomeView({ health, onNavigate }: HomeViewProps) {
@@ -13,8 +14,8 @@ export function HomeView({ health, onNavigate }: HomeViewProps) {
         <p className="eyebrow">مساحة العمل المحلية</p>
         <h1>أساس هادئ لكل حكاية</h1>
         <p>
-          البيانات محفوظة على هذا الجهاز، والميزات التي لم تُجهّز بعد تظهر
-          بصراحة من دون حالة صحية وهمية.
+          سجّل العميل والموافقة، ثم ابنِ شخصيات قابلة لإعادة الاستخدام من دون
+          الحاجة إلى إعداد أي مزوّد ذكاء اصطناعي.
         </p>
       </header>
       <Welcome onNavigate={onNavigate} />
@@ -30,12 +31,18 @@ function Welcome({ onNavigate }: Pick<HomeViewProps, "onNavigate">) {
         <span className="brand-kicker">حكايتي</span>
         <h2 id="welcome-title">ورشة كتب آمنة ومضيئة</h2>
         <p>
-          ابدأ بضبط الأساس ومراجعة حالة الجهاز. إضافة العملاء وصناعة الكتب تأتي
-          في المراحل التالية.
+          الصور الأصلية تبقى في مساحة محلية خاصة. تعرض الواجهة نسخًا مشتقة
+          ونظيفة فقط، وتبقى صناعة أوراق الشخصيات والكتب خطوة لاحقة واضحة.
         </p>
         <div className="action-row">
           <button
             className="button button--accent"
+            onClick={() => onNavigate("library")}
+          >
+            افتح مكتبة العائلات
+          </button>
+          <button
+            className="button button--on-leaf"
             onClick={() => onNavigate("settings")}
           >
             راجع الإعدادات
@@ -78,6 +85,11 @@ function FoundationStatus({ health }: Pick<HomeViewProps, "health">) {
           status={listenerOk ? "مقيّد بالجهاز" : "غير جاهز"}
           tone={listenerOk ? "ok" : "error"}
           detail={<bdi>{health.listener.canonicalOrigin ?? "غير متاح"}</bdi>}
+        />
+        <StatusLine
+          label="مكتبة العائلات"
+          status="جاهزة للعمل المحلي"
+          tone="ok"
         />
         <StatusLine
           label="المزوّدون"

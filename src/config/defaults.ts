@@ -11,4 +11,6 @@ export const DEFAULT_MODELS = Object.freeze({
 
 export const DEFAULT_PORT = 4173;
 export const DEFAULT_DISK_WARNING_GB = 10;
+export const DEFAULT_PHOTO_UPLOAD_MAX_MB = 25;
+export const DEFAULT_PHOTO_MAX_MEGAPIXELS = 80;
 export const LOOPBACK_HOST = "127.0.0.1";

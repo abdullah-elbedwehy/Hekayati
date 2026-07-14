@@ -29,6 +29,62 @@ afterEach(async () =>
 );
 
 describe("settings and health foundation", () => {
+  it("migrates schema-v1 settings to bounded photo limits without losing operator choices", async () => {
+    const fixture = await serviceFixture();
+    const now = new Date().toISOString();
+    const legacy = {
+      id: "operator",
+      schemaVersion: 1,
+      createdAt: now,
+      updatedAt: now,
+      textProvider: "mock",
+      imageProvider: "mock",
+      models: {
+        codexText: "codex-test",
+        geminiText: "gemini-test",
+        geminiImage: "image-test",
+        geminiImageEconomy: "image-economy-test",
+      },
+      concurrencyPerProvider: 3,
+      typography: { minimumAge3To5Pt: 16, minimumAge6PlusPt: 14 },
+      watermarkText: "علامة قديمة",
+      diskWarnGb: 17,
+      storagePathsReadonly: {
+        data: fixture.paths.root,
+        assets: fixture.paths.assets,
+      },
+      firstRunAcknowledged: true,
+      deferredStatus: {
+        providerLifecycle: "not_configured",
+        printerProfiles: "not_configured",
+      },
+    };
+    fixture.store.database
+      .prepare(
+        `INSERT INTO documents(collection, id, doc, schema_version, created_at, updated_at)
+         VALUES ('settings', 'operator', ?, 1, ?, ?)`,
+      )
+      .run(JSON.stringify(legacy), now, now);
+
+    const migrated = fixture.settings.initialize();
+
+    expect(migrated).toMatchObject({
+      schemaVersion: 2,
+      watermarkText: "علامة قديمة",
+      concurrencyPerProvider: 3,
+      photoUploadMaxMb: 25,
+      photoMaxMegapixels: 80,
+    });
+    expect(
+      fixture.store.database
+        .prepare(
+          "SELECT schema_version FROM documents WHERE collection = 'settings' AND id = 'operator'",
+        )
+        .pluck()
+        .get(),
+    ).toBe(2);
+  });
+
   it("persists validated settings across a full server restart", async () => {
     const directory = await temporaryDirectory();
     cleanups.push(directory.cleanup);
@@ -449,6 +505,8 @@ function settingsUpdate(
     typography: settings.typography,
     watermarkText: settings.watermarkText,
     diskWarnGb: settings.diskWarnGb,
+    photoUploadMaxMb: settings.photoUploadMaxMb,
+    photoMaxMegapixels: settings.photoMaxMegapixels,
     firstRunAcknowledged: settings.firstRunAcknowledged,
     ...overrides,
   };

@@ -1,12 +1,20 @@
 import type { FastifyInstance } from "fastify";
 
+import type { AssetStore } from "../../assets/asset-store.js";
 import type { SettingsService } from "../../domain/settings/settings.js";
+import type { LibraryService } from "../../domain/library/index.js";
 import type { SecuritySentinel } from "../../domain/system/sentinel.js";
 import type { HealthService } from "../health/health-service.js";
 import type { LocalRequestBoundary } from "../security/request-boundary.js";
+import type { PhotoIntakeCoordinator } from "../photo-intake/photo-intake-coordinator.js";
+import { registerLibraryApi } from "./library-api.js";
+import { registerPhotoIntakeApi } from "./photo-intake-api.js";
 
 export interface ApiDependencies {
+  assets: AssetStore;
   settings: SettingsService;
+  library: LibraryService;
+  photoIntake: PhotoIntakeCoordinator;
   health: HealthService;
   boundary: LocalRequestBoundary;
   sentinel: SecuritySentinel;
@@ -31,6 +39,9 @@ export function registerApi(
   app.get("/api/health", () => health.snapshot());
 
   app.post("/api/health/integrity-scan", () => health.scanIntegrity());
+
+  registerLibraryApi(app, dependencies.library, dependencies.assets);
+  registerPhotoIntakeApi(app, dependencies.photoIntake);
 
   if (dependencies.enableTestRoutes) {
     app.get("/api/testing/sentinel", () => ({ value: sentinel.value() }));

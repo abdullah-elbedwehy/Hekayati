@@ -99,9 +99,13 @@ test("Arabic RTL foundation persists settings with no external telemetry", async
   await expectAccessible(page);
   expect(await page.locator("body").innerText()).not.toMatch(/[٠-٩]/);
 
-  const evidence = resolve("specs/002-local-foundation/evidence");
-  await mkdir(evidence, { recursive: true });
-  await page.screenshot({ path: resolve(evidence, "002-shell-1440x900.png") });
+  if (process.env.HEKAYATI_UPDATE_EVIDENCE === "1") {
+    const evidence = resolve("specs/002-local-foundation/evidence");
+    await mkdir(evidence, { recursive: true });
+    await page.screenshot({
+      path: resolve(evidence, "002-shell-1440x900.png"),
+    });
+  }
   expect(externalRequests).toEqual([]);
 });
 

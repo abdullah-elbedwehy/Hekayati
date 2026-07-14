@@ -1,0 +1,76 @@
+export const libraryErrorCodes = [
+  "PHOTO_CONSENT_NOT_RECORDED",
+  "PHOTO_CONSENT_NOT_GRANTED",
+  "FAMILY_SCOPE_MISMATCH",
+  "FAMILY_ANCHOR_REQUIRED",
+  "FAMILY_ANCHOR_ARCHIVED",
+  "FAMILY_ANCHOR_IMMUTABLE",
+  "STALE_VERSION_HEAD",
+  "DUPLICATE_VERSION_ID",
+  "DUPLICATE_ENTITY_ID",
+  "DUPLICATE_DECISION_REQUIRED",
+  "CUSTOMER_NOT_FOUND",
+  "FAMILY_NOT_FOUND",
+  "CHARACTER_NOT_FOUND",
+  "CHARACTER_VERSION_NOT_FOUND",
+  "LOOK_NOT_FOUND",
+  "LOOK_VERSION_NOT_FOUND",
+  "REFERENCE_PHOTO_NOT_FOUND",
+  "PROVIDER_REFERENCE_NOT_ELIGIBLE",
+  "REFERENCE_PHOTO_OWNERSHIP_MISMATCH",
+  "INVALID_SOURCE_CHECKSUM",
+  "REFERENCE_ASSET_NOT_FOUND",
+  "REFERENCE_ASSET_NOT_ELIGIBLE",
+  "CHANGE_EVENT_NOT_FOUND",
+  "ENTITY_ARCHIVED",
+  "INVALIDATION_RECEIPT_CONFLICT",
+] as const;
+
+export type LibraryErrorCode = (typeof libraryErrorCodes)[number];
+
+const errorStatus: Record<LibraryErrorCode, number> = {
+  PHOTO_CONSENT_NOT_RECORDED: 409,
+  PHOTO_CONSENT_NOT_GRANTED: 409,
+  FAMILY_SCOPE_MISMATCH: 403,
+  FAMILY_ANCHOR_REQUIRED: 409,
+  FAMILY_ANCHOR_ARCHIVED: 409,
+  FAMILY_ANCHOR_IMMUTABLE: 409,
+  STALE_VERSION_HEAD: 409,
+  DUPLICATE_VERSION_ID: 409,
+  DUPLICATE_ENTITY_ID: 409,
+  DUPLICATE_DECISION_REQUIRED: 409,
+  CUSTOMER_NOT_FOUND: 404,
+  FAMILY_NOT_FOUND: 404,
+  CHARACTER_NOT_FOUND: 404,
+  CHARACTER_VERSION_NOT_FOUND: 404,
+  LOOK_NOT_FOUND: 404,
+  LOOK_VERSION_NOT_FOUND: 404,
+  REFERENCE_PHOTO_NOT_FOUND: 404,
+  PROVIDER_REFERENCE_NOT_ELIGIBLE: 409,
+  REFERENCE_PHOTO_OWNERSHIP_MISMATCH: 409,
+  INVALID_SOURCE_CHECKSUM: 400,
+  REFERENCE_ASSET_NOT_FOUND: 409,
+  REFERENCE_ASSET_NOT_ELIGIBLE: 409,
+  CHANGE_EVENT_NOT_FOUND: 404,
+  ENTITY_ARCHIVED: 409,
+  INVALIDATION_RECEIPT_CONFLICT: 409,
+};
+
+/** A safe domain failure whose message never includes record data or paths. */
+export class LibraryError extends Error {
+  readonly name = "LibraryError";
+  readonly statusCode: number;
+
+  constructor(readonly code: LibraryErrorCode) {
+    super(code);
+    this.statusCode = errorStatus[code];
+  }
+}
+
+export function libraryErrorCode(error: unknown): LibraryErrorCode | null {
+  return error instanceof LibraryError ? error.code : null;
+}
+
+export function fail(code: LibraryErrorCode): never {
+  throw new LibraryError(code);
+}

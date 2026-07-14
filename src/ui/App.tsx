@@ -4,13 +4,15 @@ import { ApiClient, ApiError, toSettingsUpdate } from "./api";
 import type { HealthSnapshot, Settings } from "./types";
 import { HealthView } from "./views/HealthView";
 import { HomeView } from "./views/HomeView";
+import { LibraryView } from "./views/LibraryView";
 import { SettingsView } from "./views/SettingsView";
 
-type View = "home" | "settings" | "health";
+export type View = "home" | "library" | "settings" | "health";
 type ErrorCategory = "connect" | "stale";
 
 const navigation = [
   { id: "home" as const, label: "البداية" },
+  { id: "library" as const, label: "مكتبة العائلات" },
   { id: "settings" as const, label: "الإعدادات" },
   { id: "health" as const, label: "حالة النظام" },
 ];
@@ -21,6 +23,7 @@ export function App() {
   if (!state.client || !state.settings || !state.health) return <LoadingView />;
   return (
     <ApplicationShell
+      client={state.client}
       settings={state.settings}
       health={state.health}
       view={state.view}
@@ -112,6 +115,7 @@ async function loadBootstrap() {
 }
 
 interface ShellProps {
+  client: ApiClient;
   settings: Settings;
   health: HealthSnapshot;
   view: View;
@@ -188,6 +192,7 @@ function Sidebar({
 function CurrentView(props: ShellProps) {
   if (props.view === "home")
     return <HomeView health={props.health} onNavigate={props.setView} />;
+  if (props.view === "library") return <LibraryView client={props.client} />;
   if (props.view === "settings")
     return <SettingsView settings={props.settings} onSave={props.save} />;
   return (

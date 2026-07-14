@@ -1,11 +1,14 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 
+import fastifyMultipart from "@fastify/multipart";
 import fastifyStatic from "@fastify/static";
 import Fastify, { type FastifyInstance, type FastifyReply } from "fastify";
 import { ZodError } from "zod";
 
 import { AssetStore } from "../assets/asset-store.js";
+import { OriginalAssetStore } from "../assets/original-asset-store.js";
+import { PhotoIntakeError } from "../assets/photo-intake/index.js";
 import { LOOPBACK_HOST } from "../config/defaults.js";
 import {
   prepareDataPaths,
@@ -13,6 +16,8 @@ import {
   type DataPaths,
 } from "../config/paths.js";
 import { DocumentStore } from "../domain/repository/document-store.js";
+import { LibraryError } from "../domain/library/errors.js";
+import { LibraryService } from "../domain/library/index.js";
 import { SettingsService } from "../domain/settings/settings.js";
 import { SecuritySentinel } from "../domain/system/sentinel.js";
 import {
@@ -21,8 +26,13 @@ import {
   StructuredLogger,
 } from "../security/log.js";
 import { SecretPersistenceError } from "../security/secret-registry.js";
-import { HealthService } from "./health/health-service.js";
+import {
+  HealthService,
+  mergeIntegrityReports,
+} from "./health/health-service.js";
 import { registerApi } from "./routes/api.js";
+import { PhotoReservationError } from "./photo-intake/reservations.js";
+import { PhotoIntakeCoordinator } from "./photo-intake/photo-intake-coordinator.js";
 import { LocalRequestBoundary } from "./security/request-boundary.js";
 import { assertListenerHost, verifyEffectiveAddress } from "./startup/bind.js";
 import {
@@ -75,16 +85,28 @@ async function initializeRuntime(
       options.seedTemplateInstaller ?? deferredSeedTemplateInstaller
     ).install(store);
     const assets = new AssetStore(store, paths.assets);
-    await assets.garbageCollectOrphans();
-    const initialIntegrity = await assets.scanIntegrity();
+    const originals = new OriginalAssetStore(store, paths.originals);
+    await Promise.all([
+      assets.garbageCollectOrphans(),
+      originals.garbageCollectOrphans(),
+    ]);
+    const initialIntegrity = mergeIntegrityReports(
+      ...(await Promise.all([
+        assets.scanIntegrity(),
+        originals.scanIntegrity(),
+      ])),
+    );
     const settings = new SettingsService(store, paths);
     settings.initialize();
+    const library = new LibraryService(store);
     return await assembleRuntime(
       options,
       paths,
       store,
       assets,
+      originals,
       settings,
+      library,
       initialIntegrity,
     );
   } catch (error) {
@@ -98,7 +120,9 @@ async function assembleRuntime(
   paths: DataPaths,
   store: DocumentStore,
   assets: AssetStore,
+  originals: OriginalAssetStore,
   settings: SettingsService,
+  library: LibraryService,
   initialIntegrity: Awaited<ReturnType<AssetStore["scanIntegrity"]>>,
 ): Promise<HekayatiRuntime> {
   const sentinel = new SecuritySentinel(store);
@@ -114,11 +138,23 @@ async function assembleRuntime(
     boundary,
     paths,
     initialIntegrity,
+    originals,
   );
   const metrics = { listenAttempts: 0, routeDispatches: 0 };
-  const app = createHttpApp(boundary, metrics, logger);
-  registerApi(app, {
+  const photoIntake = new PhotoIntakeCoordinator(
+    store,
+    assets,
+    originals,
     settings,
+    library,
+  );
+  const app = createHttpApp(boundary, metrics, logger);
+  await registerMultipart(app);
+  registerApi(app, {
+    assets,
+    settings,
+    library,
+    photoIntake,
     health,
     boundary,
     sentinel,
@@ -126,6 +162,21 @@ async function assembleRuntime(
   });
   await registerUi(app, options);
   return buildRuntime(app, store, boundary, sentinel, paths, metrics, logger);
+}
+
+async function registerMultipart(app: FastifyInstance): Promise<void> {
+  await app.register(fastifyMultipart, {
+    throwFileSizeLimit: true,
+    limits: {
+      fieldNameSize: 80,
+      fieldSize: 64 * 1024,
+      fields: 4,
+      fileSize: 100 * 1024 * 1024 + 1,
+      files: 1,
+      headerPairs: 100,
+      parts: 5,
+    },
+  });
 }
 
 function openRuntimeStore(database: string): DocumentStore {
@@ -251,6 +302,18 @@ function handleError(
   }
   if (error instanceof SecretPersistenceError) {
     void reply.code(400).send({ code: "INVALID_INPUT" });
+    return;
+  }
+  if (error instanceof LibraryError) {
+    void reply.code(error.statusCode).send({ code: error.code });
+    return;
+  }
+  if (error instanceof PhotoIntakeError) {
+    void reply.code(error.statusCode).send(error.toSafeResponse());
+    return;
+  }
+  if (error instanceof PhotoReservationError) {
+    void reply.code(error.statusCode).send({ code: error.code });
     return;
   }
   const status = clientErrorStatus(error);
