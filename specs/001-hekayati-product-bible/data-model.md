@@ -58,8 +58,12 @@ Commit precondition: job's `inputSnapshot` must match current lineage else rejec
 `type`, `projectId`, `dependsOn[]`, `state`, `priority`, `idempotencyKey` (unique), `lease { workerId, expiresAtMono }`, `attempts`, `failure { category, message, providerRaw? (redacted) }`, `progress { pct, note }`, `pauseReason?`, `inputRefs { entity ids + versionIds }`, `provenance`, `resultRefs[]`.
 
 ### assets
-`sha256` (unique), `mime`, `bytes`, `width/height/dpi?`, `role: reference_photo|sheet_view|illustration|pdf_preview|pdf_interior|pdf_cover|thumbnail|import_staging`, `origin: upload|generated|derived`, `provenance { provider, model, jobId, promptVersion, referencedAssetIds[], attempt, settingsSnapshot }` (FR-094), `exifStripped: bool`, `refCount`.
+`sha256` (unique), `mime`, `bytes`, `width/height/dpi?`, `role: reference_photo|sheet_view|illustration|pdf_preview|pdf_interior|pdf_cover|thumbnail|import_staging`, `origin: upload|generated|derived`, `provenance { provider, model, at, jobId, inputVersionRefs, promptVersion, referencedAssetIds[], attempt, settingsSnapshot }` (FR-094), `exifStripped: bool`, `refCount`.
+
+`settingsSnapshot` is a strict, versioned, secret-free generation-settings record: a required SHA-256 `settingsHash` plus only explicitly modeled controls such as quality mode, style ID, reference budget, economy-tier state, and output dimensions. Provider response payloads, arbitrary nested values, credentials, prompt/image bytes, and runtime tokens are invalid. Generated assets require provenance; stored reference photos require `exifStripped: true`. Because `sha256` is globally unique while role/origin/provenance are singular, a same-byte put may increment `refCount` only when canonical metadata is identical; conflicting metadata fails explicitly instead of discarding traceability.
 File at `assets/<sha256[0:2]>/<sha256>.<ext>`; write path per R4.
+
+The data root itself is application-owned only after a valid `.hekayati-data-root.json` marker is created in an empty root. Reusing a non-empty unmarked root is invalid; managed child paths cannot be symlinks. Orphan collection recognizes only Hekayati temporary names and canonical content-addressed filenames.
 
 ### approvals
 `kind: character|book`, `targetId`, `targetVersionId` (characterSheet version or project bookVersion), `state: preview_sent|approved|changes_requested|invalidated|superseded`, `notes`, `affectedPages[]`, `recordedAt`, `invalidatedBy? { changeType, refId, at }` (FR-085–087).
@@ -71,7 +75,7 @@ File at `assets/<sha256[0:2]>/<sha256>.<ext>`; write path per R4.
 `projectId`, `manifestVersion`, `filePath`, `checksum`, `createdAt`, `secretScan: passed|failed`, `pausedSnapshot: true` (C-07).
 
 ### settings (single doc)
-`textProvider`, `imageProvider`, `models { codexText?, geminiText, geminiImage, geminiImageEconomy }`, `concurrencyPerProvider`, `typography { minPtByAge }`, `watermarkText`, `diskWarnGb`, `storagePathsReadonly`. **No secrets** (FR-137); Gemini key only in Keychain (FR-105).
+`textProvider`, `imageProvider`, `models { codexText, geminiText, geminiImage, geminiImageEconomy }`, `concurrencyPerProvider`, `typography { minimumAge3To5Pt, minimumAge6PlusPt }`, `watermarkText`, `diskWarnGb`, `storagePathsReadonly`, `firstRunAcknowledged`, `deferredStatus { providerLifecycle, printerProfiles }`. **No secrets** (FR-137); Gemini key only in Keychain (FR-105). The repository's shared secret registry rejects known credential patterns and registered exact runtime secrets in every field before persistence, including otherwise-valid model and watermark strings.
 
 Settings delivery is staged: Phase 1 owns this validated document and foundation-safe fields; provider credential/capability semantics are completed by feature 005, and `printerProfiles` management by feature 009. A field whose owning subsystem is not delivered reports `not_configured`/`not_available`; it is never fabricated as healthy (FR-137/138).
 

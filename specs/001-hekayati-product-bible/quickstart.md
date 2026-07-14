@@ -14,8 +14,8 @@
 ## Install & run
 
 ```bash
-git clone <repo> && cd Hekayati
-npm install
+git clone https://github.com/abdullah-elbedwehy/Hekayati.git && cd Hekayati
+npm ci
 npm run app     # builds if needed, starts server on 127.0.0.1, opens the browser UI
 ```
 
@@ -54,5 +54,6 @@ Each implementation phase in `tasks.md` ends with a checkpoint runnable from thi
 | Model unavailable error                   | Settings → model IDs + connection test (FR-098)              |
 | Missing asset flagged                     | Health → integrity scan → per-asset regenerate (FR-097)      |
 | App won't start "bind"                    | Another process on the port, or non-loopback config (FR-110) |
+| App won't start `UNOWNED_DATA_ROOT`        | Choose an empty Hekayati data folder; never point the override at an existing unrelated directory |
 | Local tab shows a stale-request error      | Reload the launcher-opened `127.0.0.1` URL (FR-148)          |
 | Request rejected for host/origin           | Remove proxy/custom hostname; use the exact launcher URL (FR-147, FR-148) |

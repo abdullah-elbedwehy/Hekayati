@@ -27,7 +27,9 @@ Each entry: Decision / Rationale / Alternatives considered / Verification status
 
 ## R2 — Local NoSQL persistence
 
-**Decision**: Document-oriented data model implemented on **embedded SQLite via `better-sqlite3`**: one table per collection (`customers`, `characters`, `projects`, `jobs`, …) with `id TEXT PRIMARY KEY`, `doc JSON` (validated at the repository boundary), plus generated columns/indexes for hot query fields. WAL mode, synchronous=FULL for job/version commits. A thin repository layer exposes only document semantics (get/put/query by indexed fields), so the engine can be swapped for MongoDB later without touching domain code. This satisfies spec clarification C-01 (flexible NoSQL **data model**; engine is a plan decision).
+**Decision**: Document-oriented data model implemented on **embedded SQLite via `better-sqlite3`**: one `documents` table keyed by `(collection, id)` with validated JSON, schema version, and timestamps, plus indexes/generated columns for hot query fields as they appear. WAL mode and synchronous=FULL protect job/version commits. The app connection uses SQLite's OS-released exclusive locking mode for its lifetime, acquired before startup asset recovery; a second process sharing the data root fails as `DATA_ROOT_IN_USE` before it can sweep or mutate data. A thin repository layer exposes only document semantics (get/put/query by indexed fields), so the engine can be swapped later without touching domain code. This satisfies spec clarification C-01 (flexible NoSQL **data model**; engine is a plan decision).
+
+The configured data root is claimed before any child directory, database, or cleanup is created: a valid `.hekayati-data-root.json` ownership marker is required on reuse, while an unowned non-empty root and symlinked root/managed child directory fail closed. This prevents a mistaken `HEKAYATI_DATA_DIR` from turning an unrelated directory into application-owned storage.
 
 **Rationale**:
 
@@ -35,6 +37,7 @@ Each entry: Decision / Rationale / Alternatives considered / Verification status
 - Real ACID transactions — required for job leases, idempotent commits, and version preconditions (FR-065, FR-109). Mongo single-node transactions require a replica-set config; SQLite gives this for free.
 - `better-sqlite3` is synchronous → simple, race-free queue operations in one process.
 - JSON documents keep schema flexibility (characters with arbitrary trait sets, template variables).
+- The retained OS-level exclusive database lock enforces the specified single-process topology and disappears automatically on graceful close, `SIGKILL`, or reboot; no PID/stale-lock reclamation protocol is needed.
 
 **Alternatives**:
 
@@ -56,7 +59,7 @@ Each entry: Decision / Rationale / Alternatives considered / Verification status
 
 ## R4 — Media asset storage & atomic writes
 
-**Decision**: Content-addressed asset store on the filesystem at `~/Library/Application Support/Hekayati/assets/<sha256[0:2]>/<sha256>.<ext>`; DB stores metadata (checksum, mime, dimensions, provenance, role). Writes: temp file in same volume dir → `fsync` → atomic `rename` → DB insert in the committing transaction. Deletion = DB unlink then physical delete via reference counting. Directory perms 0700, files 0600 (FR-130).
+**Decision**: Content-addressed asset store on the filesystem at `~/Library/Application Support/Hekayati/assets/<sha256[0:2]>/<sha256>.<ext>`; DB stores metadata (checksum, mime, dimensions, provenance, role). Writes: temp file in same volume dir → `fsync` → atomic `rename` → DB insert in the committing transaction. Deletion = DB unlink then physical delete via reference counting. Startup GC removes only reserved `.hekayati-tmp-*` files and canonical `<sha256>.<ext>` names that are unindexed; unknown filenames are never swept. Directory perms 0700, files 0600 (FR-130).
 
 **Rationale**: Large binaries out of the document DB (explicit permission in operating context); content addressing gives free dedup (retry-produced duplicates hash identically → no duplicates, FR-092/FR-093), corruption detection (FR-097), and cheap export checksums (FR-125).
 
@@ -112,11 +115,13 @@ Current stable CLI 0.144.3 listed `gpt-5.6-sol` in its model catalog but still r
 
 ## R8 — macOS Keychain credential storage
 
-**Decision**: Use the macOS `security` CLI (`add-generic-password -U`, `find-generic-password -w`, `delete-generic-password`) via `execFile` with argument arrays (no shell), service name `com.hekayati.gemini-api-key`, account = key label. Key material lives only in Keychain; the app holds it in memory per call and redacts it from all logging (FR-105/106, tested).
+**Decision — verified Phase 1**: Use the macOS `security` CLI with argument arrays and no shell. Reads/deletes use `execFile`; writes use `spawn` with `add-generic-password -U … -w`, with the trailing `-w` option requesting an interactive password and the secret supplied through the child's stdin pipe. Service name is `com.hekayati.gemini-api-key`; account is a validated key label. Key material lives only in Keychain, is held in memory only for the operation/provider call, and is registered with central redaction (FR-105/106).
 
-**Rationale**: Zero native-module dependencies, works on every macOS, ACL ties access to the invoking user session. `execFile` avoids shell-history/escaping leaks; the secret is passed via `-w` argument — acceptable for a single-user machine but see risk RR-08 (argv briefly visible in process table) with mitigation (use `security add-generic-password` interactive stdin mode if the installed macOS supports it; verify at Phase 1).
+**Phase 1 evidence (2026-07-14)**: Installed `/usr/bin/security add-generic-password -h` explicitly documents that placing `-w` last prompts instead of accepting a password argument. The wrapper uses `shell: false`, ends argv at `-w`, and writes the secret only to stdin. A fake-binary isolation suite proves the secret is absent from argv, present on stdin, absent from normalized errors, and protected by a timeout; the dependency/audit set contains no native keyring module. No live user-Keychain item was created during automated verification. This resolves RR-08 without accepting process-table exposure.
 
-**Alternatives**: `keytar` (unmaintained/deprecated — rejected), `@napi-rs/keyring` (maintained native module; adopt if the `security`-CLI argv concern proves material at Phase 1), plaintext dotfile (forbidden by constitution XIV).
+**Rationale**: This keeps zero native-module dependencies, works with the macOS-provided tool, and preserves Keychain ACL behavior while eliminating shell history, shell escaping, and argv secret exposure.
+
+**Alternatives**: Password as `-w <secret>` (rejected after Phase 1 verification because argv is observable), `keytar` (unmaintained/deprecated — rejected), `@napi-rs/keyring` (maintained but unnecessary native dependency after stdin mode passed), plaintext dotfile (forbidden by constitution XIV).
 
 ---
 

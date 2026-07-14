@@ -8,8 +8,8 @@
 - [ ] CHK201 Gemini key stored only in macOS Keychain; masked display; test/replace/delete flows work (FR-105)
 - [ ] CHK202 Key absent from: DB dump, logs after noisy run, export archives, error messages, UI source (FR-106, SC-005 — automated scans)
 - [ ] CHK203 Codex auth never read, copied, exported, or logged by Hekayati (FR-100/126)
-- [ ] CHK204 Log-redaction unit tests cover key patterns + image bytes (FR-131)
-- [ ] CHK205 RR-08 argv-exposure verified/mitigated at Phase 1 (research R8)
+- [x] CHK204 Log-redaction unit tests cover key patterns + image bytes (FR-131)
+- [x] CHK205 RR-08 argv-exposure verified/mitigated at Phase 1 (research R8)
 
 ## Child-Image Privacy
 
@@ -23,14 +23,16 @@
 
 ## Local-Only Operation
 
-- [ ] CHK213 Startup refuses non-loopback bind; test proves it (FR-110, EC-H06)
-- [ ] CHK214 Data dirs 0700, files 0600 (FR-130)
+- [x] CHK213 Startup refuses non-loopback bind; test proves it (FR-110, EC-H06)
+- [x] CHK214 Data dirs 0700, files 0600 (FR-130)
 - [ ] CHK215 No-backup warning on first run + export screen; export labeled "not a backup" (FR-133, EC-H07/08)
-- [ ] CHK222 Listener configuration rejects wildcard, LAN, hostname, IPv6, and alternate-loopback values before socket open; the accepted literal `127.0.0.1` listener is independently verified after listen (FR-147, SC-014)
-- [ ] CHK223 Exact canonical authority guard rejects missing/malformed `Host`, `localhost`, alternate `127/8`, DNS-rebinding hostnames, and spoofed forwarded-host variants before routing (FR-147, EC-H09)
-- [ ] CHK224 Cross-origin CORS and PNA preflights fail with no `Access-Control-Allow-Origin`, `Access-Control-Allow-Credentials`, or `Access-Control-Allow-Private-Network` opt-in (FR-148, EC-H10/11)
-- [ ] CHK225 Every unsafe method requires an exact `Origin` (exact `Referer` fallback only when absent) plus the current CSRF header; missing, `null`, mismatched, and stale fixtures make zero mutations (FR-148, EC-H12)
-- [ ] CHK226 CSRF bootstrap is `Cache-Control: no-store`; restart rotates the runtime-only token, an old tab fails closed, a canonical reload succeeds, and token scans of DB/log/export are empty (FR-148, EC-H13)
+- [x] CHK222 Listener configuration rejects wildcard, LAN, hostname, IPv6, and alternate-loopback values before socket open; the accepted literal `127.0.0.1` listener is independently verified after listen (FR-147, SC-014)
+- [x] CHK223 Exact canonical authority guard rejects missing/malformed `Host`, `localhost`, alternate `127/8`, DNS-rebinding hostnames, and spoofed forwarded-host variants before routing (FR-147, EC-H09)
+- [x] CHK224 Cross-origin CORS and PNA preflights fail with no `Access-Control-Allow-Origin`, `Access-Control-Allow-Credentials`, or `Access-Control-Allow-Private-Network` opt-in (FR-148, EC-H10/11)
+- [x] CHK225 Every unsafe method requires an exact `Origin` (exact `Referer` fallback only when absent) plus the current CSRF header; missing, `null`, mismatched, and stale fixtures make zero mutations (FR-148, EC-H12)
+- [x] CHK226 CSRF bootstrap is `Cache-Control: no-store`; restart rotates the runtime-only token, an old tab fails closed, a canonical reload succeeds, and token scans of DB/log/export are empty (FR-148, EC-H13)
+
+Phase 1 evidence is recorded in `specs/002-local-foundation/IMPLEMENTATION_NOTES.md`. CHK212 remains open for the final integrated process-wide capture after providers exist; CHK215 remains open until the export screen repeats the warning; CHK226 must be repeated against real export archives in Phase 9/10.
 
 ## Intake & Archive Safety
 

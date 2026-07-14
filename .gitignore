@@ -15,6 +15,7 @@ coverage/
 playwright-report/
 test-results/
 *.log
+.tmp/
 
 # Hekayati runtime data — never commit customer or generated artifacts
 data/
