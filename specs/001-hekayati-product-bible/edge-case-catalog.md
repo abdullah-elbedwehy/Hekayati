@@ -39,7 +39,7 @@
 | EC-B09 | Unsafe scene                                   | `safety` finding severity block + safety refusal path; no auto prompt-variation retries     | FR-115/116                    |
 | EC-B10 | Famous copyrighted character requested         | Transformed to original concept, shown for confirmation; deny-list in PagePrompt validation | FR-071, structured-outputs §4 |
 | EC-B11 | Template changed after story generated         | Story pinned to old template version; no effect                                             | FR-052, IM-16                 |
-| EC-B12 | Custom story with insufficient details         | Plan job fails `invalid_input` with specific missing fields; no vague generation            | FR-092                        |
+| EC-B12 | Custom story with insufficient details         | Draft saves, but readiness/plan dispatch fails `CUSTOM_STORY_INCOMPLETE`/`invalid_input` with every missing C-23 field; no vague generation | FR-092, C-23 |
 | EC-B13 | Partial/malformed structured output            | `malformed_output`/`output_validation_failed` + bounded retries, then pause with sample     | FR-092, scheduler §taxonomy   |
 
 ## C — Pages & versions

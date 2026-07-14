@@ -30,7 +30,7 @@ This partition owns all 120 current FR IDs exactly once. Numeric gaps remain int
 | Bible/shared | SC-001 | — |
 | 002 | SC-012, SC-014 | C-01, C-02, C-16–17 |
 | 003 | — | C-13, C-18–21 |
-| 004 | — | C-11 |
+| 004 | — | C-11, C-23–25 |
 | 005 | SC-004 | — |
 | 006 | SC-002, SC-009 | C-09 |
 | 007 | SC-003, SC-011 | C-05, C-08, C-10 |
@@ -80,7 +80,7 @@ All 119 checklist IDs retain their canonical wording in the bible.
 | Bible/shared | Gate consolidation and integrated release | T-P0-08; T-P10-01–08 |
 | 002 | R1, R2, R4, R8, R13 | T-P1-01–11 |
 | 003 | Character/photo portions of data model and R4/R12 intake decision | T-P2-01–06, T-P2-10, T-P2-12 |
-| 004 | Story/template portions of data model | T-P3-01–08 |
+| 004 | Story/template portions of data model | T-P3-01–09 |
 | 005 | R5–R7; G1-T, G1-I, G2, G4; provider side of R12 | T-P0-01–05; T-P4-01–10 |
 | 006 | R3 | T-P5-01–09 |
 | 007 | Creative side of R12 | T-P2-07–08, T-P2-11; T-P6-01–09 |
@@ -89,13 +89,13 @@ All 119 checklist IDs retain their canonical wording in the bible.
 | 010 | R11 | T-P2-09; T-P9-01–06 |
 | 011 | Consumer of R12, provider capabilities, and scheduler contracts | T-P6-10–12 |
 
-All 97 master task IDs remain in the bible. Phase preconditions, checkpoints, definitions of done, and the P0/P10 cross-feature gates remain authoritative there.
+All 98 master task IDs remain in the bible. Phase preconditions, checkpoints, definitions of done, and the P0/P10 cross-feature gates remain authoritative there.
 
 ## Shared artifacts retained in the bible
 
 - Product vision, gift-first rule, v1 scope/out-of-scope list, assumptions, examples E1–E8, all 11 user-story narratives, independent tests, and acceptance scenarios.
 - Integrated plan, architecture decisions, technical constraints, and project structure.
 - Research R1–R13, capability matrix, and feasibility gates G1-T, G1-I, G2, G3, G4.
-- Complete data model, provider/structured-output/scheduler contracts, state machines, invalidation matrix, edge catalog, risk register, test strategy, quickstart, checklists, and master tasks. The readiness additions retain stable IDs and add only FR-018/019/025, C-18–21, IM-21, RR-18, EC-A17/H14, CHK027/227/427, and T-P2-11/12.
+- Complete data model, provider/structured-output/scheduler contracts, state machines, invalidation matrix, edge catalog, risk register, test strategy, quickstart, checklists, and master tasks. Readiness additions retain stable IDs: 003 added FR-018/019/025, C-18–21, IM-21, RR-18, EC-A17/H14, CHK027/227/427, and T-P2-11/12; 004 adds C-23–25 and T-P3-09 while tightening the shared project/template/story/scene model.
 
 These stay shared to avoid divergent contracts, copied privacy rules, competing state machines, or inconsistent cross-feature invalidation behavior.
