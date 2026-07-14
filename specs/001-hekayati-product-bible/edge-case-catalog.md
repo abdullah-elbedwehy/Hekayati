@@ -40,7 +40,7 @@
 | EC-B10 | Famous copyrighted character requested         | Transformed to original concept, shown for confirmation; deny-list in PagePrompt validation | FR-071, structured-outputs §4 |
 | EC-B11 | Template changed after story generated         | Story pinned to old template version; no effect                                             | FR-052, IM-16                 |
 | EC-B12 | Custom story with insufficient details         | Draft saves, but readiness/plan dispatch fails `CUSTOM_STORY_INCOMPLETE`/`invalid_input` with every missing C-23 field; no vague generation | FR-092, C-23 |
-| EC-B13 | Partial/malformed structured output            | `malformed_output`/`output_validation_failed` + bounded retries, then pause with sample     | FR-092, scheduler §taxonomy   |
+| EC-B13 | Partial/malformed structured output            | `malformed_output`/`output_validation_failed` + bounded retries, then pause with structural diagnostics only; raw body/rejected values never persist | FR-092, CHK108, scheduler §taxonomy |
 
 ## C — Pages & versions
 
@@ -66,20 +66,20 @@
 | ------ | ------------------------------------------------ | ---------------------------------------------------------------------------------------------- | ------------------------ |
 | EC-D01 | Codex not installed                              | Capabilities → unavailable("not installed") + remediation; no fallback                         | FR-103, US8-AS4          |
 | EC-D02 | Codex logged out                                 | `invalid_credentials` pause + settings guidance                                                | FR-103                   |
-| EC-D03 | Codex subscription exhausted                     | Quota-pause protocol; wait vs Gemini choice                                                    | FR-096, E5               |
-| EC-D04 | Codex structured output invalid                  | Bounded retries then pause with sample                                                         | FR-092                   |
+| EC-D03 | Codex subscription exhausted                     | Provider-wide quota incident; per-scope wait vs explicit Gemini successor choice; no Settings mutation | FR-096, E5          |
+| EC-D04 | Codex structured output invalid                  | Bounded retries then pause with privacy-safe structural diagnostics only                       | FR-092, CHK108           |
 | EC-D05 | Codex image capability unavailable               | Permanent capability notice per gate G1-I record                                               | FR-102, R6               |
 | EC-D06 | Gemini key missing/invalid                       | `invalid_credentials`; masked settings flow to fix                                             | FR-105/106               |
 | EC-D07 | Gemini model deprecated/renamed                  | `provider_unavailable` with model detail; configurable ID update; never substitute             | FR-098, FR-107           |
 | EC-D08 | Configured model not available to account        | Same as EC-D07 (probe fails)                                                                   | FR-098                   |
-| EC-D09 | Rate limit                                       | Delayed retries honoring Retry-After                                                           | scheduler §taxonomy      |
+| EC-D09 | Rate limit                                       | At most three delayed retries honoring bounded Retry-After, else 15s/1m/5m; then explicit pause | scheduler §taxonomy      |
 | EC-D10 | Safety refusal                                   | No auto-variation retries; step+page identified; work preserved                                | FR-116                   |
 | EC-D11 | Network loss mid-batch                           | `network_failure` retries; completed commits durable                                           | FR-113                   |
 | EC-D12 | Provider timeout                                 | `timeout` retry ×2 then pause                                                                  | scheduler §taxonomy      |
 | EC-D13 | Text-but-no-image response                       | `malformed_output`                                                                             | provider-contract §image |
 | EC-D14 | Image with incomplete metadata                   | Accept image; synthesize provenance from request side; flag providerMeta missing               | provider-contract        |
 | EC-D15 | Multiple unexpected images                       | Default `malformed_output` unless adapter marks unambiguous-first                              | provider-contract §image |
-| EC-D16 | Provider switch mid-project                      | Applies to future/remaining work only; provenance per page                                     | FR-095/096               |
+| EC-D16 | Provider switch mid-project                      | Confirmed global Settings impact creates exact-target successors for unstarted remaining work; running/completed provenance stays | FR-095/096 |
 | EC-D17 | New provider supports fewer reference characters | Capability re-check before batch; C-08 warning re-evaluated per new matrix values              | FR-075, FR-098           |
 | EC-D18 | Economy mode visible quality drop                | Persistent FR-108 warning; review gate catches; regenerate on default model as explicit choice | FR-108                   |
 

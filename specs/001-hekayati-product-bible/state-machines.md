@@ -21,7 +21,7 @@ Notes: transitions marked with approvals are `waiting_review` job gates — neve
 ## 2. Job
 
 See `contracts/job-scheduler-contract.md` for the normative machine:
-`created → queued ⇄ blocked → claimed → running → { succeeded | failed(retryable→queued) | failed(permanent) | paused(quota|operator|dependency) | canceled }` + `waiting_review` for human gates. Late/stale commits rejected at the commit precondition — not a state, an invariant.
+`created → blocked → queued → claimed → running → { succeeded | queued(notBefore retry) | failed(permanent) | paused(reason-specific) | canceled }` plus `waiting_review → succeeded` only through an owning feature's explicit version-checked review transaction. Every claim carries worker + boot + unique claim-token fencing; late/stale/canceled commits are rejected invariants, never state shortcuts. A blocked descendant requires all dependencies to reach `succeeded`; failure/cancel/gate states remain visible blockers rather than silently canceling the subtree.
 
 ## 3. Page
 
