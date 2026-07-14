@@ -2,7 +2,7 @@
 
 **Feature**: `001-hekayati` | Normative for FR-091. All provider structured output MUST validate against these schemas (implemented as zod, mirrored to provider-side JSON Schema where supported) BEFORE persistence. Validation failure ⇒ `output_validation_failed`; unparseable ⇒ `malformed_output`. Nothing invalid is ever stored as product content (Constitution V).
 
-Shared conventions: all text fields are Egyptian Arabic unless marked; `characterRef` = `{ characterId, characterVersionId }` and MUST be one of the request's declared participants — any other value fails validation (FR-041: providers cannot invent people).
+Shared conventions: every top-level output carries `schemaVersion: 1`; all text fields are Egyptian Arabic unless marked; `characterRef` = `{ characterId, characterVersionId }` and MUST be one of the request's declared participants — any other value fails validation (FR-041: providers cannot invent people).
 
 ## 1. StoryPlan
 
@@ -10,6 +10,7 @@ Produced by: story planning task. Consumed by: story writing, scene decompositio
 
 ```yaml
 StoryPlan:
+  schemaVersion: 1
   title: string (1..80)
   logline: string
   arc: [ { beat: string, purpose: string, pagesEstimate: int (1..4) } ]  # ordered
@@ -28,6 +29,7 @@ constraints:
 
 ```yaml
 StoryText:
+  schemaVersion: 1
   pages: [ {
     pageNumber: int,
     narrative: string (word count within age-band budget ± 20%),
@@ -44,6 +46,7 @@ constraints:
 
 ```yaml
 SceneList:
+  schemaVersion: 1
   scenes: [ {
     pageNumber: int,
     purpose: string,
@@ -67,6 +70,7 @@ Produced by prompt-generation task per page; consumed by image generation.
 
 ```yaml
 PagePrompt:
+  schemaVersion: 1
   pageNumber: int
   prompt: string                        # style-directed, identity-anchored, NO story text request
   negativeConstraints: [ string ]       # MUST include: extra-person ban, in-image-text ban,
@@ -84,6 +88,7 @@ Produced by: AI content review pass (advisory — human review remains the gate,
 
 ```yaml
 ReviewFindings:
+  schemaVersion: 1
   findings: [ {
     scope: story|page|character,
     refId: string, pageNumber?: int,
@@ -100,8 +105,8 @@ constraints:
 
 ## Validation pipeline (all schemas)
 
-1. Parse JSON (fail → `malformed_output`, raw payload retained redacted).
-2. zod schema validate (fail → `output_validation_failed`, first 10 issues recorded).
+1. Parse JSON (fail → `malformed_output`). Raw prompt/output bodies are not logged or persisted for diagnosis. Retain only a SHA-256 fingerprint, byte count, top-level JSON type/keys when parseable, and a bounded provider diagnostic after shared redaction.
+2. zod schema validate (fail → `output_validation_failed`, first 10 path/code issues recorded without rejected field values).
 3. Domain cross-checks (participant membership, page-count equality, look existence, deny-lists).
 4. Persist as new version documents; emit ChangeEvents for invalidation engine.
 

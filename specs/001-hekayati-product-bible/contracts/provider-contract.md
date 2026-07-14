@@ -18,16 +18,22 @@ type ProviderId = 'mock' | 'codex' | 'gemini';
 interface ProviderCapabilities {
   providerId: ProviderId;
   auth: { state: 'ok' | 'missing' | 'expired' | 'error'; detail: string };
-  text: { available: boolean; structured: boolean; modelId?: string };
+  text: {
+    available: boolean;
+    structured: boolean;
+    modelId?: string;
+    unavailableReason?: string;          // safe fixed/operator-facing text, never raw provider output
+  };
   image: {
     available: boolean;                 // codex: false until gate G1-I passes
     modelId?: string;
-    maxReferenceImages: number;         // per request, from capability matrix / live check
-    reliableCharacterCount: number;     // measured (gate G2); drives C-08 warning
+    maxReferenceImages: number | null;  // null while the runtime boundary is unverified
+    reliableCharacterCount: number | null; // null until G2 measurement; never an assumed default
     economyTier: boolean;               // triggers FR-108 warning
+    unavailableReason?: string;
   };
   limits: { concurrencySuggested: number };
-  unavailableReason?: string;           // human-readable, shown in UI verbatim
+  unavailableReason?: string;           // provider-wide safe reason only
 }
 
 interface Provenance {
@@ -44,6 +50,8 @@ interface NormalizedFailure {
   providerDetail?: string;              // redacted raw snippet for diagnostics
 }
 ```
+
+`auth.detail`, capability reasons, and failure details are bounded safe projections. They MUST NOT contain command lines, account identifiers, credentials, prompt/output bodies, image bytes, home-directory paths, or unredacted provider responses. An unmeasured nullable image limit keeps referenced real-image generation unavailable; callers never coerce `null` to a planning assumption.
 
 ## Operations
 
@@ -68,6 +76,12 @@ interface AiProvider {
 interface CallControl { signal: AbortSignal; timeoutMs: number; }
 type Result<T> = { ok: true; value: T; provenance: Provenance }
                | { ok: false; failure: NormalizedFailure };
+
+interface TextRequest {
+  task: GenerationTask;
+  purpose: 'rewrite' | 'review_note' | 'prompt_transformation';
+}
+interface TextResult { text: string; }
 ```
 
 ### StructuredRequest
@@ -128,14 +142,18 @@ interface ResolvedProviderReference {
   mime: 'image/jpeg' | 'image/png';
   bytes: Uint8Array;                         // exact clean derivative selected by the resolver
 }
-interface ImageResult { imageBytes: Uint8Array; mime: string; providerMeta?: object }
+interface ImageResult {
+  imageBytes: Uint8Array;
+  mime: 'image/png' | 'image/jpeg' | 'image/webp';
+  providerMeta?: object;                 // strict allow-list projection only
+}
 ```
 
 The provider-reference resolver accepts a `reference_photo` only when its immutable record still points to the supplied `providerAssetId`, that asset has role `reference_photo` and `exifStripped=true`, the customer/family/character links match, and the photo ID occurs in the pinned owner version: `CharacterVersion.referencePhotoIds` for a character owner or `LookVersion.referencePhotoIds` for the supplied `lookId`/version whose identity belongs to that character. It accepts a sheet only when the sheet is approved for the pinned versions and the asset has role `sheet_view`. Current customer consent is required for every direct photo and every sheet whose trusted `referenceLineage.source=photo_derived`; a sheet with wholly `description_only` lineage follows FR-004's zero-photo exception. The private original namespace, full-frame face working images, thumbnails, and raw `AssetStore` IDs are not valid inputs.
 
 After validation, the resolver reads only the selected clean derivative and constructs an ephemeral `ResolvedImageRequest`. The adapter receives those bytes and safe metadata but no raw ID capable of loading another asset. The draft, resolved bytes, intake tokens, and originals are never logged or persisted as provider payloads. `Provenance.referenceAssetIds` is copied from the already validated `provenanceAssetId` values. Any resolution failure occurs before adapter invocation and before any network call.
 
-Adapter obligations for images: reject (as `invalid_input`) requests exceeding `maxReferenceImages`; map provider safety blocks to `safety_refusal`; a response with text-but-no-image or unexpected multiple images → `malformed_output` (caller may accept first image only when adapter marks it unambiguous — default is failure).
+Adapter obligations for images: return `provider_unavailable` before dispatch when `maxReferenceImages` or `reliableCharacterCount` is `null`; reject (as `invalid_input`) requests exceeding a verified `maxReferenceImages`; map provider safety blocks to `safety_refusal`; content-sniff and decode the returned bytes rather than trusting a declared MIME; a response with text-but-no-image, a mismatched/unsupported media type, or unexpected multiple images → `malformed_output`. The default is failure; an adapter never silently chooses among multiple image candidates.
 
 ## Error normalization (adapter responsibility)
 

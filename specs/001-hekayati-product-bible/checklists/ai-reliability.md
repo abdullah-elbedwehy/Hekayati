@@ -15,7 +15,7 @@
 
 - [ ] CHK106 Every taxonomy row has: one synthesized-error normalization test + retry-policy assertion (FR-092)
 - [ ] CHK107 Safety refusal: no auto prompt-variation retries; step+page identified; safe work preserved (FR-116)
-- [ ] CHK108 malformed_output retains redacted raw payload for diagnosis
+- [ ] CHK108 malformed/output-validation failures retain only privacy-safe structural diagnostics (hash, byte count, top-level type/keys, bounded issue paths); raw prompt/output bodies never enter logs or persistence
 - [ ] CHK109 Late/stale/canceled results rejected at commit; test covers cancel-then-provider-returns (EC-C06, EC-E08)
 - [ ] CHK110 Retry never duplicates assets (content addressing + idempotency verified under forced double-run)
 
