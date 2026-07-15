@@ -1,12 +1,12 @@
 # Loop State
 
-- Last updated: 2026-07-15T15:42:47+03:00
+- Last updated: 2026-07-15T15:53:13+03:00
 - Authorization: full delivery loop approved via `prompts/codex-full-delivery-loop.md`
-- Current: 009 Print production readiness pipeline
-- Done: [spec graph split, Citrus Playground design lock, bootstrap commit f95da4b, Phase 0 commit 81627c9, 002 readiness/analyze PASS, 002 Local foundation checkpoint PASS 4d84270, 003 readiness/analyze PASS 6d24e98, 003 Customer/character library checkpoint PASS d6384b9, 004 readiness/analyze PASS, 004 Story authoring/templates checkpoint PASS 5f4df5b, 005 readiness/analyze PASS, 005 AI provider boundary checkpoint PASS b076c36, 006 readiness/analyze PASS, 006 Durable job orchestration checkpoint PASS d81de62, 007 readiness/analyze PASS 59f7018, 007 Creative generation/review checkpoint PASS 50b94be, 008 readiness/analyze PASS 2edf50b, 008 Arabic layout/preview checkpoint PASS]
+- Current: 009 Print production implementation checkpoint
+- Done: [spec graph split, Citrus Playground design lock, bootstrap commit f95da4b, Phase 0 commit 81627c9, 002 readiness/analyze PASS, 002 Local foundation checkpoint PASS 4d84270, 003 readiness/analyze PASS 6d24e98, 003 Customer/character library checkpoint PASS d6384b9, 004 readiness/analyze PASS, 004 Story authoring/templates checkpoint PASS 5f4df5b, 005 readiness/analyze PASS, 005 AI provider boundary checkpoint PASS b076c36, 006 readiness/analyze PASS, 006 Durable job orchestration checkpoint PASS d81de62, 007 readiness/analyze PASS 59f7018, 007 Creative generation/review checkpoint PASS 50b94be, 008 readiness/analyze PASS 2edf50b, 008 Arabic layout/preview checkpoint PASS f9acf9a, 009 readiness/analyze PASS]
 - Blocked: []
 - App runnable: yes — local Arabic shell, private family library, authoring workspace, explicit provider boundary, durable queue, complete mock creative graph, Arabic layout and cover composition, mechanically validated watermarked previews, exact approval lifecycle, and immutable approved-book authorization handoff
-- Next: advance 009 through specify → clarify → plan → checklist → tasks → analyze, then implement only when readiness passes
+- Next: implement and verify T-P8-01–T-P8-07, then close the 009 checkpoint
 
 ## Slice status
 
@@ -18,8 +18,8 @@
 | 005 AI provider boundary | implemented; checkpoint PASS (`b076c36`) |
 | 006 Durable job orchestration | implemented; checkpoint PASS (`d81de62`) |
 | 007 Creative generation/review | implemented; checkpoint PASS (`50b94be`) |
-| 008 Arabic layout/preview | implemented; checkpoint PASS |
-| 009 Print production | readiness pipeline in progress |
+| 008 Arabic layout/preview | implemented; checkpoint PASS (`f9acf9a`) |
+| 009 Print production | readiness/analyze PASS; implementation in progress |
 | 010 Portability/deletion | pending readiness |
 | 011 Single Image Studio | pending readiness |
 
@@ -41,5 +41,7 @@
 - 007 implementation: checkpoint PASS and pushed as `50b94be`. Verification: 77 files / 494 tests, 91.25% statements and 84.00% branches (`src/domain/creative/**` 96.40% statements / 91.20% branches / 97.56% functions / 98.14% lines; `src/jobs/**` 89.34% / 82.23% / 93.50% / 91.93%), production build, 10/10 Playwright journeys, 0 dependency vulnerabilities, clean Node 22 lockfile install, 30-node real-`SIGKILL` restart recovery, 12 independent page branches, no-retry safety refusal, revoked-consent zero dispatch, page-7 checksum isolation, full IM-01–IM-21 tests, rendered A5 Arabic character-sheet PDF, three-width accessible RTL review UI, zero browser egress, and honest Gemini `g2_limits_unverified` SKIP with zero request.
 - 008 readiness: analyze PASS after the customer-composition profile, exact layout/cover/source lineage, local durable workflow, preview mechanical/security gates, split preview/content-approval heads, action ledger, stable authorization hash, one-pass invalidation, IM-19/20 behavior, and strict 009 handoff were made implementation-ready; pushed as `2edf50b`.
 - 008 implementation: checkpoint PASS. Verification: 95 files / 583 tests, 90.82% statements and 82.88% branches (`src/domain/layout/**` 88.83% statements / 80.19% branches / 94.17% functions / 91.22% lines; `src/layout/**` 99.12% / 91.52% / 100% / 99.01%; `src/pdf/**` 90.73% / 84.04% / 92.53% / 93.02%), production build, 11/11 Playwright journeys, 0 dependency vulnerabilities, clean lockfile install, exact 16/24-page durable graphs, 24-page plus cover-proof PDF under 16 MB, embedded Arabic fonts/ToUnicode, complete watermark/footer and zero-egress validation, real page-layout/preview/asset-boundary `SIGKILL` recovery, exact approval/idempotency/snapshot-integrity behavior, all pre-print invalidation rows through real 008 records, three-width Arabic accessibility evidence, and a staged SC-007/SC-010 handoff to 009.
+- 008 implementation: committed and pushed as `f9acf9a`.
+- 009 readiness: analyze PASS after revisioned printer profiles, private indexed ICC/template imports, exact composition compatibility, separate interior/cover producers, closed bleed/crop/spread/blank geometry, fail-closed ICC-bound CMYK plus proof approval, exhaustive FR-123 registry, three authorization fences, reason-specific print invalidation, and the actual-printer manual launch boundary were made implementation-ready. G3/T-P0-07 and all required local tools pass; no provider or user-choice blocker remains.
 - Environment note: real Gemini image acceptance remains unavailable until a credential and exact G2/G4 facts are configured. This is a recorded live-check SKIP, not a loop blocker, fallback, or substitution.
-- Implementation commits: `4d84270` (002); `d6384b9` (003); `5f4df5b` (004); `b076c36` (005); `d81de62` (006); `50b94be` (007).
+- Implementation commits: `4d84270` (002); `d6384b9` (003); `5f4df5b` (004); `b076c36` (005); `d81de62` (006); `50b94be` (007); `f9acf9a` (008).
