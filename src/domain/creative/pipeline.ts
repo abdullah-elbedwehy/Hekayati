@@ -59,6 +59,8 @@ import {
   structuredJobRequest,
   updateNode,
   versionSnapshot,
+  type CreativePipelineOptions,
+  type PreviewWorkflowStarter,
 } from "./pipeline-support.js";
 import {
   acknowledgeCreativeFinding,
@@ -80,12 +82,6 @@ import type {
 } from "./output-types.js";
 import { selectedImageTarget } from "./targets.js";
 
-export interface CreativePipelineOptions {
-  now?: () => string;
-  idFactory?: () => string;
-  capacityLimits?: CreativeCapabilityLimitsReader;
-}
-
 export class CreativePipelineService {
   private readonly repositories: CreativeRepositories;
   private readonly authoringRepositories: AuthoringRepositories;
@@ -95,6 +91,7 @@ export class CreativePipelineService {
   private readonly idFactory: () => string;
   private readonly capacityLimits: CreativeCapabilityLimitsReader;
   private scheduler: JobScheduler | null = null;
+  private previewWorkflow: PreviewWorkflowStarter | null = null;
 
   constructor(
     private readonly store: DocumentStore,
@@ -120,6 +117,12 @@ export class CreativePipelineService {
     if (this.scheduler && this.scheduler !== scheduler)
       failCreative("CREATIVE_JOB_NOT_BOUND");
     this.scheduler = scheduler;
+  }
+
+  bindPreviewWorkflow(workflow: PreviewWorkflowStarter): void {
+    if (this.previewWorkflow && this.previewWorkflow !== workflow)
+      failCreative("CREATIVE_JOB_NOT_BOUND");
+    this.previewWorkflow = workflow;
   }
 
   startRun(
@@ -316,7 +319,8 @@ export class CreativePipelineService {
             state: "committed",
           }),
         });
-        this.updateProjectStatus(run.projectId, "preview_ready");
+        if (this.previewWorkflow) this.previewWorkflow.start(run.projectId);
+        else this.updateProjectStatus(run.projectId, "preview_ready");
         return true;
       },
     );

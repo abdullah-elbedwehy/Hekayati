@@ -370,6 +370,7 @@ export class CreativeSheetPipeline {
     this.authoringRepositories.projects.update({
       ...project,
       status: "awaiting_character_approval",
+      revision: project.revision + 1,
       updatedAt,
     });
   }

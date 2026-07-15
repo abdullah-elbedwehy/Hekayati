@@ -54,8 +54,24 @@ export abstract class GeneratedStoryServiceBase extends AuthoringServiceBase {
       command.planJson,
       at,
     );
+    this.emitChange(
+      {
+        entity: "story",
+        entityId: workspace.story.id,
+        fromVersionId: workspace.storyVersion.id,
+        toVersionId: storyVersion.id,
+        changeType: "story_regeneration",
+        matrixRow: "IM-08",
+        changedFields: ["planJson", "sceneVersionIds"],
+        correlationId: this.idFactory(),
+        occurredAt: at,
+      },
+      at,
+    );
+    const project =
+      this.repositories.projects.get(workspace.project.id) ?? workspace.project;
     return this.workspaceFrom(
-      workspace.project,
+      project,
       workspace.version,
       {
         ...workspace.story,

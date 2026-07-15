@@ -1,10 +1,9 @@
-import type { ChangeEvent, FamilyScope } from "../library/index.js";
+import type { FamilyScope } from "../library/index.js";
 import { GeneratedStoryServiceBase } from "./generated-story-service-base.js";
 import { calculateNarrationBalance } from "./balance.js";
 import {
   assertPageCountPlanIntegrity,
   createPageCountPlan,
-  type BookPage,
   type PageCountPlan,
 } from "./book-structure.js";
 import { failAuthoring } from "./errors.js";
@@ -18,7 +17,6 @@ import {
 import {
   compileAuthoringSegments,
   filterMentionCandidates,
-  type AuthoringCompileResult,
   type CompileCapability,
   type MentionCandidate,
 } from "./mentions.js";
@@ -34,60 +32,43 @@ import {
   type ParsedProjectInput,
   type Project,
   type ProjectInput,
-  type ProjectOverride,
-  type ProjectOverrideVersion,
   type ProjectParticipant,
   type ProjectVersion,
   type Scene,
   type SceneContent,
   type SceneVersion,
-  type Story,
   type StoryConfig,
-  type StoryVersion,
   type TemplateStatus,
 } from "./schemas.js";
 import type { TemplateRecord } from "./template-service.js";
+import type {
+  CharacterRemovalPreflight,
+  CharacterRemovalResolution,
+  ProjectOverrideResult,
+  ProjectWorkspace,
+  SceneCompileResult,
+  SceneRecord,
+} from "./project-types.js";
+import {
+  pageCountChangeEvent,
+  projectConfigEvents,
+  sceneContentChangeEvent,
+} from "./project-events.js";
+import {
+  activeProjectCharacters,
+  assertProjectMainChild,
+} from "./project-participants.js";
+import { resolveProjectTemplate } from "./project-template.js";
 
 export type { AuthoringServiceOptions } from "./authoring-service-base.js";
-
-export interface SceneRecord {
-  scene: Scene;
-  version: SceneVersion;
-}
-
-export interface ProjectWorkspace {
-  project: Project;
-  version: ProjectVersion;
-  story: Story;
-  storyVersion: StoryVersion;
-  scenes: SceneRecord[];
-  pageMap: BookPage[];
-}
-
-export interface ProjectOverrideResult {
-  override: ProjectOverride;
-  overrideVersion: ProjectOverrideVersion;
-  projectVersion: ProjectVersion;
-  event: ChangeEvent;
-}
-
-export interface SceneCompileResult extends AuthoringCompileResult {
-  projectVersionId: string;
-  storyVersionId: string;
-  sceneVersionId: string;
-}
-
-export interface CharacterRemovalPreflight {
-  characterId: string;
-  affectedSceneIds: string[];
-  affectedStoryPageIndexes: number[];
-  resolutions: ["cancel", "replace", "remove_mentions"];
-}
-
-export type CharacterRemovalResolution =
-  | { type: "cancel" }
-  | { type: "replace"; replacementCharacterId: string }
-  | { type: "remove_mentions" };
+export type {
+  CharacterRemovalPreflight,
+  CharacterRemovalResolution,
+  ProjectOverrideResult,
+  ProjectWorkspace,
+  SceneCompileResult,
+  SceneRecord,
+} from "./project-types.js";
 
 export class AuthoringService extends GeneratedStoryServiceBase {
   listProjects(scope: FamilyScope): ProjectWorkspace[] {
@@ -136,7 +117,9 @@ export class AuthoringService extends GeneratedStoryServiceBase {
         at,
       );
       const updated = this.advanceProject(project, version.id, at);
-      return this.workspace({ ...updated, currentVersionId: version.id });
+      this.emitProjectConfigChanges(project, current, version, at);
+      const refreshed = this.repositories.projects.get(updated.id) ?? updated;
+      return this.workspace({ ...refreshed, currentVersionId: version.id });
     });
   }
 
@@ -493,8 +476,11 @@ export class AuthoringService extends GeneratedStoryServiceBase {
       record.scene.id === scene.id ? { scene, version } : record,
     );
     const storyVersion = this.appendStoryVersion(workspace, scenes, at);
+    this.emitSceneContentChange(target, scene, version, at);
+    const project =
+      this.repositories.projects.get(workspace.project.id) ?? workspace.project;
     return this.workspaceFrom(
-      workspace.project,
+      project,
       workspace.version,
       { ...workspace.story, currentVersionId: storyVersion.id },
       storyVersion,
@@ -531,11 +517,54 @@ export class AuthoringService extends GeneratedStoryServiceBase {
       plan,
       at,
     );
+    this.emitPageCountChange(workspace, project, projectVersion, at);
+    const refreshed = this.repositories.projects.get(project.id) ?? project;
     return this.workspaceFrom(
-      project,
+      refreshed,
       projectVersion,
       workspace.story,
       storyVersion,
+    );
+  }
+
+  private emitProjectConfigChanges(
+    project: Project,
+    previous: ProjectVersion,
+    next: ProjectVersion,
+    at: string,
+  ): void {
+    const correlationId = this.idFactory();
+    for (const event of projectConfigEvents(
+      project,
+      previous,
+      next,
+      correlationId,
+      at,
+    ))
+      this.emitChange(event, at);
+  }
+
+  private emitSceneContentChange(
+    previous: SceneRecord,
+    scene: Scene,
+    version: SceneVersion,
+    at: string,
+  ): void {
+    this.emitChange(
+      sceneContentChangeEvent(previous, scene, version, this.idFactory(), at),
+      at,
+    );
+  }
+
+  private emitPageCountChange(
+    workspace: ProjectWorkspace,
+    project: Project,
+    version: ProjectVersion,
+    at: string,
+  ): void {
+    this.emitChange(
+      pageCountChangeEvent(workspace, project, version, this.idFactory(), at),
+      at,
     );
   }
 
@@ -668,7 +697,7 @@ export class AuthoringService extends GeneratedStoryServiceBase {
     const { templateSeedKey, selectedNarrationPercent, ...persisted } = input;
     void templateSeedKey;
     const participants = this.resolveParticipants(scope, input, previous);
-    const template = this.resolveTemplate(input, previous);
+    const template = resolveProjectTemplate(this.templates, input, previous);
     const balance = calculateNarrationBalance(
       input,
       selectedNarrationPercent === null
@@ -692,9 +721,11 @@ export class AuthoringService extends GeneratedStoryServiceBase {
     input: ParsedProjectInput,
     previous: StoryConfig | null,
   ): ProjectParticipant[] {
-    const characters = this.activeCharacters(
+    const characters = activeProjectCharacters(
+      this.library,
       scope,
       input.participants.map(({ characterId }) => characterId),
+      (error) => this.rethrowScope(error, "PROJECT_FAMILY_SCOPE_VIOLATION"),
     );
     const byId = new Map(
       characters.map((character) => [character.id, character]),
@@ -718,7 +749,12 @@ export class AuthoringService extends GeneratedStoryServiceBase {
         ),
       };
     });
-    this.assertMainChild(scope, input.mainChildId, participants);
+    assertProjectMainChild(
+      this.library,
+      scope,
+      input.mainChildId,
+      participants,
+    );
     return participants;
   }
 
@@ -746,52 +782,5 @@ export class AuthoringService extends GeneratedStoryServiceBase {
     } catch (error) {
       this.rethrowScope(error, "MENTION_LOOK_NOT_OWNED");
     }
-  }
-
-  private resolveTemplate(
-    input: ParsedProjectInput,
-    previous: StoryConfig | null,
-  ): TemplateRecord | null {
-    if (input.storyType !== "saved_template") return null;
-    if (
-      previous?.storyType === "saved_template" &&
-      previous.templateId &&
-      input.templateId === previous.templateId &&
-      !input.templateSeedKey
-    )
-      return this.templates.getVersion(
-        previous.templateId,
-        previous.templateVersionId!,
-      );
-    return this.templates.resolveSelectable({
-      templateId: input.templateId,
-      seedKey: input.templateSeedKey,
-    });
-  }
-
-  private activeCharacters(scope: FamilyScope, characterIds: string[]) {
-    try {
-      return this.library.assertCharacterSelection(scope, characterIds);
-    } catch (error) {
-      this.rethrowScope(error, "PROJECT_FAMILY_SCOPE_VIOLATION");
-    }
-  }
-
-  private assertMainChild(
-    scope: FamilyScope,
-    mainChildId: string,
-    participants: ProjectParticipant[],
-  ): void {
-    const selected = participants.find(
-      (item) => item.characterId === mainChildId,
-    );
-    if (!selected) failAuthoring("PROJECT_MAIN_CHILD_INVALID");
-    const version = this.library.getCharacterVersion(
-      scope,
-      selected.characterId,
-      selected.characterVersionId,
-    );
-    if (version.profile.relationship.type === "pet")
-      failAuthoring("PROJECT_MAIN_CHILD_INVALID");
   }
 }

@@ -15,6 +15,13 @@ const baseDocumentFields = {
   updatedAt: timestampSchema,
 };
 
+const versionTwoDocumentFields = {
+  id: entityIdSchema,
+  schemaVersion: z.literal(2),
+  createdAt: timestampSchema,
+  updatedAt: timestampSchema,
+};
+
 export const pageCountSchema = z.union([z.literal(16), z.literal(24)]);
 export const storyTypeSchema = z.enum([
   "connected_adventure",
@@ -217,17 +224,35 @@ export const projectStatusSchema = z.enum([
   "archived",
 ]);
 
-export const projectSchema = z
+const projectIdentityFields = {
+  customerId: entityIdSchema,
+  familyId: entityIdSchema,
+  status: projectStatusSchema,
+  priority: z.number().int().min(0).max(100),
+  paused: z.boolean(),
+  currentVersionId: entityIdSchema,
+  bookVersion: z.number().int().positive(),
+  printerProfileId: entityIdSchema.nullable(),
+};
+
+/** Read-only boundary for the restart-safe feature-008 repository migration. */
+export const projectV1Schema = z
   .object({
     ...baseDocumentFields,
-    customerId: entityIdSchema,
-    familyId: entityIdSchema,
-    status: projectStatusSchema,
-    priority: z.number().int().min(0).max(100),
-    paused: z.boolean(),
-    currentVersionId: entityIdSchema,
-    bookVersion: z.number().int().positive(),
-    printerProfileId: entityIdSchema.nullable(),
+    ...projectIdentityFields,
+  })
+  .strict();
+
+export const projectSchema = z
+  .object({
+    ...versionTwoDocumentFields,
+    ...projectIdentityFields,
+    revision: z.number().int().nonnegative(),
+    compositionProfileId: entityIdSchema,
+    currentCoverCompositionVersionId: entityIdSchema.nullable(),
+    currentPreviewOutputId: entityIdSchema.nullable(),
+    currentPreviewCycleId: entityIdSchema.nullable(),
+    currentContentApprovalId: entityIdSchema.nullable(),
   })
   .strict();
 
@@ -462,6 +487,7 @@ export type ParsedProjectInput = z.output<typeof projectInputSchema>;
 export type StoryConfig = z.infer<typeof storyConfigSchema>;
 export type ProjectParticipant = z.infer<typeof projectParticipantSchema>;
 export type AppearanceSelection = z.infer<typeof appearanceSelectionSchema>;
+export type ProjectV1 = z.infer<typeof projectV1Schema>;
 export type Project = z.infer<typeof projectSchema>;
 export type ProjectVersion = z.infer<typeof projectVersionSchema>;
 export type ProjectOverride = z.infer<typeof projectOverrideSchema>;

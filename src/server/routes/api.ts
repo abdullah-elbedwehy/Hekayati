@@ -11,7 +11,7 @@ import type { PhotoIntakeCoordinator } from "../photo-intake/photo-intake-coordi
 import type { ProviderService } from "../providers/provider-service.js";
 import type { JobRuntime } from "../../jobs/runtime.js";
 import type { ProviderTargetChangeCoordinator } from "../../jobs/provider-target-change.js";
-import type { CreativeRuntime } from "../app.js";
+import type { CreativeRuntime, LayoutRuntime } from "../app.js";
 import { registerLibraryApi } from "./library-api.js";
 import { registerAuthoringApi } from "./authoring-api.js";
 import { registerPhotoIntakeApi } from "./photo-intake-api.js";
@@ -19,6 +19,7 @@ import { registerProviderApi } from "./provider-api.js";
 import { registerJobApi } from "./job-api.js";
 import { registerSettingsApi } from "./settings-api.js";
 import { registerCreativeApi } from "./creative-api.js";
+import { registerLayoutApi } from "./layout-api.js";
 
 export interface ApiDependencies {
   assets: AssetStore;
@@ -30,6 +31,7 @@ export interface ApiDependencies {
   providers: ProviderService;
   jobs: JobRuntime;
   creative: CreativeRuntime;
+  layout: LayoutRuntime;
   targetChanges: ProviderTargetChangeCoordinator;
   boundary: LocalRequestBoundary;
   sentinel: SecuritySentinel;
@@ -65,6 +67,13 @@ export function registerApi(
     dependencies.authoring,
     dependencies.assets,
   );
+  registerLayoutApi(app, {
+    layout: dependencies.layout,
+    creative: dependencies.creative,
+    library: dependencies.library,
+    authoring: dependencies.authoring,
+    assets: dependencies.assets,
+  });
 
   if (dependencies.enableTestRoutes) {
     app.get("/api/testing/sentinel", () => ({ value: sentinel.value() }));

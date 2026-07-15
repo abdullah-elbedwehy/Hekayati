@@ -12,9 +12,20 @@ import {
 } from "../../contracts/creative-outputs.js";
 import { canonicalJson } from "../../contracts/canonical-json.js";
 import { failCreative } from "./errors.js";
+import type { CreativeCapabilityLimitsReader } from "./generation-policy.js";
 import type { buildStoryPlanTask } from "./generation-context.js";
 import type { CreativeRun } from "./schemas.js";
 import type { ReviewFindings } from "./output-types.js";
+
+export interface CreativePipelineOptions {
+  now?: () => string;
+  idFactory?: () => string;
+  capacityLimits?: CreativeCapabilityLimitsReader;
+}
+
+export interface PreviewWorkflowStarter {
+  start(projectId: string): unknown;
+}
 
 export function parseStructuredStage(jobType: string, value: unknown) {
   if (jobType === "story_plan")

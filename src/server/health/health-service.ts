@@ -6,6 +6,8 @@ import { DEFAULT_DISK_WARNING_GB } from "../../config/defaults.js";
 import type { DataPaths } from "../../config/paths.js";
 import type { DocumentStore } from "../../domain/repository/document-store.js";
 import type { SettingsService } from "../../domain/settings/settings.js";
+import type { CreativeInvalidationService } from "../../domain/creative/invalidation.js";
+import { ulid } from "ulid";
 import type { JobHealthSnapshot } from "../../jobs/runtime.js";
 import type { LocalRequestBoundary } from "../security/request-boundary.js";
 import type {
@@ -43,6 +45,7 @@ export class HealthService {
     private readonly originals?: OriginalAssetStore,
     private readonly providers?: ProviderService,
     private readonly jobs?: { healthSnapshot(): JobHealthSnapshot },
+    private readonly invalidation?: CreativeInvalidationService,
   ) {
     this.integrity = initialIntegrity;
   }
@@ -77,7 +80,27 @@ export class HealthService {
     this.integrity = this.originals
       ? mergeIntegrityReports(derived, await this.originals.scanIntegrity())
       : derived;
+    this.emitIntegrityIssues(derived);
     return this.integrity;
+  }
+
+  private emitIntegrityIssues(report: IntegrityReport): void {
+    if (!this.invalidation) return;
+    const correlationId = ulid();
+    for (const issue of report.issues) {
+      const eventId = ulid();
+      this.invalidation.recordAndConsume({
+        id: eventId,
+        entity: "asset_integrity",
+        entityId: issue.assetId,
+        fromVersionId: null,
+        toVersionId: null,
+        changeType: "asset_integrity",
+        matrixRow: "IM-20",
+        changedFields: [issue.reason],
+        correlationId,
+      });
+    }
   }
 }
 

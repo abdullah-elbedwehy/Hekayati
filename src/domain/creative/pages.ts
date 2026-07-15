@@ -25,10 +25,12 @@ import {
 import type { z } from "zod";
 import type { reviewChecksSchema } from "./schemas.js";
 import { PageChangeCoordinator } from "./page-change-coordinator.js";
+import type { CreativeInvalidationService } from "./invalidation.js";
 
 export interface CreativePageServiceOptions {
   now?: () => string;
   idFactory?: () => string;
+  invalidation?: CreativeInvalidationService;
 }
 
 export interface SeedGeneratedPageInput {
@@ -88,7 +90,7 @@ export class CreativePageService {
         this.repositories.pages.insert(
           pageSchema.parse({
             id: this.idFactory(),
-            schemaVersion: 1,
+            schemaVersion: 2,
             createdAt: at,
             updatedAt: at,
             revision: 0,
@@ -104,7 +106,6 @@ export class CreativePageService {
             currentTextVersionId: null,
             currentPromptVersionId: null,
             currentIllustrationVersionId: null,
-            currentLayoutVersionId: null,
           }),
         ),
       );
@@ -563,6 +564,7 @@ export class CreativePageService {
     pageId: string;
     expectedRevision: number;
     reason: string;
+    requestedPlacement?: "auto" | "top" | "bottom" | "right" | "left";
   }): LayoutWorkRequest {
     return this.store.transaction(() => {
       const page = this.expectedMutableStoryPage(
@@ -587,16 +589,16 @@ export class CreativePageService {
           textVersionId: page.currentTextVersionId,
           illustrationVersionId: page.currentIllustrationVersionId,
           reason: input.reason,
+          requestedPlacement: input.requestedPlacement,
           state: "pending",
         }),
       );
-      this.updatePage(page, {});
       this.changes.record({
         page,
         entity: "layout",
         matrixRow: "IM-11",
         changeType: "layout_recalculation",
-        fromVersionId: page.currentLayoutVersionId,
+        fromVersionId: null,
         toVersionId: request.id,
         changedFields: ["layoutWorkRequest"],
       });

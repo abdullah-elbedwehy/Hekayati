@@ -9,12 +9,14 @@ import { ProjectsView } from "./views/ProjectsView";
 import { QueueView } from "./views/QueueView";
 import { CreativeView } from "./views/CreativeView";
 import { SettingsView } from "./views/SettingsView";
+import { PreviewView } from "./views/PreviewView";
 
 export type View =
   | "home"
   | "library"
   | "projects"
   | "creative"
+  | "preview"
   | "queue"
   | "settings"
   | "health";
@@ -25,6 +27,7 @@ const navigation = [
   { id: "library" as const, label: "مكتبة العائلات" },
   { id: "projects" as const, label: "المشاريع والقصص" },
   { id: "creative" as const, label: "الإبداع والمراجعة" },
+  { id: "preview" as const, label: "المعاينة والاعتماد" },
   { id: "queue" as const, label: "قائمة المهام" },
   { id: "settings" as const, label: "الإعدادات" },
   { id: "health" as const, label: "حالة النظام" },
@@ -212,6 +215,7 @@ function CurrentView(props: ShellProps) {
   if (props.view === "library") return <LibraryView client={props.client} />;
   if (props.view === "projects") return <ProjectsView client={props.client} />;
   if (props.view === "creative") return <CreativeView client={props.client} />;
+  if (props.view === "preview") return <PreviewView client={props.client} />;
   if (props.view === "queue")
     return (
       <QueueView

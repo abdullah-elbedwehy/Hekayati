@@ -6,6 +6,7 @@ import {
   chmod,
   mkdir,
   readFile,
+  readdir,
   rm,
   stat,
   symlink,
@@ -17,7 +18,11 @@ import { setTimeout as delay } from "node:timers/promises";
 import { afterEach, describe, expect, it } from "vitest";
 import { ulid } from "ulid";
 
-import { AssetStore, type AssetInput } from "../../src/assets/asset-store.js";
+import {
+  AssetStore,
+  type AssetInput,
+  type AssetStoreHooks,
+} from "../../src/assets/asset-store.js";
 import { prepareDataPaths, resolveDataPaths } from "../../src/config/paths.js";
 import { DocumentStore } from "../../src/domain/repository/document-store.js";
 import { temporaryDirectory } from "../helpers/temp.js";
@@ -291,6 +296,51 @@ describe("content-addressed asset store", () => {
     );
   });
 
+  it("verifies one referenced checksum without returning asset bytes or mutating state", async () => {
+    const fixture = await assetFixture();
+    const record = await fixture.assets.put(assetInput("targeted-integrity"));
+    const before = JSON.stringify(fixture.assets.list());
+
+    expect(await fixture.assets.verifyIntegrity(record.id)).toEqual({
+      assetId: record.id,
+      expectedSha256: record.sha256,
+      status: "healthy",
+      reason: null,
+    });
+
+    await rm(fixture.assets.pathForRecord(record));
+    expect(await fixture.assets.verifyIntegrity(record.id)).toEqual({
+      assetId: record.id,
+      expectedSha256: record.sha256,
+      status: "missing",
+      reason: "missing",
+    });
+
+    await writeFile(fixture.assets.pathForRecord(record), "changed", {
+      mode: 0o600,
+    });
+    const corrupt = await fixture.assets.verifyIntegrity(record.id);
+    expect(corrupt).toEqual({
+      assetId: record.id,
+      expectedSha256: record.sha256,
+      status: "corrupt",
+      reason: "checksum_mismatch",
+    });
+    expect(Object.keys(corrupt).sort()).toEqual([
+      "assetId",
+      "expectedSha256",
+      "reason",
+      "status",
+    ]);
+    expect(JSON.stringify(fixture.assets.list())).toBe(before);
+    expect(await readFile(fixture.assets.pathForRecord(record), "utf8")).toBe(
+      "changed",
+    );
+    await expect(fixture.assets.verifyIntegrity(ulid())).rejects.toThrow(
+      "ASSET_NOT_FOUND",
+    );
+  });
+
   it("repairs missing or corrupt bytes only on an explicit same-content put", async () => {
     const fixture = await assetFixture();
     const missingInput = assetInput("repair-missing");
@@ -355,6 +405,34 @@ describe("content-addressed asset store", () => {
     expect(await readFile(nestedAsset, "utf8")).toBe("nested backup");
     expect(await readFile(nestedTemporary, "utf8")).toBe("nested temporary");
   });
+
+  it.each(["put", "prepare"] as const)(
+    "removes a recoverable %s temp file immediately after a write failure",
+    async (operation) => {
+      const fixture = await assetFixture({
+        afterTempSync: () => {
+          throw new Error("INJECTED_TEMP_WRITE_FAILURE");
+        },
+      });
+      const input = assetInput(`temp-cleanup-${operation}`);
+      const hash = createHash("sha256").update(input.bytes).digest("hex");
+      const prefix = join(fixture.paths.assets, hash.slice(0, 2));
+
+      const failedWrite =
+        operation === "put"
+          ? fixture.assets.put(input)
+          : fixture.assets.prepare(input);
+      await expect(failedWrite).rejects.toThrow("INJECTED_TEMP_WRITE_FAILURE");
+
+      expect(await readdir(prefix)).toEqual([]);
+      expect(await fixture.assets.garbageCollectOrphans()).toEqual([]);
+      expect(fixture.assets.list()).toEqual([]);
+
+      const recovered = new AssetStore(fixture.store, fixture.paths.assets);
+      const record = await recovered.put(input);
+      expect(await recovered.read(record.id)).toEqual(input.bytes);
+    },
+  );
 
   it.each(["after_temp_sync", "after_rename_sync"] as const)(
     "recovers safely after SIGKILL at %s",
@@ -436,13 +514,13 @@ function provenance(
   };
 }
 
-async function assetFixture() {
+async function assetFixture(hooks: AssetStoreHooks = {}) {
   const directory = await temporaryDirectory();
   cleanups.push(directory.cleanup);
   const paths = resolveDataPaths(join(directory.path, "data"));
   await prepareDataPaths(paths);
   const store = new DocumentStore(paths.database);
-  const assets = new AssetStore(store, paths.assets);
+  const assets = new AssetStore(store, paths.assets, hooks);
   cleanups.push(async () => store.close());
   return { directory, paths, store, assets };
 }

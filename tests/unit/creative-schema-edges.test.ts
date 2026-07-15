@@ -200,6 +200,7 @@ function runFixture() {
 function pageFixture() {
   return {
     ...base(),
+    schemaVersion: 2 as const,
     revision: 0,
     projectId: ulid(),
     pageNumber: 3,
@@ -212,7 +213,6 @@ function pageFixture() {
     currentTextVersionId: null,
     currentPromptVersionId: null,
     currentIllustrationVersionId: null,
-    currentLayoutVersionId: null,
   };
 }
 

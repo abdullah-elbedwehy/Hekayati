@@ -258,6 +258,18 @@ export class JobScheduler {
     return this.controls.completeHumanGate(id, input, ownerVerify);
   }
 
+  cancelOwnedHumanGate(
+    id: string,
+    input: {
+      expectedRevision: number;
+      targetVersionId: string;
+      reason: string;
+    },
+    ownerVerify: (job: JobRecord) => boolean,
+  ): JobRecord {
+    return this.controls.cancelOwnedHumanGate(id, input, ownerVerify);
+  }
+
   decideQuota(incidentId: string, input: QuotaDecisionInput): JobRecord[] {
     const requestHash = quotaDecisionRequestHash(incidentId, input);
     return this.repository.transaction(() => {

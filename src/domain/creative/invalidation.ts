@@ -1,8 +1,10 @@
-import { createHash } from "node:crypto";
-
 import { ulid } from "ulid";
 
+import { canonicalJson } from "../../contracts/canonical-json.js";
 import { AuthoringRepositories } from "../authoring/repositories.js";
+import type { Project } from "../authoring/schemas.js";
+import { LayoutRepositories } from "../layout/repositories.js";
+import type { BookApprovalCycle, PreviewOutput } from "../layout/schemas.js";
 import { LibraryRepositories } from "../library/repositories.js";
 import {
   changeEventSchema,
@@ -11,14 +13,21 @@ import {
 } from "../library/schemas.js";
 import type { FamilyScope } from "../library/types.js";
 import type { DocumentStore } from "../repository/document-store.js";
-import { canonicalJson } from "../../contracts/canonical-json.js";
 import { failCreative } from "./errors.js";
 import {
   evaluateInvalidation,
-  type InvalidationArtifact,
   type InvalidationConsequence,
 } from "./invalidation-rules.js";
 import { CreativeRepositories } from "./repositories.js";
+import {
+  hashConsequences,
+  previewReferencesAsset,
+  unique,
+  type AppendChangeEventInput,
+  type CreativeInvalidationOptions,
+  type InvalidationGateController,
+  type ResolvedArtifact,
+} from "./invalidation-support.js";
 import {
   invalidationAuditSchema,
   type CharacterApproval,
@@ -27,27 +36,20 @@ import {
   type Page,
 } from "./schemas.js";
 
-export interface CreativeInvalidationOptions {
-  now?: () => string;
-  idFactory?: () => string;
-}
-
-export type AppendChangeEventInput = Omit<
-  ChangeEvent,
-  "schemaVersion" | "createdAt" | "updatedAt" | "occurredAt"
-> & { occurredAt?: string };
-
-interface ResolvedArtifact extends InvalidationArtifact {
-  projectId: string | null;
-  record: CharacterSheet | CharacterApproval | Page;
-}
+export type {
+  AppendChangeEventInput,
+  CreativeInvalidationOptions,
+  InvalidationGateController,
+} from "./invalidation-support.js";
 
 export class CreativeInvalidationService {
   private readonly creative: CreativeRepositories;
   private readonly library: LibraryRepositories;
   private readonly authoring: AuthoringRepositories;
+  private readonly layout: LayoutRepositories;
   private readonly now: () => string;
   private readonly idFactory: () => string;
+  private gates: InvalidationGateController | null = null;
 
   constructor(
     private readonly store: DocumentStore,
@@ -56,8 +58,15 @@ export class CreativeInvalidationService {
     this.creative = new CreativeRepositories(store);
     this.library = new LibraryRepositories(store);
     this.authoring = new AuthoringRepositories(store);
+    this.layout = new LayoutRepositories(store);
     this.now = options.now ?? (() => new Date().toISOString());
     this.idFactory = options.idFactory ?? ulid;
+  }
+
+  bindGateController(gates: InvalidationGateController): void {
+    if (this.gates && this.gates !== gates)
+      failCreative("CREATIVE_INVALIDATION_CONFLICT");
+    this.gates = gates;
   }
 
   appendEvent(input: AppendChangeEventInput): ChangeEvent {
@@ -168,10 +177,19 @@ export class CreativeInvalidationService {
     const event = this.library.changeEvents.get(eventId);
     if (!event) failCreative("CREATIVE_ENTITY_NOT_FOUND", 404);
     const artifacts = this.resolveArtifacts(event);
+    const evaluation = evaluateInvalidation(event.matrixRow, artifacts);
+    const receipt = this.library.invalidationReceipts.get(event.id);
     return {
       event,
       artifacts,
-      evaluation: evaluateInvalidation(event.matrixRow, artifacts),
+      evaluation: receipt
+        ? {
+            ...evaluation,
+            consequences: evaluation.consequences.filter((item) =>
+              receipt.affectedIds.includes(item.artifactId),
+            ),
+          }
+        : evaluation,
     };
   }
 
@@ -305,6 +323,8 @@ export class CreativeInvalidationService {
       if (!override) failCreative("CREATIVE_ENTITY_NOT_FOUND", 404);
       return [override.projectId];
     }
+    if (event.entity === "asset_integrity")
+      return this.assetIntegrityProjectIds(event.entityId);
     const project = this.authoring.projects.get(event.entityId);
     if (project) return [project.id];
     const scene = this.authoring.scenes.get(event.entityId);
@@ -319,6 +339,43 @@ export class CreativeInvalidationService {
       if (illustrationPage) return [illustrationPage.projectId];
     }
     return [];
+  }
+
+  private assetIntegrityProjectIds(assetId: string): string[] {
+    const pageProjects = this.creative.pages.list().flatMap((page) => {
+      const illustration = page.currentIllustrationVersionId
+        ? this.creative.illustrations.get(page.currentIllustrationVersionId)
+        : null;
+      return illustration?.assetId === assetId ? [page.projectId] : [];
+    });
+    const sheetProjects = this.creative.sheets
+      .list()
+      .flatMap((sheet) =>
+        sheet.pdfAssetId === assetId ||
+        Object.values(sheet.views).includes(assetId)
+          ? [sheet.projectId]
+          : [],
+      );
+    const previewProjects = this.layout.previewOutputs
+      .list()
+      .flatMap((output) =>
+        output.assetId === assetId || previewReferencesAsset(output, assetId)
+          ? [output.projectId]
+          : [],
+      );
+    const coverProjects = this.layout.coverCompositionVersions
+      .list()
+      .flatMap((cover) =>
+        cover.sourceAssets.some((source) => source.assetId === assetId)
+          ? [cover.projectId]
+          : [],
+      );
+    return unique([
+      ...pageProjects,
+      ...sheetProjects,
+      ...previewProjects,
+      ...coverProjects,
+    ]);
   }
 
   private verifyReplay(
@@ -340,9 +397,30 @@ export class CreativeInvalidationService {
   }
 
   private resolveArtifacts(event: ChangeEvent): ResolvedArtifact[] {
+    const resolved = this.resolveCreativeArtifacts(event);
+    const projectIds = unique([
+      ...this.sourceProjectIds(event),
+      ...resolved.flatMap((artifact) =>
+        artifact.projectId ? [artifact.projectId] : [],
+      ),
+    ]);
+    for (const projectId of projectIds) {
+      const project = this.authoring.projects.get(projectId);
+      if (project) this.resolveLayoutArtifacts(project, resolved);
+    }
+    return [
+      ...new Map(
+        resolved.map((artifact) => [
+          `${artifact.kind}:${artifact.id}`,
+          artifact,
+        ]),
+      ).values(),
+    ];
+  }
+
+  private resolveCreativeArtifacts(event: ChangeEvent): ResolvedArtifact[] {
     const resolved: ResolvedArtifact[] = [];
-    const sheets = this.matchingSheets(event);
-    for (const sheet of sheets) {
+    for (const sheet of this.matchingSheets(event)) {
       resolved.push({
         id: sheet.id,
         kind: "character_sheet",
@@ -372,7 +450,7 @@ export class CreativeInvalidationService {
           record: page,
         });
       }
-      if (page.currentLayoutVersionId) {
+      if (this.layout.pageLayoutHeads.get(page.id)) {
         resolved.push({
           id: page.id,
           kind: "page_layout",
@@ -385,7 +463,48 @@ export class CreativeInvalidationService {
     return resolved;
   }
 
+  private resolveLayoutArtifacts(
+    project: Project,
+    resolved: ResolvedArtifact[],
+  ): void {
+    const output = project.currentPreviewOutputId
+      ? this.layout.previewOutputs.get(project.currentPreviewOutputId)
+      : null;
+    if (output)
+      resolved.push({
+        id: output.id,
+        kind: "preview_pdf",
+        locked: false,
+        projectId: project.id,
+        record: output,
+      });
+    const cycleIds = unique(
+      [project.currentPreviewCycleId, project.currentContentApprovalId].filter(
+        (id): id is string => Boolean(id),
+      ),
+    );
+    for (const cycleId of cycleIds) {
+      const cycle = this.layout.bookApprovalCycles.get(cycleId);
+      if (cycle)
+        resolved.push({
+          id: cycle.id,
+          kind: "book_approval",
+          locked: false,
+          projectId: project.id,
+          record: cycle,
+        });
+    }
+  }
+
   private matchingSheets(event: ChangeEvent): CharacterSheet[] {
+    if (event.matrixRow === "IM-20")
+      return this.creative.sheets
+        .list()
+        .filter(
+          (sheet) =>
+            sheet.pdfAssetId === event.entityId ||
+            Object.values(sheet.views).includes(event.entityId),
+        );
     if (["IM-01", "IM-02", "IM-05"].includes(event.matrixRow)) {
       return this.creative.sheets
         .queryByField("characterId", event.entityId)
@@ -411,12 +530,21 @@ export class CreativeInvalidationService {
 
   private matchingPages(event: ChangeEvent): Page[] {
     const pages = this.creative.pages.list();
-    if (
-      event.entity === "illustration" ||
-      event.entity === "layout" ||
-      event.entity === "narrative_text"
-    )
+    if (event.entity === "asset_integrity")
+      return pages.filter((page) => {
+        const illustration = page.currentIllustrationVersionId
+          ? this.creative.illustrations.get(page.currentIllustrationVersionId)
+          : null;
+        return illustration?.assetId === event.entityId;
+      });
+    if (event.entity === "layout" || event.entity === "narrative_text")
       return pages.filter((page) => page.id === event.entityId);
+    if (event.entity === "illustration") {
+      const illustration = this.creative.illustrations.get(event.entityId);
+      const pageId =
+        illustration?.pageId ?? this.creative.pages.get(event.entityId)?.id;
+      return pageId ? pages.filter((page) => page.id === pageId) : [];
+    }
     if (
       [
         "story",
@@ -458,7 +586,17 @@ export class CreativeInvalidationService {
       )
       .flatMap((artifact) => (artifact.projectId ? [artifact.projectId] : []));
     ids.push(...this.sourceProjectIds(event));
-    return unique(ids);
+    const alreadyBumped = new Set(
+      this.library.changeEvents
+        .queryByField("correlationId", event.correlationId)
+        .filter((candidate) => candidate.id !== event.id)
+        .flatMap((candidate) =>
+          this.creative.invalidationAudits
+            .queryByField("eventId", candidate.id)
+            .flatMap((audit) => audit.bookVersionProjectIds),
+        ),
+    );
+    return unique(ids).filter((projectId) => !alreadyBumped.has(projectId));
   }
 
   private applyConsequences(
@@ -466,9 +604,16 @@ export class CreativeInvalidationService {
     artifacts: ResolvedArtifact[],
     consequences: readonly InvalidationConsequence[],
   ): void {
-    const byId = new Map(artifacts.map((artifact) => [artifact.id, artifact]));
+    const byId = new Map(
+      artifacts.map((artifact) => [
+        `${artifact.kind}:${artifact.id}`,
+        artifact,
+      ]),
+    );
     for (const consequence of consequences) {
-      const artifact = byId.get(consequence.artifactId);
+      const artifact = byId.get(
+        `${consequence.kind}:${consequence.artifactId}`,
+      );
       if (!artifact) continue;
       if (artifact.kind === "character_sheet") {
         this.updateSheet(artifact.record as CharacterSheet, consequence.effect);
@@ -481,8 +626,100 @@ export class CreativeInvalidationService {
         const page = artifact.record as Page;
         if (consequence.effect === "recheck") this.flagPageForReview(page.id);
         else this.markPageStale(page.id, event.matrixRow);
+      } else if (artifact.kind === "preview_pdf") {
+        this.stalePreview(artifact.record as PreviewOutput, event);
+      } else if (artifact.kind === "book_approval") {
+        this.updateBookApproval(
+          artifact.record as BookApprovalCycle,
+          event,
+          consequence.effect,
+        );
       }
     }
+  }
+
+  private stalePreview(output: PreviewOutput, event: ChangeEvent): void {
+    if (!output.staleReasons.includes(event.matrixRow))
+      this.layout.previewOutputs.update(output.revision, {
+        ...output,
+        revision: output.revision + 1,
+        updatedAt: this.now(),
+        status: "stale",
+        staleReasons: unique([...output.staleReasons, event.matrixRow]),
+        invalidatedByEventIds: unique([
+          ...output.invalidatedByEventIds,
+          event.id,
+        ]),
+      });
+    const cycle = this.layout.bookApprovalCycles.get(output.approvalCycleId);
+    if (cycle && cycle.state !== "approved")
+      this.cancelWaitingApprovalGate(cycle, output);
+  }
+
+  private cancelWaitingApprovalGate(
+    cycle: BookApprovalCycle,
+    output: PreviewOutput,
+  ): void {
+    if (!this.gates) failCreative("CREATIVE_INVALIDATION_CONFLICT");
+    const gate = this.gates.get(cycle.approvalGateJobId);
+    if (!gate) failCreative("CREATIVE_INVALIDATION_CONFLICT");
+    if (gate.state === "canceled") return;
+    if (gate.state !== "waiting_review") return;
+    this.gates.cancelOwnedHumanGate(
+      gate.id,
+      {
+        expectedRevision: gate.revision,
+        targetVersionId: output.id,
+        reason: "preview_invalidated",
+      },
+      (candidate) =>
+        candidate.projectId === output.projectId &&
+        candidate.request.kind === "human_gate" &&
+        candidate.request.gateKind === "customer_approval" &&
+        candidate.request.targetVersionId === output.id,
+    );
+  }
+
+  private updateBookApproval(
+    cycle: BookApprovalCycle,
+    event: ChangeEvent,
+    effect: InvalidationConsequence["effect"],
+  ): void {
+    if (effect === "recheck") {
+      if (cycle.attentionReasons.includes(event.matrixRow)) return;
+      this.layout.bookApprovalCycles.update(cycle.revision, {
+        ...cycle,
+        revision: cycle.revision + 1,
+        updatedAt: this.now(),
+        attentionReasons: unique([...cycle.attentionReasons, event.matrixRow]),
+      });
+      return;
+    }
+    if (cycle.state === "invalidated") return;
+    const at = this.now();
+    this.layout.bookApprovalCycles.update(cycle.revision, {
+      ...cycle,
+      revision: cycle.revision + 1,
+      updatedAt: at,
+      state: "invalidated",
+      invalidatedBy: { eventId: event.id, matrixRow: event.matrixRow, at },
+    });
+    this.clearContentAuthorization(cycle, at);
+  }
+
+  private clearContentAuthorization(
+    cycle: BookApprovalCycle,
+    at: string,
+  ): void {
+    const project = this.authoring.projects.get(cycle.projectId);
+    if (!project || project.currentContentApprovalId !== cycle.id) return;
+    this.authoring.projects.update({
+      ...project,
+      revision: project.revision + 1,
+      updatedAt: at,
+      status: "revising",
+      currentContentApprovalId: null,
+    });
   }
 
   private flagPageForReview(pageId: string): void {
@@ -548,32 +785,8 @@ export class CreativeInvalidationService {
     this.authoring.projects.update({
       ...project,
       bookVersion: project.bookVersion + 1,
+      revision: project.revision + 1,
       updatedAt: at,
     });
   }
-}
-
-function hashConsequences(
-  event: ChangeEvent,
-  consequences: readonly InvalidationConsequence[],
-  projectIds: readonly string[],
-): string {
-  return createHash("sha256")
-    .update(
-      canonicalJson({
-        eventId: event.id,
-        row: event.matrixRow,
-        consequences: [...consequences].sort((left, right) =>
-          `${left.kind}:${left.artifactId}`.localeCompare(
-            `${right.kind}:${right.artifactId}`,
-          ),
-        ),
-        projectIds: [...projectIds].sort(),
-      }),
-    )
-    .digest("hex");
-}
-
-function unique(values: readonly string[]): string[] {
-  return [...new Set(values)].sort();
 }

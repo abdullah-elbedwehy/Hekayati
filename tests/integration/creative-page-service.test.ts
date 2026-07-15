@@ -257,18 +257,8 @@ describe("creative page service", () => {
     );
     expect(request.state).toBe("pending");
     expect(fixture.pages.getPage(seeded.id)).toMatchObject({
-      revision: expectedRevision + 1,
-      currentLayoutVersionId: null,
+      revision: expectedRevision,
     });
-    expect(() =>
-      fixture.pages.requestLayoutRecalculation({
-        pageId: seeded.id,
-        expectedRevision,
-        reason: "طلب مكرر",
-      }),
-    ).toThrowError(
-      expect.objectContaining({ code: "CREATIVE_REVISION_CONFLICT" }),
-    );
 
     const current = fixture.pages.getPage(seeded.id);
     const reviewed = fixture.pages.recordReview({
@@ -561,16 +551,22 @@ async function harness() {
   const authoring = new AuthoringRepositories(store);
   authoring.projects.insert({
     id: ids[0],
-    schemaVersion: 1,
+    schemaVersion: 2,
     createdAt: at,
     updatedAt: at,
     customerId: ids[1],
     familyId: ids[2],
+    revision: 0,
     status: "draft",
     priority: 0,
     paused: false,
     currentVersionId: ids[3],
     bookVersion: 1,
+    compositionProfileId: "00000000000000000000000000",
+    currentCoverCompositionVersionId: null,
+    currentPreviewOutputId: null,
+    currentPreviewCycleId: null,
+    currentContentApprovalId: null,
     printerProfileId: null,
   });
   let cursor = 4;

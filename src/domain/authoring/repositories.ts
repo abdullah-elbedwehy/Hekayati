@@ -1,5 +1,6 @@
 import type { ZodType } from "zod";
 
+import { canonicalJson } from "../../contracts/canonical-json.js";
 import {
   DocumentRepository,
   type BaseDocument,
@@ -48,9 +49,9 @@ export class AuthoringRepository<T extends BaseDocument> {
   private readonly documents: DocumentRepository<T>;
 
   constructor(
-    private readonly store: DocumentStore,
+    protected readonly store: DocumentStore,
     readonly collection: string,
-    private readonly schema: ZodType<T>,
+    protected readonly schema: ZodType<T>,
   ) {
     this.documents = new DocumentRepository(store, collection, schema);
   }
@@ -98,8 +99,40 @@ export class AuthoringRepository<T extends BaseDocument> {
   }
 }
 
+export class ProjectRepository extends AuthoringRepository<Project> {
+  update(document: Project): Project {
+    const next = this.schema.parse(document);
+    const current = this.get(next.id);
+    if (!current) failAuthoring("PROJECT_NOT_FOUND");
+    if (next.revision !== current.revision + 1)
+      failAuthoring("PROJECT_VERSION_CONFLICT");
+    for (const field of projectImmutableFields) {
+      if (canonicalJson(current[field]) !== canonicalJson(next[field]))
+        failAuthoring("PROJECT_VERSION_CONFLICT");
+    }
+    this.store.assertSafeForPersistence(next);
+    const result = this.store.database
+      .prepare(
+        `UPDATE documents
+         SET doc = ?, schema_version = ?, updated_at = ?
+         WHERE collection = ? AND id = ?
+           AND json_extract(doc, '$.revision') = ?`,
+      )
+      .run(
+        JSON.stringify(next),
+        next.schemaVersion,
+        next.updatedAt,
+        this.collection,
+        next.id,
+        current.revision,
+      );
+    if (result.changes !== 1) failAuthoring("PROJECT_VERSION_CONFLICT");
+    return next;
+  }
+}
+
 export class AuthoringRepositories {
-  readonly projects: AuthoringRepository<Project>;
+  readonly projects: ProjectRepository;
   readonly projectVersions: AuthoringRepository<ProjectVersion>;
   readonly projectOverrides: AuthoringRepository<ProjectOverride>;
   readonly projectOverrideVersions: AuthoringRepository<ProjectOverrideVersion>;
@@ -112,7 +145,7 @@ export class AuthoringRepositories {
   readonly changeEvents: AuthoringRepository<ChangeEvent>;
 
   constructor(store: DocumentStore) {
-    this.projects = repository(
+    this.projects = new ProjectRepository(
       store,
       authoringCollections.projects,
       projectSchema,
@@ -161,6 +194,14 @@ export class AuthoringRepositories {
     );
   }
 }
+
+const projectImmutableFields = [
+  "id",
+  "schemaVersion",
+  "createdAt",
+  "customerId",
+  "familyId",
+] as const satisfies readonly (keyof Project)[];
 
 function repository<T extends BaseDocument>(
   store: DocumentStore,

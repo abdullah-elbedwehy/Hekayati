@@ -10,6 +10,7 @@ import type { Page, PageTextVersion } from "./schemas.js";
 interface PageChangeCoordinatorOptions {
   now?: () => string;
   idFactory?: () => string;
+  invalidation?: CreativeInvalidationService;
 }
 
 export class PageChangeCoordinator {
@@ -24,9 +25,10 @@ export class PageChangeCoordinator {
     this.authoring = new AuthoringService(
       store,
       new LibraryService(store, options),
-      options,
+      { ...options, changeEventMode: "suppress" },
     );
-    this.invalidation = new CreativeInvalidationService(store, options);
+    this.invalidation =
+      options.invalidation ?? new CreativeInvalidationService(store, options);
     this.idFactory = options.idFactory ?? ulid;
   }
 

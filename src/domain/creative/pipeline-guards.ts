@@ -79,5 +79,10 @@ export function updateCreativeProjectStatus(
 ): void {
   const project = repositories.projects.get(projectId);
   if (!project) failCreative("CREATIVE_ENTITY_NOT_FOUND", 404);
-  repositories.projects.update({ ...project, status, updatedAt: at });
+  repositories.projects.update({
+    ...project,
+    status,
+    revision: project.revision + 1,
+    updatedAt: at,
+  });
 }

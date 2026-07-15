@@ -3,12 +3,10 @@ import { join } from "node:path";
 
 import fastifyMultipart from "@fastify/multipart";
 import fastifyStatic from "@fastify/static";
-import Fastify, { type FastifyInstance, type FastifyReply } from "fastify";
-import { ZodError } from "zod";
+import Fastify, { type FastifyInstance } from "fastify";
 
 import { AssetStore } from "../assets/asset-store.js";
 import { OriginalAssetStore } from "../assets/original-asset-store.js";
-import { PhotoIntakeError } from "../assets/photo-intake/index.js";
 import { LOOPBACK_HOST } from "../config/defaults.js";
 import {
   prepareDataPaths,
@@ -16,21 +14,26 @@ import {
   type DataPaths,
 } from "../config/paths.js";
 import { DocumentStore } from "../domain/repository/document-store.js";
-import { AuthoringError, AuthoringService } from "../domain/authoring/index.js";
-import { LibraryError } from "../domain/library/errors.js";
+import { initializeLayoutPersistence } from "../domain/layout/migrations.js";
+import {
+  ApprovedBookSnapshotReader,
+  BookApprovalService,
+  CurrentPreviewCustomerContentReader,
+} from "../domain/layout/approvals.js";
+import { PreviewWorkflowCoordinator } from "../domain/layout/workflow.js";
+import { LayoutWorkspaceService } from "../domain/layout/workspace.js";
+import { AuthoringService } from "../domain/authoring/index.js";
 import { LibraryService } from "../domain/library/index.js";
 import { SettingsService } from "../domain/settings/settings.js";
 import {
   CreativeInvalidationService,
   configuredCreativeLimits,
-  CreativeError,
   CreativePageService,
   CreativePipelineService,
   CreativeSheetPipeline,
   CreativeSheetService,
 } from "../domain/creative/index.js";
 import { SecuritySentinel } from "../domain/system/sentinel.js";
-import { JobError } from "../jobs/errors.js";
 import {
   CredentialAvailabilityBroker,
   ExactCapabilityBroker,
@@ -38,26 +41,25 @@ import {
 } from "../jobs/capabilities.js";
 import { JobRuntime, type JobRuntimeOptions } from "../jobs/runtime.js";
 import { createCreativeJobDefinitions } from "../jobs/creative-definitions.js";
+import { createLayoutJobDefinitions } from "../jobs/layout-definitions.js";
 import { createLibraryImageReferenceResolver } from "../jobs/image-references.js";
 import { PreDispatchCoordinator } from "../jobs/pre-dispatch.js";
 import { ProviderDispatchGateway } from "../jobs/provider-dispatch.js";
 import type { QuotaIncident } from "../jobs/schemas.js";
+import type { RegisteredJobDefinition } from "../jobs/types.js";
 import { createJobTarget } from "../jobs/targets.js";
 import type { ProviderTargetChangeCoordinator } from "../jobs/provider-target-change.js";
-import { ProviderTargetChangeError } from "../jobs/provider-target-change.js";
 import { probeSchedulerStorage } from "../jobs/storage-probe.js";
 import {
   createFileLogSink,
   Redactor,
   StructuredLogger,
 } from "../security/log.js";
-import { SecretPersistenceError } from "../security/secret-registry.js";
 import {
   HealthService,
   mergeIntegrityReports,
 } from "./health/health-service.js";
 import { registerApi } from "./routes/api.js";
-import { PhotoReservationError } from "./photo-intake/reservations.js";
 import { PhotoIntakeCoordinator } from "./photo-intake/photo-intake-coordinator.js";
 import { LocalRequestBoundary } from "./security/request-boundary.js";
 import { assertListenerHost, verifyEffectiveAddress } from "./startup/bind.js";
@@ -69,11 +71,9 @@ import {
   createProviderRuntime,
   type ProviderRuntimeOptions,
 } from "../providers/runtime.js";
-import {
-  ProviderServiceError,
-  type ProviderService,
-} from "./providers/provider-service.js";
+import type { ProviderService } from "./providers/provider-service.js";
 import { createProviderTargetChangeCoordinator } from "./providers/provider-target-coordinator.js";
+import { handleError } from "./error-handler.js";
 
 export interface RuntimeOptions {
   dataDir?: string;
@@ -104,6 +104,7 @@ export interface HekayatiRuntime {
   sentinelValue(): number;
   jobs: JobRuntime;
   creative: CreativeRuntime;
+  layout: LayoutRuntime;
 }
 
 export interface CreativeRuntime {
@@ -112,6 +113,13 @@ export interface CreativeRuntime {
   pipeline: CreativePipelineService;
   pages: CreativePageService;
   invalidation: CreativeInvalidationService;
+}
+
+export interface LayoutRuntime {
+  workflow: PreviewWorkflowCoordinator;
+  workspace: LayoutWorkspaceService;
+  approvals: BookApprovalService;
+  approvedSnapshots: ApprovedBookSnapshotReader;
 }
 
 export async function createRuntime(
@@ -128,6 +136,7 @@ async function initializeRuntime(
 ): Promise<HekayatiRuntime> {
   const store = openRuntimeStore(paths.database);
   try {
+    initializeLayoutPersistence(store);
     await (
       options.seedTemplateInstaller ?? productionSeedTemplateInstaller
     ).install(store);
@@ -210,6 +219,7 @@ async function assembleRuntime(
     infrastructure.logger,
     infrastructure.jobs,
     infrastructure.creative,
+    infrastructure.layout,
   );
 }
 
@@ -229,6 +239,7 @@ async function configureHttpApp(input: {
   providers: ReturnType<typeof createProviderRuntime>["service"];
   jobs: JobRuntime;
   creative: CreativeRuntime;
+  layout: LayoutRuntime;
   targetChanges: ProviderTargetChangeCoordinator;
 }): Promise<FastifyInstance> {
   const photoIntake = new PhotoIntakeCoordinator(
@@ -250,6 +261,7 @@ async function configureHttpApp(input: {
     providers: input.providers,
     jobs: input.jobs,
     creative: input.creative,
+    layout: input.layout,
     targetChanges: input.targetChanges,
     boundary: input.boundary,
     sentinel: input.sentinel,
@@ -278,16 +290,60 @@ function createInfrastructure(input: {
     input.options.providers,
   );
   const creative = createCreativeRuntime(input);
-  const jobs = createJobs(input, providerRuntime, creative);
-  creative.sheets.bindScheduler(jobs.scheduler);
-  creative.sheetPipeline.bindScheduler(jobs.scheduler);
-  creative.pipeline.bindScheduler(jobs.scheduler);
-  const targetChanges = createProviderTargetChangeCoordinator(
+  const layoutWorkflow = new PreviewWorkflowCoordinator(
+    input.store,
+    input.assets,
     input.settings,
-    jobs,
-    providerRuntime.service,
   );
-  const health = new HealthService(
+  const jobs = createJobs(input, providerRuntime, creative, layoutWorkflow);
+  bindRuntimeServices(
+    input.authoring,
+    input.settings,
+    creative,
+    layoutWorkflow,
+    jobs,
+  );
+  const layout = createLayoutRuntime(input, layoutWorkflow, jobs);
+  const { targetChanges, health } = createInfrastructureSupport(
+    input,
+    providerRuntime.service,
+    jobs,
+    creative.invalidation,
+  );
+  return {
+    logger,
+    providers: providerRuntime.service,
+    jobs,
+    creative,
+    layout,
+    health,
+    targetChanges,
+  };
+}
+
+function createInfrastructureSupport(
+  input: Parameters<typeof createInfrastructure>[0],
+  providers: ProviderService,
+  jobs: JobRuntime,
+  invalidation: CreativeInvalidationService,
+) {
+  return {
+    targetChanges: createProviderTargetChangeCoordinator(
+      input.settings,
+      jobs,
+      providers,
+    ),
+    health: createHealthService(input, providers, jobs, invalidation),
+  };
+}
+
+function createHealthService(
+  input: Parameters<typeof createInfrastructure>[0],
+  providers: ProviderService,
+  jobs: JobRuntime,
+  invalidation: CreativeInvalidationService,
+): HealthService {
+  return new HealthService(
     input.store,
     input.assets,
     input.settings,
@@ -295,16 +351,49 @@ function createInfrastructure(input: {
     input.paths,
     input.initialIntegrity,
     input.originals,
-    providerRuntime.service,
+    providers,
     jobs,
+    invalidation,
   );
+}
+
+function bindRuntimeServices(
+  authoring: AuthoringService,
+  settings: SettingsService,
+  creative: CreativeRuntime,
+  layoutWorkflow: PreviewWorkflowCoordinator,
+  jobs: JobRuntime,
+): void {
+  authoring.bindInvalidation(creative.invalidation);
+  settings.bindInvalidation(creative.invalidation);
+  creative.sheets.bindScheduler(jobs.scheduler);
+  creative.sheetPipeline.bindScheduler(jobs.scheduler);
+  creative.pipeline.bindScheduler(jobs.scheduler);
+  creative.pipeline.bindPreviewWorkflow(layoutWorkflow);
+  creative.invalidation.bindGateController(jobs.scheduler);
+  layoutWorkflow.bindInvalidation(creative.invalidation);
+  layoutWorkflow.bindScheduler(jobs.scheduler);
+}
+
+function createLayoutRuntime(
+  input: Parameters<typeof createInfrastructure>[0],
+  workflow: PreviewWorkflowCoordinator,
+  jobs: JobRuntime,
+): LayoutRuntime {
   return {
-    logger,
-    providers: providerRuntime.service,
-    jobs,
-    creative,
-    health,
-    targetChanges,
+    workflow,
+    workspace: new LayoutWorkspaceService(
+      input.store,
+      jobs.scheduler,
+      input.assets,
+    ),
+    approvals: new BookApprovalService(input.store, jobs.scheduler),
+    approvedSnapshots: new ApprovedBookSnapshotReader(
+      input.store,
+      jobs.scheduler,
+      input.assets,
+      new CurrentPreviewCustomerContentReader(input.store),
+    ),
   };
 }
 
@@ -321,6 +410,7 @@ function createCreativeRuntime(
   input: Parameters<typeof createInfrastructure>[0],
 ): CreativeRuntime {
   const sheets = new CreativeSheetService(input.store, input.assets, null);
+  const invalidation = new CreativeInvalidationService(input.store);
   const capacityLimits = (
     target: Parameters<typeof configuredCreativeLimits>[0],
   ) => configuredCreativeLimits(target, input.options.providers?.geminiLimits);
@@ -341,8 +431,8 @@ function createCreativeRuntime(
       input.settings,
       { capacityLimits },
     ),
-    pages: new CreativePageService(input.store),
-    invalidation: new CreativeInvalidationService(input.store),
+    pages: new CreativePageService(input.store, { invalidation }),
+    invalidation,
   };
 }
 
@@ -350,6 +440,7 @@ function createJobs(
   input: Parameters<typeof createInfrastructure>[0],
   providerRuntime: ReturnType<typeof createProviderRuntime>,
   creative: CreativeRuntime,
+  layoutWorkflow: PreviewWorkflowCoordinator,
 ): JobRuntime {
   const exactCapabilities = new ExactCapabilityBroker(
     providerRuntime.registry,
@@ -362,20 +453,17 @@ function createJobs(
   const credentialAvailability =
     input.options.jobs?.credentialAvailability ??
     new CredentialAvailabilityBroker(exactCapabilities);
-  const preDispatch = new PreDispatchCoordinator(
+  const preDispatch = createPreDispatchCoordinator(
+    input,
+    creative,
     exactCapabilities,
-    createLibraryImageReferenceResolver(
-      input.library,
-      input.assets,
-      creative.sheets,
-    ),
   );
   const gateway = new ProviderDispatchGateway(providerRuntime.registry);
   const holder: { runtime: JobRuntime | null } = { runtime: null };
-  const definitions = createCreativeJobDefinitions({
-    pipeline: creative.pipeline,
-    sheets: creative.sheets,
+  const definitions = createAllJobDefinitions({
+    creative,
     assets: input.assets,
+    layoutWorkflow,
     preDispatch,
     gateway,
     scheduler: () => {
@@ -397,10 +485,50 @@ function createJobs(
   return runtime;
 }
 
+function createPreDispatchCoordinator(
+  input: Parameters<typeof createInfrastructure>[0],
+  creative: CreativeRuntime,
+  capabilities: ExactCapabilityBroker,
+): PreDispatchCoordinator {
+  return new PreDispatchCoordinator(
+    capabilities,
+    createLibraryImageReferenceResolver(
+      input.library,
+      input.assets,
+      creative.sheets,
+    ),
+  );
+}
+
+function createAllJobDefinitions(input: {
+  creative: CreativeRuntime;
+  assets: AssetStore;
+  layoutWorkflow: PreviewWorkflowCoordinator;
+  preDispatch: PreDispatchCoordinator;
+  gateway: ProviderDispatchGateway;
+  scheduler: () => JobRuntime["scheduler"];
+}): RegisteredJobDefinition[] {
+  return [
+    ...createCreativeJobDefinitions({
+      pipeline: input.creative.pipeline,
+      sheets: input.creative.sheets,
+      assets: input.assets,
+      preDispatch: input.preDispatch,
+      gateway: input.gateway,
+      scheduler: input.scheduler,
+    }),
+    ...createLayoutJobDefinitions({
+      assets: input.assets,
+      workflow: input.layoutWorkflow,
+      scheduler: input.scheduler,
+    }),
+  ];
+}
+
 function createJobRuntimeOptions(
   input: Parameters<typeof createInfrastructure>[0],
   providerRuntime: ReturnType<typeof createProviderRuntime>,
-  definitions: ReturnType<typeof createCreativeJobDefinitions>,
+  definitions: readonly RegisteredJobDefinition[],
   quotaAvailability: JobRuntimeOptions["quotaAvailability"],
   credentialAvailability: JobRuntimeOptions["credentialAvailability"],
 ): JobRuntimeOptions {
@@ -519,6 +647,7 @@ function finish(
   logger: StructuredLogger,
   jobs: JobRuntime,
   creative: CreativeRuntime,
+  layout: LayoutRuntime,
 ): HekayatiRuntime {
   const close = runtimeCloser(app, store, boundary, jobs);
   return {
@@ -527,6 +656,7 @@ function finish(
     metrics,
     jobs,
     creative,
+    layout,
     sentinelValue: () => sentinel.value(),
     start: async (options = {}) => {
       try {
@@ -611,86 +741,4 @@ async function registerUi(
       return reply.code(404).send({ code: "NOT_FOUND" });
     return reply.header("cache-control", "no-store").sendFile("index.html");
   });
-}
-
-function handleError(
-  error: unknown,
-  reply: FastifyReply,
-  logger: StructuredLogger,
-): void {
-  if (handleValidationError(error, reply)) return;
-  if (error instanceof SecretPersistenceError) {
-    void reply.code(400).send({ code: "INVALID_INPUT" });
-    return;
-  }
-  if (error instanceof LibraryError) {
-    void reply.code(error.statusCode).send({ code: error.code });
-    return;
-  }
-  if (error instanceof AuthoringError) {
-    void reply.code(error.statusCode).send({
-      code: error.code,
-      details: error.details,
-    });
-    return;
-  }
-  if (error instanceof CreativeError) {
-    void reply
-      .code(error.statusCode)
-      .send({ code: error.code, details: error.details });
-    return;
-  }
-  if (error instanceof PhotoIntakeError) {
-    void reply.code(error.statusCode).send(error.toSafeResponse());
-    return;
-  }
-  if (
-    error instanceof PhotoReservationError ||
-    error instanceof ProviderServiceError ||
-    error instanceof ProviderTargetChangeError ||
-    error instanceof JobError
-  ) {
-    void reply.code(error.statusCode).send({ code: error.code });
-    return;
-  }
-  handleUnexpectedError(error, reply, logger);
-}
-
-function handleUnexpectedError(
-  error: unknown,
-  reply: FastifyReply,
-  logger: StructuredLogger,
-): void {
-  const status = clientErrorStatus(error);
-  if (status !== null) {
-    void reply.code(status).send({
-      code: status === 413 ? "PAYLOAD_TOO_LARGE" : "INVALID_REQUEST",
-    });
-    return;
-  }
-  logger.error("request_failed", {
-    error: error instanceof Error ? error : new Error("UNKNOWN_ERROR"),
-  });
-  void reply.code(500).send({ code: "INTERNAL_ERROR" });
-}
-
-function handleValidationError(error: unknown, reply: FastifyReply): boolean {
-  if (!(error instanceof ZodError)) return false;
-  void reply.code(400).send({
-    code: "INVALID_INPUT",
-    issues: error.issues.map((issue) => ({
-      path: issue.path.join("."),
-      message: issue.message,
-    })),
-  });
-  return true;
-}
-
-function clientErrorStatus(error: unknown): number | null {
-  if (!error || typeof error !== "object" || !("statusCode" in error))
-    return null;
-  const status = error.statusCode;
-  return typeof status === "number" && status >= 400 && status < 500
-    ? status
-    : null;
 }

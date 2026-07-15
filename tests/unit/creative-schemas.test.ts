@@ -65,7 +65,7 @@ describe("creative schemas", () => {
   it("keeps page state version-bound and locked-stale explicit", () => {
     const page = pageSchema.parse({
       id: ids[0],
-      schemaVersion: 1,
+      schemaVersion: 2,
       createdAt: at,
       updatedAt: at,
       revision: 2,
@@ -80,7 +80,6 @@ describe("creative schemas", () => {
       currentTextVersionId: ids[2],
       currentPromptVersionId: ids[3],
       currentIllustrationVersionId: ids[4],
-      currentLayoutVersionId: null,
     });
     expect(page.staleState).toBe("locked_stale");
   });

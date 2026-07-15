@@ -244,6 +244,7 @@ describe("creative invalidation ownership and source routing", () => {
     });
     fixture.creative.pages.insert({
       ...base(pageId),
+      schemaVersion: 2,
       revision: 0,
       projectId: fixture.projectId,
       pageNumber: 3,
@@ -256,7 +257,6 @@ describe("creative invalidation ownership and source routing", () => {
       currentTextVersionId: null,
       currentPromptVersionId: null,
       currentIllustrationVersionId: null,
-      currentLayoutVersionId: null,
     });
     fixture.creative.illustrations.insert(illustration(illustrationId, pageId));
 
@@ -461,13 +461,20 @@ function seedLibraryFamily(
 function project(id: string, scope: { customerId: string; familyId: string }) {
   return {
     ...base(id),
+    schemaVersion: 2 as const,
     customerId: scope.customerId,
     familyId: scope.familyId,
+    revision: 0,
     status: "internal_review" as const,
     priority: 0,
     paused: false,
     currentVersionId: ulid(),
     bookVersion: 1,
+    compositionProfileId: "00000000000000000000000000",
+    currentCoverCompositionVersionId: null,
+    currentPreviewOutputId: null,
+    currentPreviewCycleId: null,
+    currentContentApprovalId: null,
     printerProfileId: null,
   };
 }

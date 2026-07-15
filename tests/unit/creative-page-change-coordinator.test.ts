@@ -70,7 +70,7 @@ function page(
 ): Page {
   return {
     id: ulid(),
-    schemaVersion: 1,
+    schemaVersion: 2,
     createdAt: at,
     updatedAt: at,
     revision: 0,
@@ -85,7 +85,6 @@ function page(
     currentTextVersionId: null,
     currentPromptVersionId: null,
     currentIllustrationVersionId: null,
-    currentLayoutVersionId: null,
   };
 }
 

@@ -39,7 +39,7 @@ import type {
   QueueJobProjection,
   QueueProjection,
 } from "./types";
-import { CreativeApiClient } from "./creative-api-client";
+import { LayoutApiClient } from "./layout-api-client";
 import { ApiError } from "./api-error";
 
 export { ApiError } from "./api-error";
@@ -124,7 +124,7 @@ export interface PhotoCommitResult {
   referencePhoto?: LibraryReferencePhoto;
 }
 
-export class ApiClient extends CreativeApiClient {
+export class ApiClient extends LayoutApiClient {
   private constructor(csrfToken: string) {
     super(csrfToken);
   }

@@ -23,6 +23,7 @@ export async function seedCreativeProject(
     appearanceDescription?: string;
     customNotes?: string;
     referencePhotoCount?: number;
+    pageCount?: 16 | 24;
   } = {},
 ) {
   const paths = resolveDataPaths(dataDir);
@@ -93,7 +94,7 @@ export async function seedCreativeProject(
     occasion: "اختبار",
     dedicationText: "إهداء اصطناعي",
     storyType: "connected_adventure",
-    pageCount: 16,
+    pageCount: overrides.pageCount ?? 16,
     tone: "adventurous",
     customTone: null,
     illustrationStyleId: "modern_cartoon",

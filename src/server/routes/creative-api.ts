@@ -102,7 +102,12 @@ const revertSchema = pageMutationSchema
   .extend({ targetVersionId: entityIdSchema })
   .strict();
 const layoutRequestSchema = pageMutationSchema
-  .extend({ reason: z.string().trim().min(1).max(500) })
+  .extend({
+    reason: z.string().trim().min(1).max(500),
+    requestedPlacement: z
+      .enum(["auto", "top", "bottom", "right", "left"])
+      .optional(),
+  })
   .strict();
 const regenerateSchema = pageMutationSchema
   .extend({ runId: entityIdSchema })

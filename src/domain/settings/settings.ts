@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ulid } from "ulid";
 
 import {
   DEFAULT_DISK_WARNING_GB,
@@ -11,6 +12,8 @@ import {
   DocumentRepository,
   type DocumentStore,
 } from "../repository/document-store.js";
+import { AuthoringRepositories } from "../authoring/repositories.js";
+import type { CreativeInvalidationService } from "../creative/invalidation.js";
 
 const providerStatusSchema = z.enum([
   "not_configured",
@@ -82,12 +85,19 @@ export type SettingsUpdate = z.infer<typeof settingsUpdateSchema>;
 
 export class SettingsService {
   private readonly repository: DocumentRepository<Settings>;
+  private invalidation: CreativeInvalidationService | null = null;
 
   constructor(
     private readonly store: DocumentStore,
     private readonly paths: DataPaths,
   ) {
     this.repository = new DocumentRepository(store, "settings", settingsSchema);
+  }
+
+  bindInvalidation(invalidation: CreativeInvalidationService): void {
+    if (this.invalidation && this.invalidation !== invalidation)
+      throw new Error("SETTINGS_INVALIDATION_CONFLICT");
+    this.invalidation = invalidation;
   }
 
   initialize(): Settings {
@@ -114,10 +124,39 @@ export class SettingsService {
   }
 
   update(input: unknown): Settings {
-    const preview = this.preview(input);
-    return this.repository.put(
-      settingsSchema.parse({ ...preview, updatedAt: new Date().toISOString() }),
-    );
+    return this.store.transaction(() => {
+      const current = this.get();
+      const preview = this.preview(input);
+      const at = new Date().toISOString();
+      const next = this.repository.put(
+        settingsSchema.parse({ ...preview, updatedAt: at }),
+      );
+      if (current.watermarkText !== next.watermarkText)
+        this.emitWatermarkChanges(at);
+      return next;
+    });
+  }
+
+  private emitWatermarkChanges(at: string): void {
+    if (!this.invalidation) return;
+    const correlationId = ulid();
+    for (const project of new AuthoringRepositories(
+      this.store,
+    ).projects.list()) {
+      const eventId = ulid();
+      this.invalidation.recordAndConsume({
+        id: eventId,
+        entity: "watermark_setting",
+        entityId: project.id,
+        fromVersionId: null,
+        toVersionId: null,
+        changeType: "watermark_text",
+        matrixRow: "IM-19",
+        changedFields: ["watermarkText"],
+        correlationId,
+        occurredAt: at,
+      });
+    }
   }
 
   preview(input: unknown): Settings {

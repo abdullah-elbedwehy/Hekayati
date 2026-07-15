@@ -7,6 +7,7 @@ import { CreativeInvalidationService } from "../../src/domain/creative/invalidat
 import { CreativePageService } from "../../src/domain/creative/pages.js";
 import { CreativeRepositories } from "../../src/domain/creative/repositories.js";
 import { LibraryRepositories } from "../../src/domain/library/repositories.js";
+import { LayoutRepositories } from "../../src/domain/layout/repositories.js";
 import { DocumentStore } from "../../src/domain/repository/document-store.js";
 import type { Provenance } from "../../src/providers/contract.js";
 import { temporaryDirectory } from "../helpers/temp.js";
@@ -135,16 +136,26 @@ describe("creative invalidation service", () => {
     const pages = fixture.pages.ensureProjectPages(ids[0], 16);
     const first = seedPage(fixture, pages[2], ids[40], ids[70]);
     const second = seedPage(fixture, pages[3], ids[41], ids[71]);
-    const firstWithLayout = fixture.creative.pages.update({
-      ...first,
+    fixture.layout.pageLayoutHeads.insert({
+      id: first.id,
+      schemaVersion: 1,
+      createdAt: at,
+      updatedAt: at,
+      revision: 0,
+      pageId: first.id,
       currentLayoutVersionId: ids[72],
-      revision: first.revision + 1,
     });
-    const secondWithLayout = fixture.creative.pages.update({
-      ...second,
+    fixture.layout.pageLayoutHeads.insert({
+      id: second.id,
+      schemaVersion: 1,
+      createdAt: at,
+      updatedAt: at,
+      revision: 0,
+      pageId: second.id,
       currentLayoutVersionId: ids[73],
-      revision: second.revision + 1,
     });
+    const firstWithLayout = first;
+    const secondWithLayout = second;
     const event = fixture.invalidation.appendEvent({
       id: ids[120],
       entity: "narrative_text",
@@ -176,8 +187,10 @@ describe("creative invalidation service", () => {
       revision: firstWithLayout.revision + 1,
       staleState: "stale",
       staleReasons: ["IM-07"],
-      currentLayoutVersionId: ids[72],
     });
+    expect(
+      fixture.layout.pageLayoutHeads.get(firstWithLayout.id),
+    ).toMatchObject({ currentLayoutVersionId: ids[72] });
     expect(fixture.pages.getPage(secondWithLayout.id)).toEqual(
       secondWithLayout,
     );
@@ -322,16 +335,22 @@ async function harness() {
   const authoring = new AuthoringRepositories(store);
   authoring.projects.insert({
     id: ids[0],
-    schemaVersion: 1,
+    schemaVersion: 2,
     createdAt: at,
     updatedAt: at,
     customerId: ids[1],
     familyId: ids[2],
+    revision: 0,
     status: "internal_review",
     priority: 0,
     paused: false,
     currentVersionId: ids[3],
     bookVersion: 1,
+    compositionProfileId: "00000000000000000000000000",
+    currentCoverCompositionVersionId: null,
+    currentPreviewOutputId: null,
+    currentPreviewCycleId: null,
+    currentContentApprovalId: null,
     printerProfileId: null,
   });
   let cursor = 4;
@@ -343,6 +362,7 @@ async function harness() {
     store,
     library,
     authoring,
+    layout: new LayoutRepositories(store),
     creative: new CreativeRepositories(store),
     pages: new CreativePageService(store, options),
     invalidation: new CreativeInvalidationService(store, options),

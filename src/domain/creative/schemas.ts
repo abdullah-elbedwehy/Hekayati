@@ -321,44 +321,72 @@ export const pageKindSchema = z.enum([
   "ending2",
 ]);
 
-export const pageSchema = z
+const pageFields = {
+  projectId: entityIdSchema,
+  pageNumber: z.number().int().min(1).max(24),
+  storyPageIndex: z.number().int().min(1).max(20).nullable(),
+  kind: pageKindSchema,
+  locked: z.boolean(),
+  reviewStatus: z.enum(["unreviewed", "flagged", "approved"]),
+  staleState: z.enum(["current", "stale", "locked_stale"]),
+  staleReasons: z.array(matrixRowSchema).max(21),
+  currentTextVersionId: entityIdSchema.nullable(),
+  currentPromptVersionId: entityIdSchema.nullable(),
+  currentIllustrationVersionId: entityIdSchema.nullable(),
+};
+
+/** Read-only boundary for the restart-safe feature-008 repository migration. */
+export const pageV1Schema = z
   .object({
     ...mutableDocument,
-    projectId: entityIdSchema,
-    pageNumber: z.number().int().min(1).max(24),
-    storyPageIndex: z.number().int().min(1).max(20).nullable(),
-    kind: pageKindSchema,
-    locked: z.boolean(),
-    reviewStatus: z.enum(["unreviewed", "flagged", "approved"]),
-    staleState: z.enum(["current", "stale", "locked_stale"]),
-    staleReasons: z.array(matrixRowSchema).max(21),
-    currentTextVersionId: entityIdSchema.nullable(),
-    currentPromptVersionId: entityIdSchema.nullable(),
-    currentIllustrationVersionId: entityIdSchema.nullable(),
+    ...pageFields,
     currentLayoutVersionId: entityIdSchema.nullable(),
   })
   .strict()
-  .superRefine((page, context) => {
-    const isStory = page.kind === "story";
-    if (isStory !== (page.storyPageIndex !== null))
-      context.addIssue({
-        code: "custom",
-        path: ["storyPageIndex"],
-        message: "PAGE_STORY_INDEX_MISMATCH",
-      });
-    if (page.staleState === "current" && page.staleReasons.length > 0)
-      context.addIssue({
-        code: "custom",
-        path: ["staleReasons"],
-        message: "PAGE_STALE_REASON_MISMATCH",
-      });
-    if (page.staleState === "locked_stale" && !page.locked)
-      context.addIssue({
-        code: "custom",
-        path: ["locked"],
-        message: "PAGE_LOCK_STATE_MISMATCH",
-      });
-  });
+  .superRefine(refinePage);
+
+export const pageSchema = z
+  .object({
+    id: entityIdSchema,
+    schemaVersion: z.literal(2),
+    createdAt: timestampSchema,
+    updatedAt: timestampSchema,
+    revision: z.number().int().nonnegative(),
+    ...pageFields,
+  })
+  .strict()
+  .superRefine(refinePage);
+
+function refinePage(
+  page: {
+    kind: z.infer<typeof pageKindSchema>;
+    storyPageIndex: number | null;
+    staleState: "current" | "stale" | "locked_stale";
+    staleReasons: z.infer<typeof matrixRowSchema>[];
+    locked: boolean;
+  },
+  context: z.RefinementCtx,
+): void {
+  const isStory = page.kind === "story";
+  if (isStory !== (page.storyPageIndex !== null))
+    context.addIssue({
+      code: "custom",
+      path: ["storyPageIndex"],
+      message: "PAGE_STORY_INDEX_MISMATCH",
+    });
+  if (page.staleState === "current" && page.staleReasons.length > 0)
+    context.addIssue({
+      code: "custom",
+      path: ["staleReasons"],
+      message: "PAGE_STALE_REASON_MISMATCH",
+    });
+  if (page.staleState === "locked_stale" && !page.locked)
+    context.addIssue({
+      code: "custom",
+      path: ["locked"],
+      message: "PAGE_LOCK_STATE_MISMATCH",
+    });
+}
 
 const versionSnapshotSchema = z
   .record(safeIdSchema, entityIdSchema)
@@ -459,6 +487,9 @@ export const layoutWorkRequestSchema = z
     textVersionId: entityIdSchema,
     illustrationVersionId: entityIdSchema,
     reason: shortTextSchema,
+    requestedPlacement: z
+      .enum(["auto", "top", "bottom", "right", "left"])
+      .optional(),
     state: z.enum(["pending", "consumed", "canceled"]),
   })
   .strict();
@@ -491,6 +522,7 @@ export type CharacterSheetIntent = z.infer<typeof characterSheetIntentSchema>;
 export type CharacterApproval = z.infer<typeof characterApprovalSchema>;
 export type CreativeRun = z.infer<typeof creativeRunSchema>;
 export type CreativeStageRecord = z.infer<typeof creativeStageRecordSchema>;
+export type PageV1 = z.infer<typeof pageV1Schema>;
 export type Page = z.infer<typeof pageSchema>;
 export type PageTextVersion = z.infer<typeof pageTextVersionSchema>;
 export type PagePromptVersion = z.infer<typeof pagePromptVersionSchema>;

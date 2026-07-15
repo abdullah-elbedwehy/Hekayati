@@ -145,6 +145,26 @@ export interface IntegrityReport {
   scannedAt: string;
 }
 
+export type AssetIntegrityVerification =
+  | {
+      assetId: string;
+      expectedSha256: string;
+      status: "healthy";
+      reason: null;
+    }
+  | {
+      assetId: string;
+      expectedSha256: string;
+      status: "missing";
+      reason: "missing";
+    }
+  | {
+      assetId: string;
+      expectedSha256: string;
+      status: "corrupt";
+      reason: "checksum_mismatch";
+    };
+
 export interface AssetStoreHooks {
   afterTempSync?(): Promise<void> | void;
   afterRenameSync?(): Promise<void> | void;
@@ -283,6 +303,10 @@ export class AssetStore {
     return bytes;
   }
 
+  async verifyIntegrity(assetId: string): Promise<AssetIntegrityVerification> {
+    return this.verifyRecord(this.requireRecord(assetId));
+  }
+
   retain(assetId: string): AssetRecord {
     return this.store.transaction(() => {
       const record = this.requireRecord(assetId);
@@ -324,8 +348,10 @@ export class AssetStore {
     const records = this.repository.list();
     const issues: IntegrityIssue[] = [];
     for (const record of records) {
-      const reason = await this.checkRecord(record);
-      if (reason) issues.push({ assetId: record.id, reason });
+      const verification = await this.verifyRecord(record);
+      if (verification.reason) {
+        issues.push({ assetId: record.id, reason: verification.reason });
+      }
     }
     return {
       checked: records.length,
@@ -414,18 +440,51 @@ export class AssetStore {
     if (await fileMatches(target, expectedHash)) return;
 
     const temporary = join(dirname(target), `.hekayati-tmp-${randomUUID()}`);
-    const handle = await open(temporary, "wx", 0o600);
     try {
-      await handle.writeFile(bytes);
-      await handle.sync();
-    } finally {
-      await handle.close();
+      const handle = await open(temporary, "wx", 0o600);
+      try {
+        await handle.writeFile(bytes);
+        await handle.sync();
+      } finally {
+        await handle.close();
+      }
+      await this.hooks.afterTempSync?.();
+      await rename(temporary, target);
+      await chmod(target, 0o600);
+      await syncDirectory(dirname(target));
+      await this.hooks.afterRenameSync?.();
+    } catch (error) {
+      await removeTemporaryAfterFailure(temporary);
+      throw error;
     }
-    await this.hooks.afterTempSync?.();
-    await rename(temporary, target);
-    await chmod(target, 0o600);
-    await syncDirectory(dirname(target));
-    await this.hooks.afterRenameSync?.();
+  }
+
+  private async verifyRecord(
+    record: AssetRecord,
+  ): Promise<AssetIntegrityVerification> {
+    const reason = await this.checkRecord(record);
+    if (reason === "missing") {
+      return {
+        assetId: record.id,
+        expectedSha256: record.sha256,
+        status: "missing",
+        reason,
+      };
+    }
+    if (reason === "checksum_mismatch") {
+      return {
+        assetId: record.id,
+        expectedSha256: record.sha256,
+        status: "corrupt",
+        reason,
+      };
+    }
+    return {
+      assetId: record.id,
+      expectedSha256: record.sha256,
+      status: "healthy",
+      reason: null,
+    };
   }
 
   private async checkRecord(
@@ -547,6 +606,15 @@ async function syncDirectory(directory: string): Promise<void> {
     if (!isUnsupportedSync(error)) throw error;
   } finally {
     await handle.close();
+  }
+}
+
+async function removeTemporaryAfterFailure(temporary: string): Promise<void> {
+  try {
+    await rm(temporary, { force: true });
+    await syncDirectory(dirname(temporary));
+  } catch {
+    // Preserve the write failure; startup orphan GC remains the fallback.
   }
 }
 

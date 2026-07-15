@@ -326,6 +326,45 @@ describe("durable scheduler controls", () => {
     expect(scheduler.get(child.id)?.state).toBe("queued");
     close();
   });
+
+  it("reserves customer approval cancellation for the owning feature", async () => {
+    const { scheduler, close } = await harness();
+    const gate = scheduler.enqueue(
+      input({
+        jobType: "human_gate_fixture",
+        intentId: "customer-approval-gate",
+        request: {
+          kind: "human_gate",
+          gateKind: "customer_approval",
+          targetId: "preview-1",
+          targetVersionId: "preview-version-1",
+        },
+      }),
+    );
+
+    expect(() =>
+      scheduler.cancel(gate.id, {
+        expectedRevision: gate.revision,
+        expectedState: "waiting_review",
+      }),
+    ).toThrowError(
+      expect.objectContaining({ code: "JOB_GATE_OWNER_ACTION_REQUIRED" }),
+    );
+    const canceled = scheduler.cancelOwnedHumanGate(
+      gate.id,
+      {
+        expectedRevision: gate.revision,
+        targetVersionId: "preview-version-1",
+        reason: "changes_requested",
+      },
+      () => true,
+    );
+    expect(canceled).toMatchObject({
+      state: "canceled",
+      stateReason: "changes_requested",
+    });
+    close();
+  });
 });
 
 async function harness() {

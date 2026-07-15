@@ -2,11 +2,17 @@ import { ulid } from "ulid";
 
 import {
   LibraryError,
+  changeEventSchema,
   type ChangeEvent,
   type FamilyScope,
   type LibraryService,
 } from "../library/index.js";
 import type { DocumentStore } from "../repository/document-store.js";
+import type {
+  AppendChangeEventInput,
+  CreativeInvalidationService,
+} from "../creative/invalidation.js";
+import { A4_COMPOSITION_PROFILE_ID } from "../layout/policy.js";
 import { calculateNarrationBalance } from "./balance.js";
 import {
   getBookPageMap,
@@ -21,7 +27,14 @@ import {
   type CompileParticipant,
   type MentionCandidate,
 } from "./mentions.js";
-import type { ProjectWorkspace, SceneRecord } from "./project-service.js";
+import type { ProjectWorkspace, SceneRecord } from "./project-types.js";
+import {
+  baseDocument,
+  blankSceneContent,
+  compileWorkspaceParticipants,
+  requiredSceneText,
+  type AuthoringServiceOptions,
+} from "./authoring-service-support.js";
 import { AuthoringRepositories } from "./repositories.js";
 import {
   type PageCount,
@@ -36,18 +49,17 @@ import {
   type StoryConfig,
   type StoryVersion,
 } from "./schemas.js";
-import {
-  TemplateService,
-  type TemplateServiceOptions,
-} from "./template-service.js";
+import { TemplateService } from "./template-service.js";
 
-export type AuthoringServiceOptions = TemplateServiceOptions;
+export type { AuthoringServiceOptions } from "./authoring-service-support.js";
 
 export abstract class AuthoringServiceBase {
   protected readonly repositories: AuthoringRepositories;
   protected readonly templates: TemplateService;
   protected readonly now: () => string;
   protected readonly idFactory: () => string;
+  private invalidation: CreativeInvalidationService | null = null;
+  private readonly changeEventMode: "persist" | "suppress";
 
   constructor(
     protected readonly store: DocumentStore,
@@ -58,6 +70,29 @@ export abstract class AuthoringServiceBase {
     this.templates = new TemplateService(store, options);
     this.now = options.now ?? (() => new Date().toISOString());
     this.idFactory = options.idFactory ?? ulid;
+    this.changeEventMode = options.changeEventMode ?? "persist";
+  }
+
+  bindInvalidation(invalidation: CreativeInvalidationService): void {
+    if (this.invalidation && this.invalidation !== invalidation)
+      failAuthoring("PROJECT_VERSION_CONFLICT");
+    this.invalidation = invalidation;
+  }
+
+  protected emitChange(
+    input: Omit<AppendChangeEventInput, "id">,
+    at = this.now(),
+  ): ChangeEvent {
+    const id = this.idFactory();
+    const document = changeEventSchema.parse({
+      ...baseDocument(id, at),
+      ...input,
+      occurredAt: input.occurredAt ?? at,
+    });
+    if (this.changeEventMode === "suppress") return document;
+    if (this.invalidation)
+      return this.invalidation.recordAndConsume({ id, ...input }).event;
+    return this.repositories.changeEvents.insert(document);
   }
 
   protected insertInitialStory(
@@ -97,13 +132,20 @@ export abstract class AuthoringServiceBase {
   ): Project {
     return this.repositories.projects.insert({
       ...baseDocument(projectId, at),
+      schemaVersion: 2,
       customerId: scope.customerId,
       familyId: scope.familyId,
+      revision: 0,
       status: "draft",
       priority: 0,
       paused: false,
       currentVersionId: versionId,
       bookVersion: 1,
+      compositionProfileId: A4_COMPOSITION_PROFILE_ID,
+      currentCoverCompositionVersionId: null,
+      currentPreviewOutputId: null,
+      currentPreviewCycleId: null,
+      currentContentApprovalId: null,
       printerProfileId: null,
     });
   }
@@ -131,6 +173,7 @@ export abstract class AuthoringServiceBase {
       ...project,
       currentVersionId: versionId,
       updatedAt: at,
+      revision: project.revision + 1,
     });
   }
 
@@ -557,18 +600,21 @@ export abstract class AuthoringServiceBase {
     version: ProjectOverrideVersion,
     at: string,
   ): ChangeEvent {
-    return this.repositories.changeEvents.insert({
-      ...baseDocument(this.idFactory(), at),
-      entity: "project_override",
-      entityId: override.id,
-      fromVersionId: previousVersionId,
-      toVersionId: version.id,
-      changeType: "project_look_override",
-      matrixRow: "IM-04",
-      changedFields: ["clothing", "appearanceOverrides"],
-      correlationId: this.idFactory(),
-      occurredAt: at,
-    });
+    const correlationId = this.idFactory();
+    return this.emitChange(
+      {
+        entity: "project_override",
+        entityId: override.id,
+        fromVersionId: previousVersionId,
+        toVersionId: version.id,
+        changeType: "project_look_override",
+        matrixRow: "IM-04",
+        changedFields: ["clothing", "appearanceOverrides"],
+        correlationId,
+        occurredAt: at,
+      },
+      at,
+    );
   }
 
   protected rethrowScope(
@@ -730,24 +776,7 @@ export abstract class AuthoringServiceBase {
   protected compileParticipants(
     workspace: ProjectWorkspace,
   ): CompileParticipant[] {
-    const scope = {
-      customerId: workspace.project.customerId,
-      familyId: workspace.project.familyId,
-    };
-    return workspace.version.storyConfig.participants.map((participant) => {
-      const version = this.library.getCharacterVersion(
-        scope,
-        participant.characterId,
-        participant.characterVersionId,
-      );
-      return {
-        ...participant,
-        relationshipType: version.profile.relationship.type,
-        ownedLookIds: this.library
-          .listLooks(scope, participant.characterId, { includeArchived: true })
-          .map(({ id }) => id),
-      };
-    });
+    return compileWorkspaceParticipants(this.library, workspace);
   }
 
   private sceneRecord(projectId: string, versionId: string): SceneRecord {
@@ -758,35 +787,4 @@ export abstract class AuthoringServiceBase {
       failAuthoring("SCENE_NOT_FOUND");
     return { scene, version };
   }
-}
-
-function baseDocument(id: string, at: string) {
-  return { id, schemaVersion: 1 as const, createdAt: at, updatedAt: at };
-}
-
-function blankSceneContent(): SceneContent {
-  return {
-    purpose: "",
-    description: "",
-    documentSegments: [],
-    environment: "",
-    timeOfDay: "",
-    composition: "",
-    cameraFraming: "",
-    narrativeText: "",
-    dialogue: [],
-    twoImageMoment: false,
-  };
-}
-
-function requiredSceneText(content: SceneContent): boolean {
-  return [
-    content.purpose,
-    content.description,
-    content.environment,
-    content.timeOfDay,
-    content.composition,
-    content.cameraFraming,
-    content.narrativeText,
-  ].every((value) => value.trim().length > 0);
 }

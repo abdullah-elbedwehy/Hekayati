@@ -6,6 +6,10 @@ export * from "./invalidation.js";
 export * from "./pages.js";
 export * from "./output-types.js";
 export * from "./pipeline.js";
+export type {
+  CreativePipelineOptions,
+  PreviewWorkflowStarter,
+} from "./pipeline-support.js";
 export * from "./repositories.js";
 export * from "./schemas.js";
 export * from "./sheet-pipeline.js";

@@ -43,6 +43,7 @@ import type {
 } from "./types.js";
 
 const terminalStates = new Set<JobState>(["succeeded", "failed", "canceled"]);
+const ownerOnlyGateKinds = new Set(["customer_approval"]);
 
 export interface QueueSnapshot {
   counts: Record<JobState, number>;
@@ -238,6 +239,11 @@ export class JobControls {
   cancel(id: string, input: ExpectedJobState): JobRecord {
     return this.repository.transaction(() => {
       const current = this.expected(id, input);
+      if (
+        current.request.kind === "human_gate" &&
+        ownerOnlyGateKinds.has(current.request.gateKind)
+      )
+        throw new JobError("JOB_GATE_OWNER_ACTION_REQUIRED");
       if (terminalStates.has(current.state))
         throw new JobError("JOB_ACTION_NOT_ALLOWED");
       const canceled = this.update(current, {
@@ -252,6 +258,45 @@ export class JobControls {
         fromState: current.state,
         toState: "canceled",
         reason: "user_canceled",
+      });
+      return canceled;
+    });
+  }
+
+  cancelOwnedHumanGate(
+    id: string,
+    input: {
+      expectedRevision: number;
+      targetVersionId: string;
+      reason: string;
+    },
+    ownerVerify: (job: JobRecord) => boolean,
+  ): JobRecord {
+    return this.repository.transaction(() => {
+      const current = this.requireJob(id);
+      if (current.revision !== input.expectedRevision)
+        throw new JobError("JOB_REVISION_CONFLICT");
+      if (
+        current.request.kind !== "human_gate" ||
+        !ownerOnlyGateKinds.has(current.request.gateKind) ||
+        current.state !== "waiting_review"
+      )
+        throw new JobError("JOB_GATE_NOT_WAITING");
+      if (current.request.targetVersionId !== input.targetVersionId)
+        throw new JobError("JOB_GATE_VERSION_MISMATCH");
+      if (!ownerVerify(current)) throw new JobError("JOB_GATE_OWNER_REJECTED");
+      const canceled = this.update(current, {
+        state: "canceled",
+        stateReason: input.reason,
+        lease: null,
+        retrySchedule: null,
+        resumeState: null,
+        resumeReason: null,
+      });
+      this.history.append(canceled, "canceled", {
+        fromState: "waiting_review",
+        toState: "canceled",
+        reason: input.reason,
       });
       return canceled;
     });
