@@ -16,7 +16,7 @@
 - [ ] CHK206 Current granted consent (date+note) is required at enqueue and immediately before every provider call with direct photos or transitively photo-derived sheets; wholly description-derived sheets follow the zero-photo exception; absent/refused codes are exact and rejected fixtures make zero network calls (FR-004, EC-H14)
 - [ ] CHK207 Provider payloads contain only per-call minimum (audited payload snapshot test) (FR-134)
 - [ ] CHK208 GPS/EXIF/IPTC/XMP stripped from working/crop/thumbnail assets; private originals have no provider-ID path; provider resolver accepts only explicit clean `providerAssetId`/approved-sheet records (FR-021/025)
-- [ ] CHK209 Permanent deletion removes DB records AND disk media; verified by post-delete FS scan (FR-005)
+- [ ] CHK209 Permanent deletion uses a fresh hashed inventory and hierarchical scope lock, removes every target DB/ref/media/export link, preserves positive anonymous shared refs, resumes exact managed unlinks, and reaches verified only after DB/filesystem/refcount/scope postconditions pass (FR-005)
 - [ ] CHK210 Cross-family selection blocked structurally (FR-003)
 - [ ] CHK211 Template-from-story strips photos/names/mentions (FR-051 privacy fixture)
 - [ ] CHK212 No telemetry/analytics/external calls besides selected provider endpoints (FR-132 — network capture test)
@@ -27,7 +27,7 @@
 
 - [x] CHK213 Startup refuses non-loopback bind; test proves it (FR-110, EC-H06)
 - [x] CHK214 Data dirs 0700, files 0600 (FR-130)
-- [ ] CHK215 No-backup warning on first run + export screen; export labeled "not a backup" (FR-133, EC-H07/08)
+- [ ] CHK215 No-backup warning appears on first run + export screen; export is labeled manual portability, not automatic backup, names included child photos, and says downloaded/external copies cannot be tracked or deleted by Hekayati (FR-133, EC-H07/08, RR-20)
 - [x] CHK222 Listener configuration rejects wildcard, LAN, hostname, IPv6, and alternate-loopback values before socket open; the accepted literal `127.0.0.1` listener is independently verified after listen (FR-147, SC-014)
 - [x] CHK223 Exact canonical authority guard rejects missing/malformed `Host`, `localhost`, alternate `127/8`, DNS-rebinding hostnames, and spoofed forwarded-host variants before routing (FR-147, EC-H09)
 - [x] CHK224 Cross-origin CORS and PNA preflights fail with no `Access-Control-Allow-Origin`, `Access-Control-Allow-Credentials`, or `Access-Control-Allow-Private-Network` opt-in (FR-148, EC-H10/11)
@@ -39,11 +39,12 @@ Phase 1 evidence is recorded in `specs/002-local-foundation/IMPLEMENTATION_NOTES
 ## Intake & Archive Safety
 
 - [ ] CHK216 Streaming compressed-byte and decoded-pixel limits are enforced from settings; type is validated by content + successful decode, and spoofed/corrupt/bomb fixtures leave no state (FR-022)
-- [ ] CHK217 ZIP import rejects traversal/symlink/executable/corrupt/future-version fixtures pre-write (FR-128, EC-G01–G10)
-- [ ] CHK218 Import atomic: interrupted-commit fixture leaves zero visible partial state (EC-G08)
-- [ ] CHK219 Export secret-scan gate fails archives containing seeded secrets (FR-126, EC-G11)
+- [ ] CHK217 Lazy ZIP import enforces exact ArchivePolicy/v1 and every EC-G01–G13 envelope/name/type/Unicode/resource/disk/version/schema/reference/media/mode fixture before product writes; frozen v1 alone migrates to strict v2 (FR-127/128)
+- [ ] CHK218 Real interruption across portability lock/drain/snapshot staging/import prepare+DB boundary/deletion unlink+verification recovers to one exact snapshot and old-or-one-complete graph, with no mixed/partial state, dangling hold/ref, external-source deletion, or TTL unlock (EC-G08, RR-20)
+- [ ] CHK219 Two-pass export secret gate fails every seeded JSON/binary/name/final-ZIP secret, destroys only the candidate, and leaves the prior ready archive byte-identical (FR-126, EC-G11)
+- [ ] CHK229 Every closed FR-160 action (export pause/start, import upload/plan/commit/replace, deletion confirm/cleanup retry) atomically persists its scoped key/hash and exact bounded result; same-hash replay across restart returns it, collision/failure injection changes nothing, upload verifies declared checksum/bytes, and no duplicate archive/operation/plan/graph/refcount delta/unlink/report appears.
 
 ## Process
 
-- [ ] CHK220 Security review performed on: keychain wrapper, upload handling, export/import, provider adapters (Constitution workflow)
+- [ ] CHK220 Security review performed on: keychain wrapper, upload handling, participant closure/remap, hierarchical scope/scheduler admission, snapshot/media holds, hostile export/import, prepared/unlink ledgers, deletion/refcount verification, provider adapters, and scoped upload/download APIs (Constitution workflow)
 - [ ] CHK221 RR-13 legal review scheduled before commercial launch (consent wording, privacy policy, provider ToS for child images)

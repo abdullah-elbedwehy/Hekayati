@@ -38,7 +38,7 @@
 - [ ] CHK021 Split preview-cycle/content-approval heads bind exact customerContentHash + PreviewOutput/cycle/gate evidence; stale action fails; visible change invalidates authorization. 009 guard failure at materialization creates zero job, while later failure commits no artifact/head; IM-19 continuity and IM-20 exact-repair semantics match the matrix (FR-085/086, C-26, SC-010)
 - [ ] CHK022 Interior PDF passes preflight; Arabic golden corpus passes (SC-006/008)
 - [ ] CHK023 Cover blocked without spine width/template; produced correctly with printer template (FR-122, US7-AS2/3)
-- [ ] CHK024 Export/import round-trip full fidelity; deletion removes media from disk (US9)
+- [ ] CHK024 Exact `HekayatiArchive/v2` export→fresh import preserves the complete real 003–009 graph after expected ID/hash/job normalization, excludes unrelated data/secrets/paths, and verified project/customer deletion removes every target link/zero-ref managed file while preserving shared refs; 010 proves a synthetic 011 seam and 011/Phase 10 repeats the real Studio delta (US9)
 - [ ] CHK025 Complete Arabic RTL journey usable at 1440×900 (SC-012); quickstart walkthrough completes as written (SC-001)
 - [ ] CHK026 Single Image Studio: one image without a book project; history + download; no Project/Story/Page created; book approvals untouched (FR-140–146, SC-013, US11, E8)
 

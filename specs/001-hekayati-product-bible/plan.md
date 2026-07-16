@@ -86,6 +86,7 @@ src/
 │   ├── story/             # config, templates, compile-to-generation-payload
 │   ├── pages/             # versions, locks, review states
 │   ├── approvals/         # records + invalidation engine (matrix implementation)
+│   ├── portability/       # participants, scope admission, snapshots, plans, ledgers
 │   └── versioning/        # lineage, preconditioned commits
 ├── providers/
 │   ├── contract.ts        # canonical types (mirrors contracts/provider-contract.md)
@@ -97,7 +98,7 @@ src/
 ├── assets/                # prepared content-addressed writes, derived/generated store, private originals, integrity scans
 ├── layout/                # text placement analysis, dialogue bubbles, typography rules
 ├── pdf/                   # HTML templates, Playwright renderer, watermark, preflight, cover/spine, Ghostscript CMYK
-├── portability/           # export/import, manifest, secret-scan, ZIP safety
+├── portability/           # managed filesystem/ZIP/stream/secret-scan execution
 ├── security/              # keychain wrapper, log redaction, file permissions
 └── ui/                    # React RTL SPA (Arabic), feature-organized components
 
@@ -123,6 +124,7 @@ tests/
 9. **Photo intake is local, streaming, and non-biometric** (R12, C-19/C-20): multipart uploads are byte-capped while streaming, content-sniffed then decoded, and committed only after a privacy-clean working copy plus its immutable `ReferencePhoto` record are valid. `sips` handles HEIC conversion and sharp handles deterministic image checks/transforms; semantic conflicts come from explicit operator observations. Originals remain local-only and are never provider-eligible.
 10. **Approval binds one exact preview bundle** (C-26): immutable PreviewOutput content pins book/page/layout/cover/settings hashes and the exact PDF asset. Approval actions use revision/hash CAS; one approved-book snapshot reader is the only print handoff. Watermark-only re-render can flag the old preview without changing content approval, while stale content can never borrow a prior action.
 11. **Invalidation is one assembled transaction**: creative, layout/preview/approval, and print participants are registered before any producer emits. The original event transaction freezes every affected artifact and consequence hash; downstream second consumers and retroactive replay resolution are forbidden.
+12. **Portability freezes in SQLite, streams after commit** (R11, C-07): one typed participant catalog resolves ownership; durable hierarchical customer/project/template locks guard every scoped domain and scheduler admission/commit point. After drain, one synchronous transaction freezes canonical document rows plus held media inventory; ZIP/filesystem work is asynchronous only after that transaction closes. Prepared/unlink ledgers and transaction-owned media refcounts make import/deletion restart-safe without path-bearing documents or time-expiring locks. A closed `PortabilityAction` ledger atomically binds export pause/start, import upload/plan/commit/replace, and deletion confirm/cleanup retry to their exact bounded result so FR-160 replay cannot duplicate durable work.
 
 ## Complexity Tracking
 
@@ -148,3 +150,4 @@ Findings fixed during consistency pass (2026-07-14):
 10. Layout had no approved geometry boundary before printer profiles → added a versioned customer composition profile and explicit incompatible-profile migration; compatible printer-only changes remain IM-14 (FR-087, C-27).
 11. Page locks and first layout conflicted because layout used the mutable Page head → separated downstream PageLayoutHead so initial derivation can preserve a frozen Page; successor layout requires unlock.
 12. The closed invalidation table had no real downstream transaction participant contract → added an assembled one-pass registry, frozen receipt replay, and exact 008/009 artifact ports.
+13. Slice 010 initially claimed a consistent read while retaining one SQLite transaction across asynchronous filesystem staging, carried a path-bearing legacy export record, and had a circular deletion/import order → R11/data model/state machines/tasks now define synchronous snapshot rows + media holds, managed keys, hierarchical admission, bounded ledgers, and the acyclic Phase-9 DAG.

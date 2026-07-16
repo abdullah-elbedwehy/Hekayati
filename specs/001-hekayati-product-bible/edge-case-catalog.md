@@ -97,14 +97,14 @@
 | EC-E01 | App restart / worker crash / machine restart | Lease expiry by bootId; re-queue; completed work durable                                    | scheduler §recovery, SC-002 |
 | EC-E02 | Database unavailable                         | Workers halt (`database_unavailable`); startup recovery                                     | scheduler §taxonomy         |
 | EC-E03 | Duplicate job delivery                       | Idempotency-key unique index returns existing job                                           | scheduler §idempotency      |
-| EC-E04 | Project deleted while jobs run               | Force-cancel first; commit preconditions guard stragglers                                   | scheduler §cancel           |
+| EC-E04 | Project deleted while jobs run               | Hierarchical exclusive lock + force-cancel commit; scheduler admission and target/state fences reject every straggler | scheduler §cancel, 010-C35 |
 | EC-E05 | System clock changes                         | Monotonic (bootId, monotonicMs) lease arithmetic — wall clock irrelevant                    | scheduler §leases           |
 | EC-E06 | Long job with no progress events             | "No progress" flag after stallThreshold; operator may cancel; never auto-kill               | scheduler §leases           |
 | EC-E07 | Disk full                                    | `insufficient_disk_space` pauses ALL jobs + health alert; atomic writes prevent torn assets | FR-093, FR-138              |
 | EC-E08 | Stale job lease + old worker completes       | Commit rejected (lease mismatch)                                                            | scheduler §commit           |
 | EC-E09 | Partial file write                           | Temp+fsync+rename: partial files are invisible orphans, GC-swept                            | FR-093, R4                  |
 | EC-E10 | Retry creates duplicate asset                | Content addressing dedups identical bytes; commit protocol dedups records                   | R4, FR-093                  |
-| EC-E11 | Export while jobs run                        | Requires one-click pause first (C-07)                                                       | FR-129                      |
+| EC-E11 | Export while jobs run                        | One-click draining lock atomically pauses new work, captures current attempts, waits/cancels them, then freezes synchronous snapshot rows before async staging | FR-129, C-07 |
 | EC-E12 | Multiple jobs write same page                | Idempotency scope + single-writer commit per page lineage                                   | scheduler §commit           |
 | EC-E13 | File permissions failure                     | `disk_write_failure` pause-all + health surface                                             | scheduler §taxonomy, FR-130 |
 
@@ -138,12 +138,12 @@
 | EC-G05 | Checksum mismatch                             | Rejected naming the file                                                                              | FR-128          |
 | EC-G06 | Duplicate project/character/asset IDs         | Conflict rules: as-new → remap IDs; replace → explicit confirmation                                   | FR-127/128      |
 | EC-G07 | Conflicting customer                          | Operator maps to existing or creates new                                                              | FR-127          |
-| EC-G08 | Partial import / interruption                 | Staged-then-committed; rollback deletes staging                                                       | FR-128, US9-AS4 |
-| EC-G09 | Insufficient disk space                       | Pre-checked before staging                                                                            | FR-128          |
+| EC-G08 | Partial import / interruption                 | Managed reservation + prepared ledger + one DB commit; rollback/recovery cleans only recognized managed work and never the external source | FR-128, US9-AS4 |
+| EC-G09 | Insufficient disk space                       | Overflow-safe preflight before extraction and repeated before commit; no visible graph                 | FR-128          |
 | EC-G10 | Malicious paths / symlinks / executables      | Entry-name validation + content sniff rejects pre-write                                               | FR-128, R11     |
 | EC-G11 | Secret accidentally included                  | Export-time automated secret-scan fails the archive                                                   | FR-126, SC-005  |
 | EC-G12 | Customer data duplicated on import            | Same as EC-G07 mapping flow                                                                           | FR-127          |
-| EC-G13 | Template import references missing characters | Templates are parameterized (role slots) — no character refs to break; legacy refs stripped at export | FR-050/051      |
+| EC-G13 | Template import references missing characters | Current templates are strict role-slot documents; frozen legacy refs are stripped by the 004 extractor during staging and revalidated before commit, or the whole import rejects | FR-050/051 |
 
 ## H — Privacy & operations
 
@@ -152,7 +152,7 @@
 | EC-H01 | Consent missing                                    | Generation blocked with reason; data entry still allowed                                 | FR-004         |
 | EC-H02 | Wrong family selected                              | Cross-family character selection structurally blocked                                    | FR-003         |
 | EC-H03 | Customer asks for deletion                         | Permanent delete flow with pre-report + media removal                                    | FR-005         |
-| EC-H04 | Deleting reusable character used in older projects | Pre-report lists projects; operator resolves per project (keep pinned copies vs cascade) | FR-005, EC-A08 |
+| EC-H04 | Deleting reusable character used in older projects | Pre-report lists projects; keeping any pinned customer copy cancels permanent deletion and routes to archive/export, while confirmed customer deletion cascades every owned project | FR-005, EC-A08 |
 | EC-H05 | Sensitive data in logs                             | Redaction layer + automated log-scan tests                                               | FR-131, SC-005 |
 | EC-H06 | App exposed on LAN                                 | Startup bind verification refuses non-loopback                                           | FR-110         |
 | EC-H07 | No backup + disk fails                             | Explicit no-backup warning (first run + export screen); accepted risk RR-06              | FR-133         |

@@ -1,12 +1,12 @@
 # Loop State
 
-- Last updated: 2026-07-16T03:41:23+03:00
+- Last updated: 2026-07-16T04:33:59+03:00
 - Authorization: full delivery loop approved via `prompts/codex-full-delivery-loop.md`
-- Current: 010 Portability/deletion readiness repair
-- Done: [spec graph split, Citrus Playground design lock, bootstrap commit f95da4b, Phase 0 commit 81627c9, 002 readiness/analyze PASS, 002 Local foundation checkpoint PASS 4d84270, 003 readiness/analyze PASS 6d24e98, 003 Customer/character library checkpoint PASS d6384b9, 004 readiness/analyze PASS, 004 Story authoring/templates checkpoint PASS 5f4df5b, 005 readiness/analyze PASS, 005 AI provider boundary checkpoint PASS b076c36, 006 readiness/analyze PASS, 006 Durable job orchestration checkpoint PASS d81de62, 007 readiness/analyze PASS 59f7018, 007 Creative generation/review checkpoint PASS 50b94be, 008 readiness/analyze PASS 2edf50b, 008 Arabic layout/preview checkpoint PASS f9acf9a, 009 readiness/analyze PASS da0ba6c, 009 Print production checkpoint PASS]
-- Blocked: []
+- Current: 010 Portability/deletion readiness PASS; isolate, commit and push the readiness checkpoint
+- Done: [spec graph split, Citrus Playground design lock, bootstrap commit f95da4b, Phase 0 commit 81627c9, 002 readiness/analyze PASS, 002 Local foundation checkpoint PASS 4d84270, 003 readiness/analyze PASS 6d24e98, 003 Customer/character library checkpoint PASS d6384b9, 004 readiness/analyze PASS, 004 Story authoring/templates checkpoint PASS 5f4df5b, 005 readiness/analyze PASS, 005 AI provider boundary checkpoint PASS b076c36, 006 readiness/analyze PASS, 006 Durable job orchestration checkpoint PASS d81de62, 007 readiness/analyze PASS 59f7018, 007 Creative generation/review checkpoint PASS 50b94be, 008 readiness/analyze PASS 2edf50b, 008 Arabic layout/preview checkpoint PASS f9acf9a, 009 readiness/analyze PASS da0ba6c, 009 Print production checkpoint PASS a2861ac, 010 readiness/analyze PASS]
+- Blocked: [startup volume has ~144 MiB free; cache cleanup confirmation is pending before implementation/test artifacts]
 - App runnable: yes — local Arabic shell, private family library, authoring workspace, explicit provider boundary, durable queue, complete mock creative graph, Arabic layout and cover composition, mechanically validated watermarked previews, exact approval lifecycle, immutable approved-book authorization, versioned printer profiles, watermark-free RGB/CMYK print production, preflight, proof gating, and scoped final downloads
-- Next: repair 010's canonical data-model/state-machine/research/task propagation and close its scope-lock/snapshot design before rerunning analyze and implementing T-P9
+- Next: stage only 010-owned readiness hunks, commit/push, then implement T-P9-01's participant/admission/action/snapshot/export kernel with tests first
 
 ## Slice status
 
@@ -19,8 +19,8 @@
 | 006 Durable job orchestration  | implemented; checkpoint PASS (`d81de62`)        |
 | 007 Creative generation/review | implemented; checkpoint PASS (`50b94be`)        |
 | 008 Arabic layout/preview      | implemented; checkpoint PASS (`f9acf9a`)        |
-| 009 Print production           | implemented; checkpoint PASS                    |
-| 010 Portability/deletion       | readiness repair required before implementation |
+| 009 Print production           | implemented; checkpoint PASS (`a2861ac`)        |
+| 010 Portability/deletion       | readiness/analyze PASS; checkpoint commit pending |
 | 011 Single Image Studio        | pending readiness                               |
 
 ## Delivery record
@@ -44,6 +44,7 @@
 - 008 implementation: committed and pushed as `f9acf9a`.
 - 009 readiness: analyze PASS after revisioned printer profiles, private indexed ICC/template imports, exact composition compatibility, separate interior/cover producers, closed bleed/crop/spread/blank geometry, fail-closed ICC-bound CMYK plus proof approval, exhaustive FR-123 registry, three authorization fences, reason-specific print invalidation, and the actual-printer manual launch boundary were made implementation-ready. G3/T-P0-07 and all required local tools pass; no provider or user-choice blocker remains.
 - 009 implementation: checkpoint PASS. Verification: 124 files / 814 tests, 90.82% statements and 83.53% branches (`src/domain/print/**` 90.81% / 84.96% / 96.89% / 93.80%; `src/print/**` 93.73% / 88.65% / 100% / 97.84%; Slice-owned `src/pdf/print-*` 92.71% / 86.58% / 93.56% / 95.40%), production build, 14/14 Playwright journeys, 0 dependency vulnerabilities, clean Node 22 lockfile install, exact profile/ICC/template boundaries, complete 32-code FR-123 defect detection, real RGB/CMYK rendered evidence, three authorization fences, IM-14/15/18/19/20 behavior, six real SIGKILL restart boundaries, three-width Arabic accessibility/error evidence, zero browser egress, and an exact staged privacy/artifact scan. CHK317/318 remain explicit pending pre-commercial operator gates.
-- 010 readiness audit: existing slice artifacts are not yet implementation-ready. Canonical data model/state machines/R11/tasks, archive identity/source ownership, scope-lock hierarchy/admission, and a transaction-safe consistent-snapshot mechanism must be reconciled before analyze can pass.
+- 010 readiness: analyze PASS after canonical and slice artifacts were reconciled around the typed participant registry, exact `HekayatiArchive/v2` plus frozen-v1 identity, durable hierarchical scope admission, synchronous SQLite snapshot rows/media holds before async staging, managed source/archive ownership, bounded import/deletion ledgers, acyclic Phase-9 DAG, deferred real-011 participant seam, and closed FR-160/CHK229 replay boundaries for all eight mutating portability actions. Prettier, ID-uniqueness, stale-wording and `git diff --check` evidence pass; commit isolation remains.
+- Environment note: the startup volume has approximately 144 MiB free. Repository writes currently work, but implementation/build/test artifacts are unsafe until approved regenerable-cache cleanup creates headroom; no cache or personal file has been deleted.
 - Environment note: real Gemini image acceptance remains unavailable until a credential and exact G2/G4 facts are configured. This is a recorded live-check SKIP, not a loop blocker, fallback, or substitution.
-- Implementation commits: `4d84270` (002); `d6384b9` (003); `5f4df5b` (004); `b076c36` (005); `d81de62` (006); `50b94be` (007); `f9acf9a` (008). The 009 hash will be recorded in the next readiness checkpoint because a commit cannot contain its own hash.
+- Implementation commits: `4d84270` (002); `d6384b9` (003); `5f4df5b` (004); `b076c36` (005); `d81de62` (006); `50b94be` (007); `f9acf9a` (008); `a2861ac` (009).

@@ -38,7 +38,7 @@ The app refuses to start unless its effective listener is the literal address `1
 7. After page review, Hekayati automatically lays out the exact reviewed snapshot, prepares customer-view cover proofs, persists `pdf_pending`, then validates one watermarked small preview. Download that exact file, send it via WhatsApp yourself, and record «تم إرسال المعاينة» then approval/changes against the shown preview version. A stale/non-current file cannot be approved; any visible change invalidates it and requires a new cycle.
 8. Configure the printer profile (trim/bleed/DPI/color; **spine width or printer cover template is mandatory for the cover**) → produce interior + cover PDFs → preflight must pass → send files to the printer.
 9. **Before your first real customer order**: print one physical proof and check Arabic shaping, colors, margins, spine (risk RR-05/RR-11).
-10. After delivery: «تصدير» the project ZIP for archiving (pauses generation first; the export is **not** a backup).
+10. After delivery: «تصدير» the project ZIP for manual portability (one click drains and leaves generation paused). A retry/reload reopens the same stored action result rather than creating a duplicate export. The archive can contain exact child photos; the export is **not** an automatic backup, and any downloaded/copied file is outside Hekayati's managed root and cannot later be found or deleted by Hekayati.
 
 ## Phase-validation walkthroughs (developer)
 

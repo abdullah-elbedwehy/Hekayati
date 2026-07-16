@@ -82,14 +82,35 @@ available ──quota_exhausted──▶ quota_paused ──operator wait/switch
 unavailable/quota states surface verbatim in Settings + queue blocking reasons; no silent transitions.
 ```
 
-## 7. Export/Import
+## 7. Portability operations and scope admission
 
 ```text
-Export: requested → require_paused_generation → snapshotting → secret_scan → { ready | failed(reason) }
-Import: file_selected → validating(structure, manifest, checksums, path-safety, disk)
-        → staged → committing(tx) → { imported | rolled_back(reason) }
-No state writes anything user-visible before `committing` succeeds (FR-128).
+ExportOperation:
+waiting_pause → waiting_quiescence → acquiring_lock → freezing_snapshot
+→ staging → packaging → secret_scanning → ready
+any pre-ready state ──bounded failure/cancel──▶ failed
+ready ──managed archive integrity/scope invalidation──▶ stale
+
+ImportOperation:
+uploaded → validating → plan_ready → committing → imported
+uploaded|validating|plan_ready ──validation/cancel──▶ failed
+committing ──transaction failure before visibility──▶ rolled_back
+any terminal state + managed cleanup failure ──▶ cleanup_required ──retry──▶ terminal state
+
+DeletionOperation:
+read-only inventory (no operation/no mutation) ──exact fresh confirmation──▶ committing
+committing → unlinking → verifying → verified
+unlinking|verifying ──managed cleanup/verification failure──▶ cleanup_required
+cleanup_required ──operator/startup retry──▶ unlinking|verifying
 ```
+
+`uploaded` means an opaque app-owned 0600 reservation exists; the operator-selected source archive remains external, read-only, and never deleted by Hekayati. Import planning exposes no product graph. The complete graph becomes visible only in the successful `committing` transaction; rollback/cleanup touches only recognized managed reservations/prepared entries.
+
+Scope admission is a durable hierarchical database protocol, not an in-memory mutex. Lock acquisition begins in `draining`: the same transaction pauses the project/queued work, blocks new scoped mutation/enqueue/claim/resume/promotion, and records the exact already-claimed/running attempts allowed to finish. At zero active captured attempts, export enters `snapshot`; replace/import/delete enter `exclusive`; no attempt may commit thereafter. A customer lock conflicts with every descendant project/customer-owned Studio mutation, a project lock conflicts with the same project and its owning customer lock, and a template-catalog lock conflicts only with template mutation/import. Unrelated scopes and immutable pinned global versions remain available.
+
+Every scoped domain write and scheduler enqueue, claim, resume, promotion, running transition, and owner result commit rechecks admission inside its own synchronous SQLite transaction. Locks never expire by time and never silently release. Startup recovers the owning operation before workers claim; only privately staged export completion or verified import/deletion cleanup releases the lock. A consistent export freezes canonical document bytes, media inventory, and holds in one synchronous transaction, then performs filesystem staging asynchronously from those durable rows—no SQLite transaction spans an `await` or file stream (FR-128/129, C-07).
+
+Every mutating portability route also crosses the closed FR-160 `PortabilityAction` boundary: export pause/start, import upload/plan/commit/replace, and deletion confirm/cleanup retry persist the action and exact bounded state/result atomically. Same scope/action/idempotency key plus the same canonical request hash returns the stored result; a different hash conflicts without rerunning durable work or duplicating archives, operations, plans, graphs, reference deltas, unlinks, or reports.
 
 ## 8. Photo consent eligibility
 
@@ -106,7 +127,7 @@ Direct-photo and transitively photo-derived-sheet work requires `granted` both b
 
 ```text
 active ⇄ archived
-archived ──feature 010 pre-report + explicit confirmation──▶ permanently_deleted
+active|archived ──feature 010 fresh inventory + exact confirmation + verified operation──▶ permanently_deleted
 ```
 
 Archive/restore is reversible picker visibility only (FR-018, IM-21). Archiving a customer/family hides its descendants from new selection; existing pinned versions remain readable and carry an archived indicator. Permanent deletion is never an alias or automatic consequence of archive.
