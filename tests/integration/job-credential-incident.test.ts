@@ -175,9 +175,10 @@ describe("provider credential incidents", () => {
 
     const impact = scheduler.credentialResumeImpact(incident.id);
     const before = credentialSnapshot(scheduler);
+    const unavailableTarget = incident.originalTargets.at(-1)!;
     const unavailable = vi.fn(
       async (exactTarget: NonNullable<JobRecord["target"]>) =>
-        exactTarget.operation !== "image",
+        exactTarget.modelId !== unavailableTarget.modelId,
     );
     await expect(
       scheduler.resumeCredentials(
@@ -186,7 +187,7 @@ describe("provider credential incidents", () => {
         { forceCheckExact: unavailable },
       ),
     ).rejects.toMatchObject({ code: "JOB_CREDENTIAL_TARGET_UNAVAILABLE" });
-    expect(unavailable).toHaveBeenCalledTimes(2);
+    expect(unavailable).toHaveBeenCalledTimes(incident.originalTargets.length);
     expect(credentialSnapshot(scheduler)).toEqual(before);
 
     const exactChecks: JobRecord["target"][] = [];
@@ -202,10 +203,7 @@ describe("provider credential incidents", () => {
       availability,
     );
 
-    expect(exactChecks).toEqual([
-      target("text", "source"),
-      target("image", "sibling"),
-    ]);
+    expect(exactChecks).toEqual(incident.originalTargets);
     expect(restored.map((job) => job.id)).toEqual([source.id]);
     expect(restored[0]).toMatchObject({ state: "queued", failure: null });
     expect(scheduler.get(canceled.id)?.state).toBe("canceled");

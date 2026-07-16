@@ -133,6 +133,97 @@ describe("job worker and commit protocol", () => {
     close();
   });
 
+  it("returns at the deadline when prepare ignores cancellation", async () => {
+    const { scheduler, close } = await harness();
+    let releasePrepare: (() => void) | undefined;
+    const prepared = new Promise<void>((resolve) => {
+      releasePrepare = resolve;
+    });
+    let executeCount = 0;
+    const stuckPrepare: RegisteredJobDefinition = {
+      jobType: "fixture_noop",
+      requestSchema: localJobRequestSchema,
+      validateEnqueue: () => undefined,
+      prepare: async () => {
+        await prepared;
+        return { tooLate: true };
+      },
+      execute: async () => {
+        executeCount += 1;
+        return { ok: true, value: null };
+      },
+      commit: () => ({ resultRefs: [] }),
+    };
+    const job = scheduler.enqueue(input("prepare-timeout"));
+
+    await expect(
+      resolvesWithin(
+        pool(scheduler, stuckPrepare, { timeoutMs: 25 }).runOne(),
+        500,
+      ),
+    ).resolves.toBe(true);
+
+    expect(executeCount).toBe(0);
+    expect(scheduler.get(job.id)).toMatchObject({
+      state: "queued",
+      stateReason: "retry_delay",
+      failure: { category: "timeout" },
+    });
+    releasePrepare?.();
+    close();
+  });
+
+  it("returns at the deadline and discards an executor's late success", async () => {
+    const { scheduler, close } = await harness();
+    let releaseExecute: (() => void) | undefined;
+    let startedResolve: (() => void) | undefined;
+    const started = new Promise<void>((resolve) => {
+      startedResolve = resolve;
+    });
+    const executed = new Promise<void>((resolve) => {
+      releaseExecute = resolve;
+    });
+    let commitCount = 0;
+    let discardCount = 0;
+    const stuckExecute: RegisteredJobDefinition = {
+      jobType: "fixture_noop",
+      requestSchema: localJobRequestSchema,
+      validateEnqueue: () => undefined,
+      prepare: async () => ({}),
+      execute: async () => {
+        startedResolve?.();
+        await executed;
+        return { ok: true, value: "late-timeout-result" };
+      },
+      commit: () => {
+        commitCount += 1;
+        return { resultRefs: ["must-not-commit"] };
+      },
+      discard: () => {
+        discardCount += 1;
+      },
+    };
+    const job = scheduler.enqueue(input("execute-timeout"));
+    const running = pool(scheduler, stuckExecute, {
+      timeoutMs: 25,
+    }).runOne();
+    await started;
+
+    await expect(resolvesWithin(running, 500)).resolves.toBe(true);
+
+    expect(scheduler.get(job.id)).toMatchObject({
+      state: "queued",
+      stateReason: "retry_delay",
+      resultRefs: [],
+      failure: { category: "timeout" },
+    });
+    expect(commitCount).toBe(0);
+    releaseExecute?.();
+    await eventually(() => expect(discardCount).toBe(1));
+    expect(commitCount).toBe(0);
+    close();
+  });
+
   it("records a content-safe stale-lineage rejection and preserves no result", async () => {
     const { scheduler, close } = await harness();
     let discarded = 0;
@@ -492,6 +583,26 @@ async function eventually(assertion: () => void): Promise<void> {
     }
   }
   assertion();
+}
+
+async function resolvesWithin<T>(
+  operation: Promise<T>,
+  timeoutMs: number,
+): Promise<T> {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      operation,
+      new Promise<never>((_resolve, reject) => {
+        timeout = setTimeout(
+          () => reject(new Error("TEST_OPERATION_DID_NOT_SETTLE")),
+          timeoutMs,
+        );
+      }),
+    ]);
+  } finally {
+    if (timeout) clearTimeout(timeout);
+  }
 }
 
 function errorWithCode(code: string): Error {

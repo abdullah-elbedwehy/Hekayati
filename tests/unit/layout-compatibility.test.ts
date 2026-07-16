@@ -23,6 +23,60 @@ describe("composition-to-printer compatibility", () => {
   });
 
   it.each([
+    ["positive width", { trimWidthMm: 210.5 }],
+    ["negative width", { trimWidthMm: 209.5 }],
+    ["positive height", { trimHeightMm: 297.5 }],
+    ["negative height", { trimHeightMm: 296.5 }],
+  ])("accepts the exact %s tolerance boundary", (_name, override) => {
+    expect(
+      checkCompositionCompatibility(composition, {
+        orientation: "portrait",
+        trimWidthMm: 210,
+        trimHeightMm: 297,
+        safeContentRegion: { ...composition.safeContentRegion },
+        ...override,
+      }),
+    ).toEqual({ compatible: true });
+  });
+
+  it("accepts exact equality at every safe-region boundary", () => {
+    expect(
+      checkCompositionCompatibility(composition, {
+        orientation: "portrait",
+        trimWidthMm: composition.trimWidthMm,
+        trimHeightMm: composition.trimHeightMm,
+        safeContentRegion: { ...composition.safeContentRegion },
+      }),
+    ).toEqual({ compatible: true });
+  });
+
+  it.each([
+    ["bleed", { bleedMm: 30 }],
+    ["DPI", { dpi: 2_400 }],
+    ["color", { colorSpace: "CMYK" }],
+    ["ICC", { iccChecksum: "a".repeat(64) }],
+    ["crop marks", { cropMarks: { enabled: true, offsetMm: 8 } }],
+    ["spine", { spineWidthMm: 200 }],
+    [
+      "printer blanks",
+      { requiredBlankPages: [{ position: "before_interior", count: 8 }] },
+    ],
+  ])(
+    "ignores printer-only %s when composition geometry is unchanged",
+    (_name, printerOnly) => {
+      expect(
+        checkCompositionCompatibility(composition, {
+          orientation: "portrait",
+          trimWidthMm: composition.trimWidthMm,
+          trimHeightMm: composition.trimHeightMm,
+          safeContentRegion: { ...composition.safeContentRegion },
+          printerOnly,
+        }),
+      ).toEqual({ compatible: true });
+    },
+  );
+
+  it.each([
     ["orientation", { orientation: "landscape" as const }],
     ["width", { trimWidthMm: 210.6 }],
     ["height", { trimHeightMm: 297.6 }],

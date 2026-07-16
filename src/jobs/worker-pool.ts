@@ -3,7 +3,12 @@ import { JobError } from "./errors.js";
 import { classifyRuntimeError } from "./runtime-errors.js";
 import type { JobScheduler } from "./scheduler.js";
 import type { JobRecord } from "./schemas.js";
-import type { JobClock, JobFence, RegisteredJobDefinition } from "./types.js";
+import type {
+  JobClock,
+  JobExecutionResult,
+  JobFence,
+  RegisteredJobDefinition,
+} from "./types.js";
 
 export interface JobWorkerPoolOptions {
   bootId: string;
@@ -144,17 +149,48 @@ export class JobWorkerPool {
     definition: RegisteredJobDefinition | undefined,
   ): Promise<void> {
     if (!definition) throw new JobError("JOB_DEFINITION_MISSING");
-    const prepared = await definition.prepare(running, this.batchId());
-    const result = await definition.execute({
+    const preparedResult = await settleBeforeAbort(
+      definition.prepare(running, this.batchId()),
+      controller.signal,
+    );
+    if (preparedResult.aborted) {
+      this.recordFailure(running.id, fence, makeFailure("timeout"));
+      return;
+    }
+    const execution = definition.execute({
       job: running,
-      prepared,
+      prepared: preparedResult.value,
       signal: controller.signal,
       timeoutMs: this.options.timeoutMs,
     });
+    const executionResult = await settleBeforeAbort(
+      execution,
+      controller.signal,
+    );
+    if (executionResult.aborted) {
+      discardLateSuccess(execution, definition);
+      this.recordFailure(running.id, fence, makeFailure("timeout"));
+      return;
+    }
+    const result = executionResult.value;
+    if (controller.signal.aborted) {
+      if (result.ok) await definition.discard?.(result.value);
+      this.recordFailure(running.id, fence, makeFailure("timeout"));
+      return;
+    }
     if (!result.ok) {
       this.recordFailure(running.id, fence, result.failure);
       return;
     }
+    await this.commitResult(running, fence, definition, result);
+  }
+
+  private async commitResult(
+    running: JobRecord,
+    fence: JobFence,
+    definition: RegisteredJobDefinition,
+    result: Extract<JobExecutionResult, { ok: true }>,
+  ): Promise<void> {
     try {
       this.scheduler.commitWith(
         running.id,
@@ -297,6 +333,39 @@ export class JobWorkerPool {
   private batchId(): string {
     return `batch-${this.options.bootId}`;
   }
+}
+
+type AbortableResult<T> = { aborted: true } | { aborted: false; value: T };
+
+async function settleBeforeAbort<T>(
+  operation: Promise<T>,
+  signal: AbortSignal,
+): Promise<AbortableResult<T>> {
+  if (signal.aborted) return { aborted: true };
+  let abort!: () => void;
+  const aborted = new Promise<AbortableResult<T>>((resolve) => {
+    abort = () => resolve({ aborted: true });
+    signal.addEventListener("abort", abort, { once: true });
+  });
+  try {
+    return await Promise.race([
+      operation.then((value) => ({ aborted: false, value }) as const),
+      aborted,
+    ]);
+  } finally {
+    signal.removeEventListener("abort", abort);
+  }
+}
+
+function discardLateSuccess(
+  execution: Promise<JobExecutionResult>,
+  definition: RegisteredJobDefinition,
+): void {
+  void execution
+    .then(async (result) => {
+      if (result.ok) await definition.discard?.(result.value);
+    })
+    .catch(() => undefined);
 }
 
 function fenceFor(job: JobRecord): JobFence {

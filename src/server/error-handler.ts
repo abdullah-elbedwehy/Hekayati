@@ -6,6 +6,7 @@ import { AuthoringError } from "../domain/authoring/index.js";
 import { CreativeError } from "../domain/creative/index.js";
 import { ApprovalError } from "../domain/layout/approvals.js";
 import { LayoutError } from "../domain/layout/errors.js";
+import { PrintError } from "../domain/print/errors.js";
 import { LibraryError } from "../domain/library/errors.js";
 import { JobError } from "../jobs/errors.js";
 import { ProviderTargetChangeError } from "../jobs/provider-target-change.js";
@@ -20,31 +21,16 @@ export function handleError(
   logger: StructuredLogger,
 ): void {
   if (handleValidationError(error, reply)) return;
-  if (error instanceof SecretPersistenceError) {
-    void reply.code(400).send({ code: "INVALID_INPUT" });
-    return;
-  }
-  if (error instanceof LibraryError) {
-    void reply.code(error.statusCode).send({ code: error.code });
-    return;
-  }
-  if (error instanceof AuthoringError) {
-    void reply.code(error.statusCode).send({
-      code: error.code,
-      details: error.details,
-    });
-    return;
-  }
-  if (error instanceof CreativeError) {
-    void reply
-      .code(error.statusCode)
-      .send({ code: error.code, details: error.details });
-    return;
-  }
-  if (error instanceof LayoutError || error instanceof ApprovalError) {
-    void reply.code(error.statusCode).send({ code: error.code });
-    return;
-  }
+  if (error instanceof SecretPersistenceError)
+    return sendCode(reply, 400, "INVALID_INPUT");
+  if (error instanceof LibraryError)
+    return sendCode(reply, error.statusCode, error.code);
+  if (error instanceof AuthoringError || error instanceof CreativeError)
+    return sendCode(reply, error.statusCode, error.code, error.details);
+  if (error instanceof LayoutError || error instanceof ApprovalError)
+    return sendCode(reply, error.statusCode, error.code);
+  if (error instanceof PrintError)
+    return sendCode(reply, error.statusCode, error.code, error.details);
   if (error instanceof PhotoIntakeError) {
     void reply.code(error.statusCode).send(error.toSafeResponse());
     return;
@@ -54,11 +40,20 @@ export function handleError(
     error instanceof ProviderServiceError ||
     error instanceof ProviderTargetChangeError ||
     error instanceof JobError
-  ) {
-    void reply.code(error.statusCode).send({ code: error.code });
-    return;
-  }
+  )
+    return sendCode(reply, error.statusCode, error.code);
   handleUnexpectedError(error, reply, logger);
+}
+
+function sendCode(
+  reply: FastifyReply,
+  statusCode: number,
+  code: string,
+  details?: unknown,
+): void {
+  void reply
+    .code(statusCode)
+    .send(details === undefined ? { code } : { code, details });
 }
 
 function handleUnexpectedError(

@@ -134,9 +134,16 @@ describe("persisted quota availability resume", () => {
     exhaustQuota(scheduler, source.id);
     const [incident] = scheduler.quotaIncidents();
     const before = durableQuotaSnapshot(scheduler);
+    const unavailableTarget = incident.originalTargets.at(-1);
+    if (!unavailableTarget) throw new Error("EXPECTED_QUOTA_TARGET");
     const forceCheckExact = vi.fn(
       async (exactTarget: NonNullable<JobRecord["target"]>) =>
-        exactTarget.modelId !== "model-b",
+        !(
+          exactTarget.providerId === unavailableTarget.providerId &&
+          exactTarget.modelId === unavailableTarget.modelId &&
+          exactTarget.operation === unavailableTarget.operation &&
+          exactTarget.settingsHash === unavailableTarget.settingsHash
+        ),
     );
 
     await expect(
@@ -152,7 +159,9 @@ describe("persisted quota availability resume", () => {
       ),
     ).rejects.toMatchObject({ code: "JOB_QUOTA_TARGET_UNAVAILABLE" });
 
-    expect(forceCheckExact).toHaveBeenCalledTimes(2);
+    expect(forceCheckExact.mock.calls.map(([target]) => target)).toEqual(
+      incident.originalTargets,
+    );
     expect(durableQuotaSnapshot(scheduler)).toEqual(before);
 
     await expect(

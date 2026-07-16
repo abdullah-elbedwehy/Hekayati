@@ -16,6 +16,7 @@ export default defineConfig({
         "src/domain/**/*.ts",
         "src/layout/**/*.ts",
         "src/pdf/**/*.ts",
+        "src/print/**/*.ts",
         "src/jobs/**/*.ts",
         "src/providers/**/*.ts",
         "src/security/**/*.ts",
@@ -46,6 +47,24 @@ export default defineConfig({
           branches: 80,
         },
         "src/pdf/**/*.ts": {
+          lines: 80,
+          functions: 80,
+          statements: 80,
+          branches: 80,
+        },
+        "src/domain/print/**/*.ts": {
+          lines: 80,
+          functions: 80,
+          statements: 80,
+          branches: 80,
+        },
+        "src/print/**/*.ts": {
+          lines: 80,
+          functions: 80,
+          statements: 80,
+          branches: 80,
+        },
+        "src/pdf/print-*.ts": {
           lines: 80,
           functions: 80,
           statements: 80,

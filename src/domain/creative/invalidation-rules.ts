@@ -35,7 +35,9 @@ export type InvalidationArtifactKind =
   | "book_approval"
   | "print_interior"
   | "print_cover"
-  | "print_preflight";
+  | "print_preflight"
+  | "print_proof"
+  | "print_run";
 
 type MatrixEffect = "invalidate" | "recheck";
 
@@ -43,6 +45,21 @@ interface InvalidationRule {
   effects: Partial<Record<InvalidationArtifactKind, MatrixEffect>>;
   bumpBookVersion: boolean;
 }
+
+const completePrintEffects = {
+  print_interior: "invalidate",
+  print_cover: "invalidate",
+  print_preflight: "invalidate",
+  print_proof: "invalidate",
+  print_run: "invalidate",
+} as const;
+
+const coverPrintEffects = {
+  print_cover: "invalidate",
+  print_preflight: "invalidate",
+  print_proof: "invalidate",
+  print_run: "invalidate",
+} as const;
 
 export interface InvalidationArtifact {
   id: string;
@@ -73,9 +90,7 @@ export const invalidationRuleTable: Record<MatrixRow, InvalidationRule> = {
     page_layout: "recheck",
     preview_pdf: "invalidate",
     book_approval: "invalidate",
-    print_interior: "invalidate",
-    print_cover: "invalidate",
-    print_preflight: "invalidate",
+    ...completePrintEffects,
   }),
   "IM-02": rule(false, {
     story_plan_text: "recheck",
@@ -87,18 +102,14 @@ export const invalidationRuleTable: Record<MatrixRow, InvalidationRule> = {
     page_layout: "recheck",
     preview_pdf: "invalidate",
     book_approval: "invalidate",
-    print_interior: "invalidate",
-    print_cover: "invalidate",
-    print_preflight: "invalidate",
+    ...completePrintEffects,
   }),
   "IM-04": rule(true, {
     page_illustration: "invalidate",
     page_layout: "recheck",
     preview_pdf: "invalidate",
     book_approval: "invalidate",
-    print_interior: "invalidate",
-    print_cover: "invalidate",
-    print_preflight: "invalidate",
+    ...completePrintEffects,
   }),
   "IM-05": rule(true, {
     character_sheet: "recheck",
@@ -107,26 +118,20 @@ export const invalidationRuleTable: Record<MatrixRow, InvalidationRule> = {
     page_layout: "invalidate",
     preview_pdf: "invalidate",
     book_approval: "invalidate",
-    print_interior: "invalidate",
-    print_cover: "invalidate",
-    print_preflight: "invalidate",
+    ...completePrintEffects,
   }),
   "IM-06": rule(true, {
     page_illustration: "invalidate",
     page_layout: "invalidate",
     preview_pdf: "invalidate",
     book_approval: "invalidate",
-    print_interior: "invalidate",
-    print_cover: "invalidate",
-    print_preflight: "invalidate",
+    ...completePrintEffects,
   }),
   "IM-07": rule(true, {
     page_layout: "invalidate",
     preview_pdf: "invalidate",
     book_approval: "invalidate",
-    print_interior: "invalidate",
-    print_cover: "invalidate",
-    print_preflight: "invalidate",
+    ...completePrintEffects,
   }),
   "IM-08": rule(true, {
     scene: "invalidate",
@@ -134,9 +139,7 @@ export const invalidationRuleTable: Record<MatrixRow, InvalidationRule> = {
     page_layout: "invalidate",
     preview_pdf: "invalidate",
     book_approval: "invalidate",
-    print_interior: "invalidate",
-    print_cover: "invalidate",
-    print_preflight: "invalidate",
+    ...completePrintEffects,
   }),
   "IM-09": rule(true, {
     story_plan_text: "invalidate",
@@ -145,31 +148,23 @@ export const invalidationRuleTable: Record<MatrixRow, InvalidationRule> = {
     page_layout: "invalidate",
     preview_pdf: "invalidate",
     book_approval: "invalidate",
-    print_interior: "invalidate",
-    print_cover: "invalidate",
-    print_preflight: "invalidate",
+    ...completePrintEffects,
   }),
   "IM-10": rule(true, {
     page_layout: "recheck",
     preview_pdf: "invalidate",
     book_approval: "invalidate",
-    print_interior: "invalidate",
-    print_cover: "invalidate",
-    print_preflight: "invalidate",
+    ...completePrintEffects,
   }),
   "IM-11": rule(true, {
     preview_pdf: "invalidate",
     book_approval: "invalidate",
-    print_interior: "invalidate",
-    print_cover: "invalidate",
-    print_preflight: "invalidate",
+    ...completePrintEffects,
   }),
   "IM-12": rule(true, {
     preview_pdf: "invalidate",
     book_approval: "invalidate",
-    print_interior: "invalidate",
-    print_cover: "invalidate",
-    print_preflight: "invalidate",
+    ...completePrintEffects,
   }),
   "IM-13": rule(true, {
     character_sheet: "recheck",
@@ -177,16 +172,12 @@ export const invalidationRuleTable: Record<MatrixRow, InvalidationRule> = {
     page_layout: "invalidate",
     preview_pdf: "invalidate",
     book_approval: "invalidate",
-    print_interior: "invalidate",
-    print_cover: "invalidate",
-    print_preflight: "invalidate",
+    ...completePrintEffects,
   }),
   "IM-14": rule(false, {
-    print_interior: "invalidate",
-    print_cover: "invalidate",
-    print_preflight: "invalidate",
+    ...completePrintEffects,
   }),
-  "IM-15": rule(false, { print_cover: "invalidate" }),
+  "IM-15": rule(false, coverPrintEffects),
   "IM-16": rule(false, {}),
   "IM-17": rule(false, {}),
   "IM-18": rule(false, {}),
@@ -199,9 +190,7 @@ export const invalidationRuleTable: Record<MatrixRow, InvalidationRule> = {
     page_illustration: "invalidate",
     preview_pdf: "invalidate",
     book_approval: "recheck",
-    print_interior: "invalidate",
-    print_cover: "invalidate",
-    print_preflight: "invalidate",
+    ...completePrintEffects,
   }),
   "IM-21": rule(false, {}),
 };

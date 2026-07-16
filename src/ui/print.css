@@ -1,0 +1,435 @@
+.print-view {
+  max-width: 100rem;
+}
+
+.print-context {
+  margin-block-end: 20px;
+}
+
+.print-error {
+  padding: 14px 16px;
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 8%, var(--paper));
+  border: 1px solid color-mix(in srgb, var(--danger) 36%, transparent);
+  border-radius: 10px;
+  font-weight: 700;
+}
+
+.print-workspace {
+  display: grid;
+  grid-template-columns: minmax(19rem, 0.78fr) minmax(0, 1.45fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.print-card {
+  min-width: 0;
+  padding: clamp(18px, 2.4vw, 28px);
+  background: color-mix(in srgb, white 82%, var(--paper));
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: 0 12px 34px color-mix(in srgb, var(--leaf-deep) 7%, transparent);
+}
+
+.print-card-heading,
+.print-section-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 18px;
+  margin-block-end: 20px;
+}
+
+.print-card-heading h2,
+.print-section-heading h3,
+.print-artifact h3,
+.print-proof h3,
+.print-downloads h3 {
+  margin: 0;
+}
+
+.print-state {
+  display: inline-flex;
+  min-height: 32px;
+  align-items: center;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.print-state--ok {
+  color: var(--leaf-deep);
+  background: color-mix(in srgb, var(--leaf-bright) 18%, white);
+}
+
+.print-state--warn,
+.print-state--neutral {
+  color: var(--ink);
+  background: color-mix(in srgb, var(--lemon) 42%, white);
+}
+
+.print-state--danger {
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 10%, white);
+}
+
+.print-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.print-field--wide {
+  grid-column: 1 / -1;
+}
+
+.print-form-grid input,
+.print-form-grid select,
+.print-proof textarea {
+  min-height: 44px;
+}
+
+.print-check {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.print-check input {
+  width: 20px;
+  height: 20px;
+}
+
+.print-mechanics,
+.print-history {
+  margin-block: 18px;
+  border-block: 1px solid var(--line);
+}
+
+.print-mechanics summary,
+.print-history summary {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.print-mechanics[open] {
+  padding-block-end: 18px;
+}
+
+.print-upload {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-block: 14px;
+  padding: 12px;
+  background: color-mix(in srgb, var(--paper-deep) 50%, transparent);
+  border-radius: 10px;
+}
+
+.print-upload > span {
+  color: var(--ink-soft);
+  overflow-wrap: anywhere;
+}
+
+.print-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.print-actions .button {
+  min-height: 44px;
+}
+
+.button--danger {
+  color: white;
+  background: var(--danger);
+  border-color: var(--danger);
+}
+
+.print-readiness {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-block-end: 22px;
+}
+
+.print-readiness > div,
+.print-lineage > div {
+  min-width: 0;
+  padding: 12px;
+  background: color-mix(in srgb, var(--paper-deep) 46%, transparent);
+  border-radius: 10px;
+}
+
+.print-readiness span,
+.print-lineage span {
+  display: block;
+  color: var(--ink-soft);
+  font-size: 0.82rem;
+}
+
+.print-readiness strong,
+.print-lineage bdi {
+  display: block;
+  margin-block-start: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.print-start {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 18px;
+  border: 1px dashed color-mix(in srgb, var(--leaf) 42%, transparent);
+  border-radius: 12px;
+}
+
+.print-lineage {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.print-notice {
+  display: grid;
+  gap: 4px;
+  margin-block: 14px;
+  padding: 12px 14px;
+  border-inline-start: 5px solid;
+}
+
+.print-notice--danger {
+  border-color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 8%, white);
+}
+
+.print-notice--warning {
+  border-color: var(--orange);
+  background: color-mix(in srgb, var(--orange) 10%, white);
+}
+
+.print-artifact-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-block: 18px;
+}
+
+.print-artifact {
+  display: flex;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.print-artifact > span {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  color: var(--leaf-deep);
+  background: color-mix(in srgb, var(--leaf-bright) 18%, white);
+  border-radius: 50%;
+  font-weight: 900;
+}
+
+.print-artifact p,
+.print-artifact bdi {
+  margin: 4px 0 0;
+  color: var(--ink-soft);
+}
+
+.print-progress,
+.print-clean {
+  padding: 14px;
+  background: color-mix(in srgb, var(--leaf-bright) 8%, white);
+  border-radius: 10px;
+}
+
+.print-preflight {
+  margin-block: 20px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+
+.print-measurements {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.print-measurements span {
+  padding: 6px 9px;
+  background: var(--paper-deep);
+  border-radius: 6px;
+}
+
+.print-findings {
+  display: grid;
+  gap: 8px;
+  margin-block-start: 14px;
+}
+
+.print-findings > div {
+  display: grid;
+  grid-template-columns: minmax(10rem, 0.6fr) minmax(8rem, 0.5fr) minmax(0, 1fr);
+  gap: 10px;
+  padding: 10px;
+  background: color-mix(in srgb, var(--danger) 7%, white);
+  border-radius: 8px;
+}
+
+.print-proof {
+  margin-block: 20px;
+  padding: 18px;
+  background: color-mix(in srgb, var(--lemon) 16%, white);
+  border: 2px solid var(--orange);
+  border-radius: 14px;
+}
+
+.print-proof-warning {
+  display: flex;
+  gap: 12px;
+  margin-block-end: 14px;
+}
+
+.print-proof-warning > span {
+  font-size: 1.7rem;
+  color: var(--danger);
+  font-weight: 900;
+}
+
+.print-proof-warning p {
+  margin: 5px 0 0;
+}
+
+.print-proof-images {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.print-proof figure {
+  margin: 0;
+}
+
+.print-proof img {
+  width: 100%;
+  max-height: 26rem;
+  object-fit: contain;
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.print-proof figcaption {
+  margin-block-start: 6px;
+  font-weight: 700;
+}
+
+.print-proof textarea {
+  min-height: 88px;
+  resize: vertical;
+}
+
+.print-downloads {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 18px;
+  background: color-mix(in srgb, var(--leaf-bright) 13%, white);
+  border: 1px solid color-mix(in srgb, var(--leaf) 32%, transparent);
+  border-radius: 14px;
+}
+
+.print-history ol {
+  display: grid;
+  gap: 8px;
+  padding: 0 20px 16px 0;
+}
+
+.print-history li {
+  display: grid;
+  grid-template-columns: minmax(12rem, 1fr) minmax(8rem, 0.5fr) minmax(
+      10rem,
+      0.7fr
+    );
+  gap: 10px;
+}
+
+.print-empty {
+  min-height: 22rem;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  text-align: center;
+}
+
+.print-empty > span {
+  width: 62px;
+  height: 62px;
+  display: grid;
+  place-items: center;
+  color: var(--lemon);
+  background: var(--leaf);
+  border-radius: 14px;
+  font-family: Lemonada, sans-serif;
+  font-size: 1.5rem;
+}
+
+@media (max-width: 1100px) {
+  .print-workspace {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .print-form-grid,
+  .print-readiness,
+  .print-lineage,
+  .print-artifact-grid,
+  .print-proof-images {
+    grid-template-columns: 1fr;
+  }
+
+  .print-field--wide {
+    grid-column: auto;
+  }
+
+  .print-start,
+  .print-downloads,
+  .print-card-heading,
+  .print-section-heading,
+  .print-upload {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .print-actions > *,
+  .print-upload .button {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .print-findings > div,
+  .print-history li {
+    grid-template-columns: 1fr;
+  }
+}

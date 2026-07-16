@@ -21,7 +21,7 @@ export function HealthView(props: HealthViewProps) {
       <LocalHealthSection {...props} />
       <ProviderHealth health={props.health} />
       <QueueHealth health={props.health} />
-      <DeferredHealth />
+      <PrintHealth health={props.health} />
     </main>
   );
 }
@@ -150,17 +150,43 @@ function IntegrityIssues({ integrity }: { integrity: IntegrityReport }) {
   );
 }
 
-function DeferredHealth() {
+function PrintHealth({ health }: { health: HealthSnapshot }) {
+  const profiles = health.printerProfiles;
+  if (profiles.status === "not_available")
+    return (
+      <section className="section" aria-labelledby="print-health-heading">
+        <h2 id="print-health-heading">ملفات الطابعة</h2>
+        <StatusLine
+          label="ملفات الطباعة"
+          status="تعذّر قراءة الحالة"
+          tone="error"
+        />
+      </section>
+    );
+  const hasReadyProfile = profiles.ready > 0;
   return (
-    <section className="section" aria-labelledby="deferred-heading">
+    <section className="section" aria-labelledby="print-health-heading">
       <div className="section-heading">
         <div>
           <p className="eyebrow">مرحلة الطباعة</p>
-          <h2 id="deferred-heading">إعداد لم يكتمل</h2>
+          <h2 id="print-health-heading">ملفات الطابعة</h2>
         </div>
       </div>
       <div className="status-list">
-        <StatusLine label="ملفات الطباعة" status="غير مُعَدّة" tone="pending" />
+        <StatusLine
+          label="ملفات الطباعة"
+          status={
+            hasReadyProfile
+              ? `${profiles.ready} جاهز من ${profiles.total}`
+              : "الأدوات متاحة — لا يوجد ملف جاهز"
+          }
+          tone={hasReadyProfile ? "ok" : "pending"}
+          detail={
+            profiles.incomplete > 0
+              ? `${profiles.incomplete} ملف يحتاج استكمال بيانات الطابعة`
+              : "أنشئ ملفًا من مساحة الطباعة قبل الإنتاج"
+          }
+        />
       </div>
     </section>
   );

@@ -7,6 +7,7 @@ import type { DataPaths } from "../../config/paths.js";
 import type { DocumentStore } from "../../domain/repository/document-store.js";
 import type { SettingsService } from "../../domain/settings/settings.js";
 import type { CreativeInvalidationService } from "../../domain/creative/invalidation.js";
+import { PrinterProfileService } from "../../domain/print/profiles.js";
 import { ulid } from "ulid";
 import type { JobHealthSnapshot } from "../../jobs/runtime.js";
 import type { LocalRequestBoundary } from "../security/request-boundary.js";
@@ -29,7 +30,19 @@ export interface HealthSnapshot {
   listener: { status: "ok" | "error"; canonicalOrigin: string | null };
   providers: ProviderHealthSnapshot | { status: "not_configured" };
   queue: JobHealthSnapshot | { status: "not_available"; depth: null };
-  printerProfiles: { status: "not_configured" };
+  printerProfiles:
+    | {
+        status: "available";
+        total: number;
+        ready: number;
+        incomplete: number;
+      }
+    | {
+        status: "not_available";
+        total: null;
+        ready: null;
+        incomplete: null;
+      };
 }
 
 export class HealthService {
@@ -71,7 +84,7 @@ export class HealthService {
         status: "not_available",
         depth: null,
       },
-      printerProfiles: { status: "not_configured" },
+      printerProfiles: printerProfileStatus(this.store, this.assets),
     };
   }
 
@@ -101,6 +114,33 @@ export class HealthService {
         correlationId,
       });
     }
+  }
+}
+
+function printerProfileStatus(
+  store: DocumentStore,
+  assets: AssetStore,
+): HealthSnapshot["printerProfiles"] {
+  try {
+    const profiles = new PrinterProfileService(store, assets)
+      .list()
+      .filter(({ profile }) => !profile.archived);
+    const ready = profiles.filter(
+      ({ version }) => version.readiness === "ready",
+    ).length;
+    return {
+      status: "available",
+      total: profiles.length,
+      ready,
+      incomplete: profiles.length - ready,
+    };
+  } catch {
+    return {
+      status: "not_available",
+      total: null,
+      ready: null,
+      incomplete: null,
+    };
   }
 }
 

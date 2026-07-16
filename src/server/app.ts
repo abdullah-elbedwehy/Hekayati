@@ -5,7 +5,7 @@ import fastifyMultipart from "@fastify/multipart";
 import fastifyStatic from "@fastify/static";
 import Fastify, { type FastifyInstance } from "fastify";
 
-import { AssetStore } from "../assets/asset-store.js";
+import { AssetStore, type AssetStoreHooks } from "../assets/asset-store.js";
 import { OriginalAssetStore } from "../assets/original-asset-store.js";
 import { LOOPBACK_HOST } from "../config/defaults.js";
 import {
@@ -50,11 +50,7 @@ import type { RegisteredJobDefinition } from "../jobs/types.js";
 import { createJobTarget } from "../jobs/targets.js";
 import type { ProviderTargetChangeCoordinator } from "../jobs/provider-target-change.js";
 import { probeSchedulerStorage } from "../jobs/storage-probe.js";
-import {
-  createFileLogSink,
-  Redactor,
-  StructuredLogger,
-} from "../security/log.js";
+import type { StructuredLogger } from "../security/log.js";
 import {
   HealthService,
   mergeIntegrityReports,
@@ -74,6 +70,14 @@ import {
 import type { ProviderService } from "./providers/provider-service.js";
 import { createProviderTargetChangeCoordinator } from "./providers/provider-target-coordinator.js";
 import { handleError } from "./error-handler.js";
+import {
+  createPrintJobDefinitions,
+  createPrintRuntime,
+  type PrintJobPorts,
+  type PrintProductionHolder,
+  type PrintRuntime,
+} from "./print-runtime.js";
+import { createRuntimeLogger } from "./runtime-logger.js";
 
 export interface RuntimeOptions {
   dataDir?: string;
@@ -83,6 +87,8 @@ export interface RuntimeOptions {
   seedTemplateInstaller?: SeedTemplateInstaller;
   providers?: ProviderRuntimeOptions;
   jobs?: JobRuntimeOptions;
+  assetStoreHooks?: AssetStoreHooks;
+  printJobs?: PrintJobPorts;
 }
 
 export interface StartOptions {
@@ -105,6 +111,7 @@ export interface HekayatiRuntime {
   jobs: JobRuntime;
   creative: CreativeRuntime;
   layout: LayoutRuntime;
+  print: PrintRuntime;
 }
 
 export interface CreativeRuntime {
@@ -140,7 +147,7 @@ async function initializeRuntime(
     await (
       options.seedTemplateInstaller ?? productionSeedTemplateInstaller
     ).install(store);
-    const assets = new AssetStore(store, paths.assets);
+    const assets = new AssetStore(store, paths.assets, options.assetStoreHooks);
     const originals = new OriginalAssetStore(store, paths.originals);
     await Promise.all([
       assets.garbageCollectOrphans(),
@@ -220,6 +227,7 @@ async function assembleRuntime(
     infrastructure.jobs,
     infrastructure.creative,
     infrastructure.layout,
+    infrastructure.print,
   );
 }
 
@@ -240,6 +248,7 @@ async function configureHttpApp(input: {
   jobs: JobRuntime;
   creative: CreativeRuntime;
   layout: LayoutRuntime;
+  print: PrintRuntime;
   targetChanges: ProviderTargetChangeCoordinator;
 }): Promise<FastifyInstance> {
   const photoIntake = new PhotoIntakeCoordinator(
@@ -262,6 +271,7 @@ async function configureHttpApp(input: {
     jobs: input.jobs,
     creative: input.creative,
     layout: input.layout,
+    print: input.print,
     targetChanges: input.targetChanges,
     boundary: input.boundary,
     sentinel: input.sentinel,
@@ -283,27 +293,18 @@ function createInfrastructure(input: {
   boundary: LocalRequestBoundary;
   initialIntegrity: Awaited<ReturnType<AssetStore["scanIntegrity"]>>;
 }) {
-  const logger = createRuntimeLogger(input);
+  const logger = createRuntimeLogger(input.paths.logs, input.store);
   const providerRuntime = createProviderRuntime(
     input.settings,
     logger.redactor,
     input.options.providers,
   );
   const creative = createCreativeRuntime(input);
-  const layoutWorkflow = new PreviewWorkflowCoordinator(
-    input.store,
-    input.assets,
-    input.settings,
-  );
-  const jobs = createJobs(input, providerRuntime, creative, layoutWorkflow);
-  bindRuntimeServices(
-    input.authoring,
-    input.settings,
+  const { jobs, layout, print } = createDeliveryRuntimes(
+    input,
+    providerRuntime,
     creative,
-    layoutWorkflow,
-    jobs,
   );
-  const layout = createLayoutRuntime(input, layoutWorkflow, jobs);
   const { targetChanges, health } = createInfrastructureSupport(
     input,
     providerRuntime.service,
@@ -316,9 +317,48 @@ function createInfrastructure(input: {
     jobs,
     creative,
     layout,
+    print,
     health,
     targetChanges,
   };
+}
+
+function createDeliveryRuntimes(
+  input: Parameters<typeof createInfrastructure>[0],
+  providerRuntime: ReturnType<typeof createProviderRuntime>,
+  creative: CreativeRuntime,
+) {
+  const layoutWorkflow = new PreviewWorkflowCoordinator(
+    input.store,
+    input.assets,
+    input.settings,
+  );
+  const printHolder: PrintProductionHolder = { production: null };
+  const jobs = createJobs(
+    input,
+    providerRuntime,
+    creative,
+    layoutWorkflow,
+    printHolder,
+  );
+  bindRuntimeServices(
+    input.authoring,
+    input.settings,
+    creative,
+    layoutWorkflow,
+    jobs,
+  );
+  const layout = createLayoutRuntime(input, layoutWorkflow, jobs);
+  const print = createPrintRuntime({
+    store: input.store,
+    assets: input.assets,
+    jobs,
+    approvedSnapshots: layout.approvedSnapshots,
+    invalidation: creative.invalidation,
+    holder: printHolder,
+  });
+  creative.invalidation.bindParticipant(print.invalidation);
+  return { jobs, layout, print };
 }
 
 function createInfrastructureSupport(
@@ -397,15 +437,6 @@ function createLayoutRuntime(
   };
 }
 
-function createRuntimeLogger(
-  input: Parameters<typeof createInfrastructure>[0],
-): StructuredLogger {
-  return new StructuredLogger(
-    createFileLogSink(join(input.paths.logs, "app.log")),
-    new Redactor(input.store.secretRegistry),
-  );
-}
-
 function createCreativeRuntime(
   input: Parameters<typeof createInfrastructure>[0],
 ): CreativeRuntime {
@@ -441,18 +472,15 @@ function createJobs(
   providerRuntime: ReturnType<typeof createProviderRuntime>,
   creative: CreativeRuntime,
   layoutWorkflow: PreviewWorkflowCoordinator,
+  printHolder: PrintProductionHolder,
 ): JobRuntime {
   const exactCapabilities = new ExactCapabilityBroker(
     providerRuntime.registry,
     providerRuntime.capabilityCache,
     input.options.providers?.monotonicNow,
   );
-  const quotaAvailability =
-    input.options.jobs?.quotaAvailability ??
-    new QuotaAvailabilityBroker(exactCapabilities);
-  const credentialAvailability =
-    input.options.jobs?.credentialAvailability ??
-    new CredentialAvailabilityBroker(exactCapabilities);
+  const { quotaAvailability, credentialAvailability } =
+    createAvailabilityBrokers(input, exactCapabilities);
   const preDispatch = createPreDispatchCoordinator(
     input,
     creative,
@@ -466,6 +494,9 @@ function createJobs(
     layoutWorkflow,
     preDispatch,
     gateway,
+    store: input.store,
+    printHolder,
+    printPorts: input.options.printJobs,
     scheduler: () => {
       if (!holder.runtime) throw new Error("JOB_RUNTIME_NOT_READY");
       return holder.runtime.scheduler;
@@ -483,6 +514,20 @@ function createJobs(
   );
   holder.runtime = runtime;
   return runtime;
+}
+
+function createAvailabilityBrokers(
+  input: Parameters<typeof createInfrastructure>[0],
+  capabilities: ExactCapabilityBroker,
+) {
+  return {
+    quotaAvailability:
+      input.options.jobs?.quotaAvailability ??
+      new QuotaAvailabilityBroker(capabilities),
+    credentialAvailability:
+      input.options.jobs?.credentialAvailability ??
+      new CredentialAvailabilityBroker(capabilities),
+  };
 }
 
 function createPreDispatchCoordinator(
@@ -507,6 +552,9 @@ function createAllJobDefinitions(input: {
   preDispatch: PreDispatchCoordinator;
   gateway: ProviderDispatchGateway;
   scheduler: () => JobRuntime["scheduler"];
+  store: DocumentStore;
+  printHolder: PrintProductionHolder;
+  printPorts: PrintJobPorts | undefined;
 }): RegisteredJobDefinition[] {
   return [
     ...createCreativeJobDefinitions({
@@ -521,6 +569,12 @@ function createAllJobDefinitions(input: {
       assets: input.assets,
       workflow: input.layoutWorkflow,
       scheduler: input.scheduler,
+    }),
+    ...createPrintJobDefinitions({
+      store: input.store,
+      assets: input.assets,
+      holder: input.printHolder,
+      ports: input.printPorts,
     }),
   ];
 }
@@ -648,6 +702,7 @@ function finish(
   jobs: JobRuntime,
   creative: CreativeRuntime,
   layout: LayoutRuntime,
+  print: PrintRuntime,
 ): HekayatiRuntime {
   const close = runtimeCloser(app, store, boundary, jobs);
   return {
@@ -657,6 +712,7 @@ function finish(
     jobs,
     creative,
     layout,
+    print,
     sentinelValue: () => sentinel.value(),
     start: async (options = {}) => {
       try {
@@ -715,7 +771,6 @@ function runtimeCloser(
     if (failure) throw runtimeCloseError(failure);
   };
 }
-
 function runtimeCloseError(error: unknown): Error {
   return error instanceof Error ? error : new Error("RUNTIME_CLOSE_FAILED");
 }

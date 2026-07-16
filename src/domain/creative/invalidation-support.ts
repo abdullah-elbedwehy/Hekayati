@@ -2,13 +2,12 @@ import { createHash } from "node:crypto";
 
 import type { JobRecord } from "../../jobs/schemas.js";
 import { canonicalJson } from "../../contracts/canonical-json.js";
-import type { BookApprovalCycle, PreviewOutput } from "../layout/schemas.js";
+import type { PreviewOutput } from "../layout/schemas.js";
 import type { ChangeEvent } from "../library/schemas.js";
 import type {
   InvalidationArtifact,
   InvalidationConsequence,
 } from "./invalidation-rules.js";
-import type { CharacterApproval, CharacterSheet, Page } from "./schemas.js";
 
 export interface CreativeInvalidationOptions {
   now?: () => string;
@@ -35,12 +34,17 @@ export interface InvalidationGateController {
 
 export interface ResolvedArtifact extends InvalidationArtifact {
   projectId: string | null;
-  record:
-    | CharacterSheet
-    | CharacterApproval
-    | Page
-    | PreviewOutput
-    | BookApprovalCycle;
+  record: unknown;
+}
+
+export interface InvalidationParticipant {
+  resolve(event: ChangeEvent): ResolvedArtifact[];
+  sourceProjectIds(event: ChangeEvent): string[];
+  apply(
+    event: ChangeEvent,
+    artifacts: readonly ResolvedArtifact[],
+    consequences: readonly InvalidationConsequence[],
+  ): void;
 }
 
 export function hashConsequences(

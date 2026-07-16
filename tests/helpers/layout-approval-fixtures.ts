@@ -39,7 +39,10 @@ export interface PreviewBundle {
   gateId: string;
 }
 
-export function createApprovalFixture(store: DocumentStore): ApprovalFixture {
+export function createApprovalFixture(
+  store: DocumentStore,
+  source?: { assetId: string; assetChecksum: string },
+): ApprovalFixture {
   initializeLayoutPersistence(store);
   const authoring = new AuthoringRepositories(store);
   const layout = new LayoutRepositories(store);
@@ -51,8 +54,8 @@ export function createApprovalFixture(store: DocumentStore): ApprovalFixture {
   const projectVersionId = ulid();
   const owner = { customerId: ulid(), familyId: ulid() };
   authoring.projects.insert(project(projectId, projectVersionId, owner));
-  const assetId = ulid();
-  const assetChecksum = "b".repeat(64);
+  const assetId = source?.assetId ?? ulid();
+  const assetChecksum = source?.assetChecksum ?? "b".repeat(64);
   const coverVersion = layout.coverCompositionVersions.insert(
     cover(projectId, projectVersionId, assetId, assetChecksum),
   );

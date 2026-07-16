@@ -29,7 +29,7 @@ afterEach(async () =>
 );
 
 describe("settings and health foundation", () => {
-  it("migrates schema-v1 settings through v3 without losing operator choices", async () => {
+  it("migrates schema-v1 settings through v4 without losing operator choices", async () => {
     const fixture = await serviceFixture();
     const now = new Date().toISOString();
     const legacy = {
@@ -69,13 +69,16 @@ describe("settings and health foundation", () => {
     const migrated = fixture.settings.initialize();
 
     expect(migrated).toMatchObject({
-      schemaVersion: 3,
+      schemaVersion: 4,
       watermarkText: "علامة قديمة",
       concurrencyPerProvider: 3,
       photoUploadMaxMb: 25,
       photoMaxMegapixels: 80,
       geminiImageTier: "default",
-      deferredStatus: { providerLifecycle: "available" },
+      deferredStatus: {
+        providerLifecycle: "available",
+        printerProfiles: "available",
+      },
     });
     expect(
       fixture.store.database
@@ -84,10 +87,10 @@ describe("settings and health foundation", () => {
         )
         .pluck()
         .get(),
-    ).toBe(3);
+    ).toBe(4);
   });
 
-  it("migrates schema-v2 settings directly to v3 and preserves every v2 value", async () => {
+  it("migrates schema-v2 settings directly to v4 and activates print profiles", async () => {
     const fixture = await serviceFixture();
     const now = new Date().toISOString();
     const legacy = {
@@ -127,7 +130,7 @@ describe("settings and health foundation", () => {
       .run(JSON.stringify(legacy), now, now);
     const migrated = fixture.settings.initialize();
     expect(migrated).toMatchObject({
-      schemaVersion: 3,
+      schemaVersion: 4,
       textProvider: "codex",
       imageProvider: "gemini",
       geminiImageTier: "default",
@@ -141,7 +144,7 @@ describe("settings and health foundation", () => {
       firstRunAcknowledged: true,
       deferredStatus: {
         providerLifecycle: "available",
-        printerProfiles: "not_available",
+        printerProfiles: "available",
       },
     });
   });
@@ -290,7 +293,12 @@ describe("settings and health foundation", () => {
       openQuotaIncidents: 0,
       storage: { active: false, reason: null },
     });
-    expect(health.printerProfiles).toEqual({ status: "not_configured" });
+    expect(health.printerProfiles).toEqual({
+      status: "available",
+      total: 0,
+      ready: 0,
+      incomplete: 0,
+    });
     expect(health.listener).toEqual({
       status: "ok",
       canonicalOrigin: fixture.origin,

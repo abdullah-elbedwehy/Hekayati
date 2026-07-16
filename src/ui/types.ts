@@ -1,6 +1,6 @@
 export interface Settings {
   id: "operator";
-  schemaVersion: 3;
+  schemaVersion: 4;
   createdAt: string;
   updatedAt: string;
   textProvider: "mock" | "codex" | "gemini";
@@ -22,7 +22,7 @@ export interface Settings {
   firstRunAcknowledged: boolean;
   deferredStatus: {
     providerLifecycle: "available";
-    printerProfiles: "not_configured";
+    printerProfiles: "available";
   };
 }
 
@@ -128,7 +128,19 @@ export interface HealthSnapshot {
         connections: Record<ProviderId, ProviderProjection>;
       };
   queue: JobHealthSnapshot | { status: "not_available"; depth: null };
-  printerProfiles: { status: "not_configured" };
+  printerProfiles:
+    | {
+        status: "available";
+        total: number;
+        ready: number;
+        incomplete: number;
+      }
+    | {
+        status: "not_available";
+        total: null;
+        ready: null;
+        incomplete: null;
+      };
 }
 
 export type JobState =

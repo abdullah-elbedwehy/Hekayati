@@ -165,6 +165,22 @@ export class JobScheduler {
     return this.controls.pause(id, input);
   }
 
+  pauseOwnedForIntegrity(
+    id: string,
+    input: { expectedRevision: number },
+    ownerVerify: (job: JobRecord) => boolean,
+  ): JobRecord {
+    return this.controls.pauseOwnedForIntegrity(id, input, ownerVerify);
+  }
+
+  releaseOwnedIntegrityPause(
+    id: string,
+    input: { expectedRevision: number },
+    ownerVerify: (job: JobRecord) => boolean,
+  ): JobRecord {
+    return this.controls.releaseOwnedIntegrityPause(id, input, ownerVerify);
+  }
+
   resume(id: string, input: ExpectedJobState): JobRecord {
     return this.controls.resume(id, input);
   }

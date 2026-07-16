@@ -89,7 +89,7 @@ describe("provider settings and credential API", () => {
     cleanups.push(second.runtime.close);
     bootstrap = await getJson(second.origin, "/api/bootstrap");
     expect(await getJson(second.origin, "/api/settings")).toMatchObject({
-      schemaVersion: 3,
+      schemaVersion: 4,
       geminiImageTier: "economy",
     });
     expect(

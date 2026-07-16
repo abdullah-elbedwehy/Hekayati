@@ -365,6 +365,46 @@ describe("durable scheduler controls", () => {
     });
     close();
   });
+
+  it("reserves converted proof cancellation for the print owner", async () => {
+    const { scheduler, close } = await harness();
+    const gate = scheduler.enqueue(
+      input({
+        jobType: "human_gate_fixture",
+        intentId: "converted-proof-gate",
+        request: {
+          kind: "human_gate",
+          gateKind: "print_converted_proof",
+          targetId: "print-run-1",
+          targetVersionId: "proof-bundle-1",
+        },
+      }),
+    );
+
+    expect(() =>
+      scheduler.cancel(gate.id, {
+        expectedRevision: gate.revision,
+        expectedState: "waiting_review",
+      }),
+    ).toThrowError(
+      expect.objectContaining({ code: "JOB_GATE_OWNER_ACTION_REQUIRED" }),
+    );
+    expect(
+      scheduler.cancelOwnedHumanGate(
+        gate.id,
+        {
+          expectedRevision: gate.revision,
+          targetVersionId: "proof-bundle-1",
+          reason: "converted_proof_rejected",
+        },
+        () => true,
+      ),
+    ).toMatchObject({
+      state: "canceled",
+      stateReason: "converted_proof_rejected",
+    });
+    close();
+  });
 });
 
 async function harness() {

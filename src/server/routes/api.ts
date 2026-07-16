@@ -12,6 +12,7 @@ import type { ProviderService } from "../providers/provider-service.js";
 import type { JobRuntime } from "../../jobs/runtime.js";
 import type { ProviderTargetChangeCoordinator } from "../../jobs/provider-target-change.js";
 import type { CreativeRuntime, LayoutRuntime } from "../app.js";
+import type { PrintRuntime } from "../print-runtime.js";
 import { registerLibraryApi } from "./library-api.js";
 import { registerAuthoringApi } from "./authoring-api.js";
 import { registerPhotoIntakeApi } from "./photo-intake-api.js";
@@ -20,6 +21,7 @@ import { registerJobApi } from "./job-api.js";
 import { registerSettingsApi } from "./settings-api.js";
 import { registerCreativeApi } from "./creative-api.js";
 import { registerLayoutApi } from "./layout-api.js";
+import { registerPrintApi } from "./print-api.js";
 
 export interface ApiDependencies {
   assets: AssetStore;
@@ -32,6 +34,7 @@ export interface ApiDependencies {
   jobs: JobRuntime;
   creative: CreativeRuntime;
   layout: LayoutRuntime;
+  print: PrintRuntime;
   targetChanges: ProviderTargetChangeCoordinator;
   boundary: LocalRequestBoundary;
   sentinel: SecuritySentinel;
@@ -74,6 +77,7 @@ export function registerApi(
     authoring: dependencies.authoring,
     assets: dependencies.assets,
   });
+  registerPrintApi(app, dependencies.print, dependencies.library);
 
   if (dependencies.enableTestRoutes) {
     app.get("/api/testing/sentinel", () => ({ value: sentinel.value() }));

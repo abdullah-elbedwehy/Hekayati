@@ -1,5 +1,11 @@
 import { createHash, randomUUID } from "node:crypto";
-import { constants } from "node:fs";
+import {
+  closeSync,
+  constants,
+  fstatSync,
+  openSync,
+  readFileSync,
+} from "node:fs";
 import {
   chmod,
   lstat,
@@ -77,6 +83,9 @@ const assetMetadataBaseSchema = z
       "pdf_preview",
       "pdf_interior",
       "pdf_cover",
+      "icc_profile",
+      "printer_template",
+      "print_proof",
       "thumbnail",
       "import_staging",
     ]),
@@ -96,6 +105,10 @@ const assetMetadataSchema = assetMetadataBaseSchema
   .refine(hasSanitizedReferencePhoto, {
     message: "REFERENCE_PHOTO_REQUIRES_EXIF_STRIPPING",
     path: ["exifStripped"],
+  })
+  .refine(hasValidPrintAssetMetadata, {
+    message: "PRINT_ASSET_METADATA_INVALID",
+    path: ["role"],
   });
 
 export const assetRecordSchema = assetMetadataBaseSchema
@@ -116,6 +129,10 @@ export const assetRecordSchema = assetMetadataBaseSchema
   .refine(hasSanitizedReferencePhoto, {
     message: "REFERENCE_PHOTO_REQUIRES_EXIF_STRIPPING",
     path: ["exifStripped"],
+  })
+  .refine(hasValidPrintAssetMetadata, {
+    message: "PRINT_ASSET_METADATA_INVALID",
+    path: ["role"],
   });
 
 export type AssetRecord = z.infer<typeof assetRecordSchema>;
@@ -166,8 +183,15 @@ export type AssetIntegrityVerification =
     };
 
 export interface AssetStoreHooks {
-  afterTempSync?(): Promise<void> | void;
-  afterRenameSync?(): Promise<void> | void;
+  afterTempSync?(boundary: AssetWriteBoundary): Promise<void> | void;
+  afterRenameSync?(boundary: AssetWriteBoundary): Promise<void> | void;
+}
+
+export interface AssetWriteBoundary {
+  target: string;
+  temporary: string;
+  expectedHash: string;
+  role: AssetRecord["role"];
 }
 
 export interface PreparedAsset {
@@ -211,7 +235,12 @@ export class AssetStore {
     const existing = this.findBySha(hash);
     if (existing) {
       assertCompatibleMetadata(existing, extension, metadata);
-      await this.atomicWrite(this.pathForRecord(existing), input.bytes, hash);
+      await this.atomicWrite(
+        this.pathForRecord(existing),
+        input.bytes,
+        hash,
+        metadata.role,
+      );
       return { record: existing, isNew: false };
     }
     const now = new Date().toISOString();
@@ -226,7 +255,12 @@ export class AssetStore {
       bytes: input.bytes.byteLength,
       refCount: 1,
     });
-    await this.atomicWrite(this.pathForRecord(record), input.bytes, hash);
+    await this.atomicWrite(
+      this.pathForRecord(record),
+      input.bytes,
+      hash,
+      metadata.role,
+    );
     return { record, isNew: true };
   }
 
@@ -259,7 +293,12 @@ export class AssetStore {
     const existing = this.findBySha(hash);
     if (existing) {
       assertCompatibleMetadata(existing, extension, metadata);
-      await this.atomicWrite(this.pathForRecord(existing), bytes, hash);
+      await this.atomicWrite(
+        this.pathForRecord(existing),
+        bytes,
+        hash,
+        metadata.role,
+      );
       return this.store.transaction(() =>
         this.incrementReference(this.requireHash(hash)),
       );
@@ -278,7 +317,7 @@ export class AssetStore {
       refCount: 1,
     });
     const target = this.pathFor(hash, extension);
-    await this.atomicWrite(target, bytes, hash);
+    await this.atomicWrite(target, bytes, hash, metadata.role);
     return this.store.transaction(() => {
       const raced = this.findBySha(hash);
       if (!raced) return this.repository.put(record);
@@ -303,8 +342,57 @@ export class AssetStore {
     return bytes;
   }
 
+  readSync(assetId: string): Buffer {
+    const record = this.requireRecord(assetId);
+    const bytes = readManagedFileSync(this.pathForRecord(record));
+    if (sha256(bytes) !== record.sha256)
+      throw new Error("ASSET_CHECKSUM_MISMATCH");
+    return bytes;
+  }
+
   async verifyIntegrity(assetId: string): Promise<AssetIntegrityVerification> {
     return this.verifyRecord(this.requireRecord(assetId));
+  }
+
+  verifyIntegritySync(assetId: string): AssetIntegrityVerification {
+    const record = this.requireRecord(assetId);
+    return this.verifyRecordSync(record);
+  }
+
+  verifyPreparedIntegritySync(
+    prepared: PreparedAsset,
+  ): AssetIntegrityVerification {
+    return this.verifyRecordSync(prepared.record);
+  }
+
+  private verifyRecordSync(record: AssetRecord): AssetIntegrityVerification {
+    try {
+      if (
+        sha256(readManagedFileSync(this.pathForRecord(record))) !==
+        record.sha256
+      )
+        return {
+          assetId: record.id,
+          expectedSha256: record.sha256,
+          status: "corrupt",
+          reason: "checksum_mismatch",
+        };
+      return {
+        assetId: record.id,
+        expectedSha256: record.sha256,
+        status: "healthy",
+        reason: null,
+      };
+    } catch (error) {
+      if (isMissing(error))
+        return {
+          assetId: record.id,
+          expectedSha256: record.sha256,
+          status: "missing",
+          reason: "missing",
+        };
+      throw error;
+    }
   }
 
   retain(assetId: string): AssetRecord {
@@ -435,6 +523,7 @@ export class AssetStore {
     target: string,
     bytes: Buffer,
     expectedHash: string,
+    role: AssetRecord["role"],
   ): Promise<void> {
     await prepareManagedDirectory(dirname(target));
     if (await fileMatches(target, expectedHash)) return;
@@ -448,11 +537,12 @@ export class AssetStore {
       } finally {
         await handle.close();
       }
-      await this.hooks.afterTempSync?.();
+      const boundary = { target, temporary, expectedHash, role };
+      await this.hooks.afterTempSync?.(boundary);
       await rename(temporary, target);
       await chmod(target, 0o600);
       await syncDirectory(dirname(target));
-      await this.hooks.afterRenameSync?.();
+      await this.hooks.afterRenameSync?.(boundary);
     } catch (error) {
       await removeTemporaryAfterFailure(temporary);
       throw error;
@@ -543,6 +633,24 @@ function hasSanitizedReferencePhoto(metadata: AssetMetadata): boolean {
   return metadata.role !== "reference_photo" || metadata.exifStripped === true;
 }
 
+function hasValidPrintAssetMetadata(metadata: AssetMetadata): boolean {
+  if (metadata.role === "icc_profile")
+    return (
+      metadata.mime === "application/vnd.iccprofile" &&
+      metadata.origin === "upload"
+    );
+  if (metadata.role === "printer_template")
+    return metadata.mime === "application/pdf" && metadata.origin === "upload";
+  if (metadata.role === "pdf_interior" || metadata.role === "pdf_cover")
+    return metadata.mime === "application/pdf" && metadata.origin === "derived";
+  if (metadata.role === "print_proof")
+    return (
+      (metadata.mime === "application/pdf" || metadata.mime === "image/png") &&
+      metadata.origin === "derived"
+    );
+  return true;
+}
+
 function assertCompatibleMetadata(
   record: AssetRecord,
   extension: string,
@@ -595,6 +703,24 @@ async function readManagedFile(file: string): Promise<Buffer> {
     return await handle.readFile();
   } finally {
     await handle.close();
+  }
+}
+
+function readManagedFileSync(file: string): Buffer {
+  let descriptor: number;
+  try {
+    descriptor = openSync(file, constants.O_RDONLY | constants.O_NOFOLLOW);
+  } catch (error) {
+    if (isMissing(error)) throw error;
+    throw new Error("INVALID_ASSET_FILE", { cause: error });
+  }
+  try {
+    const info = fstatSync(descriptor);
+    if (!info.isFile() || info.nlink !== 1)
+      throw new Error("INVALID_ASSET_FILE");
+    return readFileSync(descriptor);
+  } finally {
+    closeSync(descriptor);
   }
 }
 

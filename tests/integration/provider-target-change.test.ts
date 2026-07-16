@@ -253,7 +253,7 @@ function targetFor(
 function fixtureSettings(): Settings {
   return {
     id: "operator",
-    schemaVersion: 3,
+    schemaVersion: 4,
     createdAt: "2026-07-14T00:00:00.000Z",
     updatedAt: "2026-07-14T00:00:00.000Z",
     textProvider: "mock",
@@ -275,7 +275,7 @@ function fixtureSettings(): Settings {
     firstRunAcknowledged: true,
     deferredStatus: {
       providerLifecycle: "available",
-      printerProfiles: "not_configured",
+      printerProfiles: "available",
     },
   };
 }

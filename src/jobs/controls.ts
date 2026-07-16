@@ -43,7 +43,10 @@ import type {
 } from "./types.js";
 
 const terminalStates = new Set<JobState>(["succeeded", "failed", "canceled"]);
-const ownerOnlyGateKinds = new Set(["customer_approval"]);
+const ownerOnlyGateKinds = new Set([
+  "customer_approval",
+  "print_converted_proof",
+]);
 
 export interface QueueSnapshot {
   counts: Record<JobState, number>;
@@ -138,6 +141,61 @@ export class JobControls {
         fromState: current.state,
         toState: "paused",
         reason: "operator",
+      });
+      return paused;
+    });
+  }
+
+  pauseOwnedForIntegrity(
+    id: string,
+    input: { expectedRevision: number },
+    ownerVerify: (job: JobRecord) => boolean,
+  ): JobRecord {
+    return this.repository.transaction(() => {
+      const current = this.requireJob(id);
+      if (current.revision !== input.expectedRevision)
+        throw new JobError("JOB_REVISION_CONFLICT");
+      if (!ownerVerify(current)) throw new JobError("JOB_OWNER_REJECTED");
+      if (terminalStates.has(current.state))
+        throw new JobError("JOB_ACTION_NOT_ALLOWED");
+      if (current.state === "paused") return current;
+      const paused = this.update(current, {
+        state: "paused",
+        stateReason: "asset_integrity",
+        resumeState: resumableState(current.state),
+        resumeReason: current.stateReason,
+        lease: null,
+      });
+      this.history.append(paused, "paused", {
+        fromState: current.state,
+        toState: "paused",
+        reason: "asset_integrity",
+      });
+      return paused;
+    });
+  }
+
+  releaseOwnedIntegrityPause(
+    id: string,
+    input: { expectedRevision: number },
+    ownerVerify: (job: JobRecord) => boolean,
+  ): JobRecord {
+    return this.repository.transaction(() => {
+      const current = this.requireJob(id);
+      if (current.revision !== input.expectedRevision)
+        throw new JobError("JOB_REVISION_CONFLICT");
+      if (!ownerVerify(current)) throw new JobError("JOB_OWNER_REJECTED");
+      if (
+        current.state !== "paused" ||
+        current.stateReason !== "asset_integrity"
+      )
+        throw new JobError("JOB_ACTION_NOT_ALLOWED");
+      const paused = this.update(current, { stateReason: "operator" });
+      this.history.append(paused, "paused", {
+        fromState: "paused",
+        toState: "paused",
+        reason: "operator",
+        noteCode: "integrity_repaired",
       });
       return paused;
     });

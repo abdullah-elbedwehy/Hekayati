@@ -33,10 +33,7 @@ export function ProviderSettingsPanel(props: {
         </div>
         <span className="status-chip status-chip--ok">متاح محليًا</span>
       </div>
-      <div className="status-list deferred-settings">
-        <StatusLine label="دورة اتصال المزوّدين" status="متاحة" tone="ok" />
-        <StatusLine label="ملفات الطباعة" status="غير مُعَدّة" tone="pending" />
-      </div>
+      <AvailableSubsystems />
       <ProviderConfiguration draft={props.draft} setDraft={props.setDraft} />
       {status && (
         <div className="provider-card-grid">
@@ -61,6 +58,19 @@ export function ProviderSettingsPanel(props: {
         {state.error}
       </output>
     </section>
+  );
+}
+
+function AvailableSubsystems() {
+  return (
+    <div className="status-list deferred-settings">
+      <StatusLine label="دورة اتصال المزوّدين" status="متاحة" tone="ok" />
+      <StatusLine
+        label="ملفات الطباعة"
+        status="متاحة من مساحة الطباعة"
+        tone="ok"
+      />
+    </div>
   );
 }
 

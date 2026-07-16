@@ -11,6 +11,7 @@ import "./jobs.css";
 import "./creative.css";
 import "./creative-review.css";
 import "./preview.css";
+import "./print.css";
 import "./responsive.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(

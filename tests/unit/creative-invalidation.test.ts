@@ -129,7 +129,10 @@ const EXPECTED_MATRIX = {
     print_cover: "invalidate",
     print_preflight: "invalidate",
   }),
-  "IM-15": expectedRule(false, { print_cover: "invalidate" }),
+  "IM-15": expectedRule(false, {
+    print_cover: "invalidate",
+    print_preflight: "invalidate",
+  }),
   "IM-16": expectedRule(false, {}),
   "IM-17": expectedRule(false, {}),
   "IM-18": expectedRule(false, {}),
@@ -163,6 +166,8 @@ const ARTIFACTS: readonly InvalidationArtifact[] = [
   artifact("01J00000000000000000000011", "print_interior"),
   artifact("01J00000000000000000000012", "print_cover"),
   artifact("01J00000000000000000000013", "print_preflight"),
+  artifact("01J00000000000000000000014", "print_proof"),
+  artifact("01J00000000000000000000015", "print_run"),
 ];
 
 describe("creative invalidation matrix", () => {
@@ -230,7 +235,13 @@ function expectedRule(
   bumpBookVersion: boolean,
   effects: ExpectedRule["effects"],
 ): ExpectedRule {
-  return { effects, bumpBookVersion };
+  const finalizers = effects.print_preflight
+    ? {
+        print_proof: effects.print_preflight,
+        print_run: effects.print_preflight,
+      }
+    : {};
+  return { effects: { ...effects, ...finalizers }, bumpBookVersion };
 }
 
 function downstreamBookArtifacts(): ExpectedRule["effects"] {

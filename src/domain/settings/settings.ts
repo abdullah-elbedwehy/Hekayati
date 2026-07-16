@@ -24,7 +24,7 @@ const providerStatusSchema = z.enum([
 export const settingsSchema = z
   .object({
     id: z.literal("operator"),
-    schemaVersion: z.literal(3),
+    schemaVersion: z.literal(4),
     createdAt: z.iso.datetime(),
     updatedAt: z.iso.datetime(),
     textProvider: z.enum(["mock", "codex", "gemini"]),
@@ -101,7 +101,7 @@ export class SettingsService {
   }
 
   initialize(): Settings {
-    this.store.migrateDocuments("settings", 3, settingsSchema, [
+    this.store.migrateDocuments("settings", 4, settingsSchema, [
       {
         from: 1,
         to: 2,
@@ -111,6 +111,11 @@ export class SettingsService {
         from: 2,
         to: 3,
         migrate: migrateSettingsV2ToV3,
+      },
+      {
+        from: 3,
+        to: 4,
+        migrate: migrateSettingsV3ToV4,
       },
     ]);
     const existing = this.repository.get("operator");
@@ -180,7 +185,7 @@ export class SettingsService {
     const now = new Date().toISOString();
     return settingsSchema.parse({
       id: "operator",
-      schemaVersion: 3,
+      schemaVersion: 4,
       createdAt: now,
       updatedAt: now,
       textProvider: "mock",
@@ -200,10 +205,25 @@ export class SettingsService {
       firstRunAcknowledged: false,
       deferredStatus: {
         providerLifecycle: "available",
-        printerProfiles: "not_configured",
+        printerProfiles: "available",
       },
     });
   }
+}
+
+function migrateSettingsV3ToV4(input: unknown): unknown {
+  if (!input || typeof input !== "object")
+    throw new Error("INVALID_SETTINGS_MIGRATION");
+  const record = input as Record<string, unknown>;
+  const deferred =
+    record.deferredStatus && typeof record.deferredStatus === "object"
+      ? (record.deferredStatus as Record<string, unknown>)
+      : {};
+  return {
+    ...record,
+    schemaVersion: 4,
+    deferredStatus: { ...deferred, printerProfiles: "available" },
+  };
 }
 
 function migrateSettingsV2ToV3(input: unknown): unknown {

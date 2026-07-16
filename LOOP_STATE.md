@@ -1,27 +1,27 @@
 # Loop State
 
-- Last updated: 2026-07-15T15:53:13+03:00
+- Last updated: 2026-07-16T03:41:23+03:00
 - Authorization: full delivery loop approved via `prompts/codex-full-delivery-loop.md`
-- Current: 009 Print production implementation checkpoint
-- Done: [spec graph split, Citrus Playground design lock, bootstrap commit f95da4b, Phase 0 commit 81627c9, 002 readiness/analyze PASS, 002 Local foundation checkpoint PASS 4d84270, 003 readiness/analyze PASS 6d24e98, 003 Customer/character library checkpoint PASS d6384b9, 004 readiness/analyze PASS, 004 Story authoring/templates checkpoint PASS 5f4df5b, 005 readiness/analyze PASS, 005 AI provider boundary checkpoint PASS b076c36, 006 readiness/analyze PASS, 006 Durable job orchestration checkpoint PASS d81de62, 007 readiness/analyze PASS 59f7018, 007 Creative generation/review checkpoint PASS 50b94be, 008 readiness/analyze PASS 2edf50b, 008 Arabic layout/preview checkpoint PASS f9acf9a, 009 readiness/analyze PASS]
+- Current: 010 Portability/deletion readiness repair
+- Done: [spec graph split, Citrus Playground design lock, bootstrap commit f95da4b, Phase 0 commit 81627c9, 002 readiness/analyze PASS, 002 Local foundation checkpoint PASS 4d84270, 003 readiness/analyze PASS 6d24e98, 003 Customer/character library checkpoint PASS d6384b9, 004 readiness/analyze PASS, 004 Story authoring/templates checkpoint PASS 5f4df5b, 005 readiness/analyze PASS, 005 AI provider boundary checkpoint PASS b076c36, 006 readiness/analyze PASS, 006 Durable job orchestration checkpoint PASS d81de62, 007 readiness/analyze PASS 59f7018, 007 Creative generation/review checkpoint PASS 50b94be, 008 readiness/analyze PASS 2edf50b, 008 Arabic layout/preview checkpoint PASS f9acf9a, 009 readiness/analyze PASS da0ba6c, 009 Print production checkpoint PASS]
 - Blocked: []
-- App runnable: yes — local Arabic shell, private family library, authoring workspace, explicit provider boundary, durable queue, complete mock creative graph, Arabic layout and cover composition, mechanically validated watermarked previews, exact approval lifecycle, and immutable approved-book authorization handoff
-- Next: implement and verify T-P8-01–T-P8-07, then close the 009 checkpoint
+- App runnable: yes — local Arabic shell, private family library, authoring workspace, explicit provider boundary, durable queue, complete mock creative graph, Arabic layout and cover composition, mechanically validated watermarked previews, exact approval lifecycle, immutable approved-book authorization, versioned printer profiles, watermark-free RGB/CMYK print production, preflight, proof gating, and scoped final downloads
+- Next: repair 010's canonical data-model/state-machine/research/task propagation and close its scope-lock/snapshot design before rerunning analyze and implementing T-P9
 
 ## Slice status
 
-| Slice | State |
-|---|---|
-| 002 Local foundation | implemented; checkpoint PASS (`4d84270`) |
-| 003 Customer/character library | implemented; checkpoint PASS (`d6384b9`) |
-| 004 Story authoring/templates | implemented; checkpoint PASS (`5f4df5b`) |
-| 005 AI provider boundary | implemented; checkpoint PASS (`b076c36`) |
-| 006 Durable job orchestration | implemented; checkpoint PASS (`d81de62`) |
-| 007 Creative generation/review | implemented; checkpoint PASS (`50b94be`) |
-| 008 Arabic layout/preview | implemented; checkpoint PASS (`f9acf9a`) |
-| 009 Print production | readiness/analyze PASS; implementation in progress |
-| 010 Portability/deletion | pending readiness |
-| 011 Single Image Studio | pending readiness |
+| Slice                          | State                                           |
+| ------------------------------ | ----------------------------------------------- |
+| 002 Local foundation           | implemented; checkpoint PASS (`4d84270`)        |
+| 003 Customer/character library | implemented; checkpoint PASS (`d6384b9`)        |
+| 004 Story authoring/templates  | implemented; checkpoint PASS (`5f4df5b`)        |
+| 005 AI provider boundary       | implemented; checkpoint PASS (`b076c36`)        |
+| 006 Durable job orchestration  | implemented; checkpoint PASS (`d81de62`)        |
+| 007 Creative generation/review | implemented; checkpoint PASS (`50b94be`)        |
+| 008 Arabic layout/preview      | implemented; checkpoint PASS (`f9acf9a`)        |
+| 009 Print production           | implemented; checkpoint PASS                    |
+| 010 Portability/deletion       | readiness repair required before implementation |
+| 011 Single Image Studio        | pending readiness                               |
 
 ## Delivery record
 
@@ -43,5 +43,7 @@
 - 008 implementation: checkpoint PASS. Verification: 95 files / 583 tests, 90.82% statements and 82.88% branches (`src/domain/layout/**` 88.83% statements / 80.19% branches / 94.17% functions / 91.22% lines; `src/layout/**` 99.12% / 91.52% / 100% / 99.01%; `src/pdf/**` 90.73% / 84.04% / 92.53% / 93.02%), production build, 11/11 Playwright journeys, 0 dependency vulnerabilities, clean lockfile install, exact 16/24-page durable graphs, 24-page plus cover-proof PDF under 16 MB, embedded Arabic fonts/ToUnicode, complete watermark/footer and zero-egress validation, real page-layout/preview/asset-boundary `SIGKILL` recovery, exact approval/idempotency/snapshot-integrity behavior, all pre-print invalidation rows through real 008 records, three-width Arabic accessibility evidence, and a staged SC-007/SC-010 handoff to 009.
 - 008 implementation: committed and pushed as `f9acf9a`.
 - 009 readiness: analyze PASS after revisioned printer profiles, private indexed ICC/template imports, exact composition compatibility, separate interior/cover producers, closed bleed/crop/spread/blank geometry, fail-closed ICC-bound CMYK plus proof approval, exhaustive FR-123 registry, three authorization fences, reason-specific print invalidation, and the actual-printer manual launch boundary were made implementation-ready. G3/T-P0-07 and all required local tools pass; no provider or user-choice blocker remains.
+- 009 implementation: checkpoint PASS. Verification: 124 files / 814 tests, 90.82% statements and 83.53% branches (`src/domain/print/**` 90.81% / 84.96% / 96.89% / 93.80%; `src/print/**` 93.73% / 88.65% / 100% / 97.84%; Slice-owned `src/pdf/print-*` 92.71% / 86.58% / 93.56% / 95.40%), production build, 14/14 Playwright journeys, 0 dependency vulnerabilities, clean Node 22 lockfile install, exact profile/ICC/template boundaries, complete 32-code FR-123 defect detection, real RGB/CMYK rendered evidence, three authorization fences, IM-14/15/18/19/20 behavior, six real SIGKILL restart boundaries, three-width Arabic accessibility/error evidence, zero browser egress, and an exact staged privacy/artifact scan. CHK317/318 remain explicit pending pre-commercial operator gates.
+- 010 readiness audit: existing slice artifacts are not yet implementation-ready. Canonical data model/state machines/R11/tasks, archive identity/source ownership, scope-lock hierarchy/admission, and a transaction-safe consistent-snapshot mechanism must be reconciled before analyze can pass.
 - Environment note: real Gemini image acceptance remains unavailable until a credential and exact G2/G4 facts are configured. This is a recorded live-check SKIP, not a loop blocker, fallback, or substitution.
-- Implementation commits: `4d84270` (002); `d6384b9` (003); `5f4df5b` (004); `b076c36` (005); `d81de62` (006); `50b94be` (007); `f9acf9a` (008).
+- Implementation commits: `4d84270` (002); `d6384b9` (003); `5f4df5b` (004); `b076c36` (005); `d81de62` (006); `50b94be` (007); `f9acf9a` (008). The 009 hash will be recorded in the next readiness checkpoint because a commit cannot contain its own hash.

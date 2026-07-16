@@ -26,6 +26,13 @@ import type { Page, PageTextVersion } from "../creative/schemas.js";
 import type { DocumentStore } from "../repository/document-store.js";
 import { failLayout } from "./errors.js";
 import {
+  type ApprovedCoverArtwork,
+  type ApprovedCoverContent,
+  approvedCoverTextSamples,
+  compileApprovedCoverContent,
+  toPreviewCoverTextBlock,
+} from "./cover-content.js";
+import {
   createApprovalBundleHash,
   createCustomerContentHash,
   createPageMapHash,
@@ -95,8 +102,8 @@ export class PreviewAssemblyService {
 
   async prepare(job: Readonly<JobRecord>): Promise<PreparedPreviewAssembly> {
     const snapshot = this.workflow.previewJobSnapshot(job);
-    const entries = await this.pageEntries(snapshot);
-    const documentInput = previewDocumentInput(snapshot, entries);
+    const { entries, documentInput, requiredCoverText } =
+      await this.compileDocument(snapshot);
     const rendered = await renderPreviewPdf(documentInput);
     const report = await assertPreviewPdfValid(rendered.pdfBytes, {
       pageMap: rendered.pageMap,
@@ -110,7 +117,7 @@ export class PreviewAssemblyService {
       maximumBytes: 16 * 1024 * 1024,
       minimumImagePpi: 140,
       maximumImagePpi: 160,
-      requiredTextSamples: [snapshot.cover.front.title],
+      requiredTextSamples: requiredCoverText,
       egressRequestCount: rendered.egressRequestCount,
     });
     const asset = await this.assets.prepare({
@@ -171,10 +178,27 @@ export class PreviewAssemblyService {
     await this.assets.discardPrepared(prepared.asset);
   }
 
+  private async compileDocument(snapshot: PreviewJobSnapshot) {
+    const imageCache = new Map<string, PreviewDocumentImage>();
+    const entries = await this.pageEntries(snapshot, imageCache);
+    const cover = approvedCoverContent(snapshot.cover);
+    const coverImages = await this.previewCoverImages(cover, imageCache);
+    return {
+      entries,
+      requiredCoverText: approvedCoverTextSamples(cover),
+      documentInput: previewDocumentInput(
+        snapshot,
+        entries,
+        cover,
+        coverImages,
+      ),
+    };
+  }
+
   private async pageEntries(
     snapshot: PreviewJobSnapshot,
+    cache: Map<string, PreviewDocumentImage>,
   ): Promise<PreviewPageEntry[]> {
-    const cache = new Map<string, PreviewDocumentImage>();
     const result: PreviewPageEntry[] = [];
     for (const item of snapshot.pages) {
       const textVersion = item.page.currentTextVersionId
@@ -196,6 +220,30 @@ export class PreviewAssemblyService {
   ): Promise<PreviewDocumentImage | undefined> {
     const source = layout.inputSnapshot.sourceAssets[0];
     if (!source) return undefined;
+    return this.previewAsset(source, cache, "رسم توضيحي للصفحة");
+  }
+
+  private async previewCoverImages(
+    cover: ApprovedCoverContent,
+    cache: Map<string, PreviewDocumentImage>,
+  ): Promise<{
+    back: PreviewDocumentImage | undefined;
+    front: PreviewDocumentImage | undefined;
+  }> {
+    const image = (source: ApprovedCoverArtwork | null, alt: string) =>
+      source ? this.previewAsset(source, cache, alt) : undefined;
+    const [back, front] = await Promise.all([
+      image(cover.back.artwork, "رسم الغلاف الخلفي"),
+      image(cover.front.artwork, "رسم الغلاف الأمامي"),
+    ]);
+    return { back, front };
+  }
+
+  private async previewAsset(
+    source: { assetId: string; checksum: string },
+    cache: Map<string, PreviewDocumentImage>,
+    alt: string,
+  ): Promise<PreviewDocumentImage> {
     const key = `${source.assetId}:${source.checksum}`;
     const prior = cache.get(key);
     if (prior) return prior;
@@ -211,7 +259,7 @@ export class PreviewAssemblyService {
     const image = {
       bytes: derivative.bytes,
       mime: derivative.mime,
-      alt: "رسم توضيحي للصفحة",
+      alt,
       widthPx: derivative.widthPx,
       heightPx: derivative.heightPx,
     } satisfies PreviewDocumentImage;
@@ -259,17 +307,17 @@ export class PreviewAssemblyService {
 function previewDocumentInput(
   snapshot: PreviewJobSnapshot,
   entries: readonly PreviewPageEntry[],
+  cover: ApprovedCoverContent,
+  coverImages: {
+    back: PreviewDocumentImage | undefined;
+    front: PreviewDocumentImage | undefined;
+  },
 ) {
-  const frontImage = entries.find(
-    (entry) =>
-      entry.layout.inputSnapshot.sourceAssets[0]?.assetId ===
-      snapshot.cover.front.artworkAssetId,
-  )?.image;
   return {
     pages: [
-      coverPage("front_cover", snapshot, frontImage),
+      coverPage("front_cover", cover.front, coverImages.front),
       ...entries.map(compositionPage),
-      coverPage("back_cover", snapshot),
+      coverPage("back_cover", cover.back, coverImages.back),
     ],
     watermarkText: snapshot.watermarkText,
     footerText: defaultFooter,
@@ -293,26 +341,25 @@ function compositionPage(entry: PreviewPageEntry): PreviewCompositionPage {
 
 function coverPage(
   kind: "front_cover" | "back_cover",
-  snapshot: PreviewJobSnapshot,
+  panel: ApprovedCoverContent["front"],
   image?: PreviewDocumentImage,
 ): PreviewCompositionPage {
-  const front = kind === "front_cover";
-  const text = front
-    ? `${snapshot.cover.front.title}\n${snapshot.cover.front.childDisplayName}`
-    : (snapshot.cover.back.synopsis ?? snapshot.cover.back.brandLine);
   return {
     kind,
     interiorPageNumber: null,
     image,
-    text: {
-      heading: text,
-      region: front
-        ? { x: 0.1, y: 0.1, width: 0.8, height: 0.32 }
-        : snapshot.cover.back.region,
-      fontSizePt: 24,
-      aid: "panel",
-    },
+    text: toPreviewCoverTextBlock(panel.text),
   };
+}
+
+function approvedCoverContent(
+  cover: PreviewJobSnapshot["cover"],
+): ApprovedCoverContent {
+  try {
+    return compileApprovedCoverContent(cover);
+  } catch {
+    failLayout("LAYOUT_PREVIEW_STALE");
+  }
 }
 
 function textBlock(
