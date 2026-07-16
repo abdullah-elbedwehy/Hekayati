@@ -20,6 +20,18 @@ import {
   type DocumentStore,
 } from "../domain/repository/document-store.js";
 import type { IntegrityReport } from "./asset-store.js";
+import {
+  assertMediaCleanupOutsideTransaction,
+  assertMediaReferenceTransaction,
+  mediaCleanupIntent,
+  unlinkManagedCleanupIntentSync,
+  validateMediaCleanupIntent,
+  type MediaCleanupIntent,
+  type MediaCleanupOutcome,
+  type MediaHoldClaim,
+  type MediaHoldResult,
+  type MediaReleaseResult,
+} from "./media-reference.js";
 
 const extensionPattern = /^[a-z0-9]{1,10}$/;
 const ulidPattern = /^[0-9A-HJKMNP-TV-Z]{26}$/;
@@ -169,34 +181,80 @@ export class OriginalAssetStore {
   }
 
   retain(id: string): OriginalAssetRecord {
-    return this.store.transaction(() =>
-      this.incrementReference(this.requireRecord(id)),
-    );
+    return this.store.transaction(() => this.retainInTransaction(id));
+  }
+
+  retainInTransaction(id: string): OriginalAssetRecord {
+    assertMediaReferenceTransaction(this.store);
+    return this.incrementReference(this.requireRecord(id));
+  }
+
+  holdInTransaction(
+    id: string,
+    claim: MediaHoldClaim,
+  ): MediaHoldResult<OriginalAssetRecord> {
+    assertMediaReferenceTransaction(this.store);
+    const before = this.requireRecord(id);
+    const disposition = claim();
+    if (disposition !== "acquired" && disposition !== "replayed")
+      throw new Error("MEDIA_HOLD_DISPOSITION_INVALID");
+    const current = this.requireRecord(id);
+    if (current.sha256 !== before.sha256)
+      throw new Error("ORIGINAL_ASSET_IDENTITY_CHANGED_IN_TRANSACTION");
+    return disposition === "acquired"
+      ? { record: this.incrementReference(current), acquired: true }
+      : { record: current, acquired: false };
+  }
+
+  releaseWithoutUnlinkInTransaction(
+    id: string,
+  ): MediaReleaseResult<OriginalAssetRecord, "original"> {
+    assertMediaReferenceTransaction(this.store);
+    const record = this.requireRecord(id);
+    if (record.refCount > 1)
+      return {
+        record: this.repository.put({
+          ...record,
+          refCount: record.refCount - 1,
+          updatedAt: new Date().toISOString(),
+        }),
+        cleanupIntent: null,
+      };
+    this.repository.delete(id);
+    return {
+      record: null,
+      cleanupIntent: mediaCleanupIntent("original", record),
+    };
   }
 
   async release(id: string): Promise<OriginalAssetRecord | null> {
     const snapshot = this.requireRecord(id);
-    return this.withHashLock(snapshot.sha256, async () => {
-      let unlinked: OriginalAssetRecord | null = null;
-      const retained = this.store.transaction(() => {
-        const record = this.requireRecord(id);
-        if (record.refCount > 1) {
-          return this.repository.put({
-            ...record,
-            refCount: record.refCount - 1,
-            updatedAt: new Date().toISOString(),
-          });
-        }
-        this.repository.delete(id);
-        unlinked = record;
-        return null;
-      });
-      if (unlinked) {
-        await rm(this.pathForRecord(unlinked), { force: true });
-        await syncDirectory(dirname(this.pathForRecord(unlinked)));
-      }
-      return retained;
+    return this.withHashLock(snapshot.sha256, () => {
+      const released = this.store.transaction(() =>
+        this.releaseWithoutUnlinkInTransaction(id),
+      );
+      if (released.cleanupIntent)
+        this.unlinkCleanupIntentLocked(released.cleanupIntent);
+      return released.record;
     });
+  }
+
+  unlinkCleanupIntent(
+    intent: MediaCleanupIntent<"original">,
+  ): Promise<MediaCleanupOutcome> {
+    assertMediaCleanupOutsideTransaction(this.store);
+    validateMediaCleanupIntent(intent, "original");
+    return this.withHashLock(intent.checksum, () =>
+      this.unlinkCleanupIntentLocked(intent),
+    );
+  }
+
+  private unlinkCleanupIntentLocked(
+    intent: MediaCleanupIntent<"original">,
+  ): MediaCleanupOutcome {
+    if (this.repository.get(intent.mediaId) || this.findBySha(intent.checksum))
+      return "preserved";
+    return unlinkManagedCleanupIntentSync(this.root, intent);
   }
 
   async scanIntegrity(): Promise<IntegrityReport> {
@@ -330,7 +388,7 @@ export class OriginalAssetStore {
 
   private async withHashLock<T>(
     hash: string,
-    operation: () => Promise<T>,
+    operation: () => T | Promise<T>,
   ): Promise<T> {
     const prior = this.hashLocks.get(hash) ?? Promise.resolve();
     let release: () => void = () => undefined;

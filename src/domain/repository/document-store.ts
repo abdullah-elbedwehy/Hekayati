@@ -57,7 +57,14 @@ export class DocumentStore {
   }
 
   transaction<T>(operation: () => T): T {
-    return this.database.transaction(operation)();
+    return this.database.transaction(() => synchronousResult(operation))();
+  }
+
+  transactionImmediate<T>(operation: () => T): T {
+    const execute = this.database.transaction(() =>
+      synchronousResult(operation),
+    );
+    return execute.immediate();
   }
 
   assertSafeForPersistence(value: unknown): void {
@@ -157,6 +164,21 @@ export class DocumentStore {
         .run(1, new Date().toISOString());
     }
   }
+}
+
+function isThenable(value: unknown): value is PromiseLike<unknown> {
+  if (
+    value === null ||
+    (typeof value !== "object" && typeof value !== "function")
+  )
+    return false;
+  return "then" in value && typeof value.then === "function";
+}
+
+function synchronousResult<T>(operation: () => T): T {
+  const result = operation();
+  if (isThenable(result)) throw new Error("ASYNC_TRANSACTION_FORBIDDEN");
+  return result;
 }
 
 function migrationSteps(

@@ -43,6 +43,26 @@ export interface JobSchedulerOptions {
   nowIso?: () => string;
   idFactory?: () => string;
   claimTokenFactory?: () => string;
+  scopeAdmission?: JobScopeAdmissionPort;
+}
+
+export type JobScopeAdmissionPurpose =
+  | "scheduler_enqueue"
+  | "scheduler_claim"
+  | "scheduler_promote"
+  | "scheduler_resume"
+  | "scheduler_run"
+  | "scheduler_commit";
+
+export interface JobScopeAdmissionPort {
+  assertInTransaction(
+    job: Readonly<JobRecord>,
+    purpose: JobScopeAdmissionPurpose,
+  ): void;
+  isAdmittedInTransaction(
+    job: Readonly<JobRecord>,
+    purpose: JobScopeAdmissionPurpose,
+  ): boolean;
 }
 
 export interface JobRequestParser {

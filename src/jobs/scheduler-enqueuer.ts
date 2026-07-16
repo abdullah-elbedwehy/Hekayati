@@ -9,7 +9,11 @@ import {
   isSameIntent,
   requestEnvelope,
 } from "./scheduler-core.js";
-import type { EnqueueJobInput, JobRegistration } from "./types.js";
+import type {
+  EnqueueJobInput,
+  JobRegistration,
+  JobScopeAdmissionPort,
+} from "./types.js";
 
 export class JobEnqueuer {
   constructor(
@@ -18,6 +22,7 @@ export class JobEnqueuer {
     private readonly registeredJobs: ReadonlyMap<string, JobRegistration>,
     private readonly nowIso: () => string,
     private readonly idFactory: () => string,
+    private readonly scopeAdmission: JobScopeAdmissionPort = repository.scopeAdmission,
   ) {}
 
   enqueueInTransaction(inputs: readonly EnqueueJobInput[]): JobRecord[] {
@@ -47,6 +52,8 @@ export class JobEnqueuer {
       return duplicate;
     });
     const proposed = [...proposedByKey.values()];
+    for (const job of proposed)
+      this.scopeAdmission.assertInTransaction(job, "scheduler_enqueue");
     validateDag(proposed, persisted);
     const all = new Map(
       [...persisted, ...proposed].map((job) => [job.id, job]),
@@ -70,6 +77,10 @@ export class JobEnqueuer {
     const byId = new Map(jobs.map((job) => [job.id, job]));
     for (const job of jobs) {
       if (job.state !== "blocked" || !dependenciesSucceeded(job, byId))
+        continue;
+      if (
+        !this.scopeAdmission.isAdmittedInTransaction(job, "scheduler_promote")
+      )
         continue;
       const nextState =
         job.request.kind === "human_gate" ? "waiting_review" : "queued";

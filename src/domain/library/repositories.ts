@@ -5,6 +5,11 @@ import {
   type BaseDocument,
   type DocumentStore,
 } from "../repository/document-store.js";
+import {
+  domainMutationAdmission,
+  type OperationOwnedMutationContext,
+} from "../portability/domain-mutation-admission.js";
+import { libraryCollections } from "./collections.js";
 import { fail, type LibraryErrorCode } from "./errors.js";
 import {
   changeEventSchema,
@@ -29,18 +34,7 @@ import {
   type ReferencePhoto,
 } from "./schemas.js";
 
-export const libraryCollections = {
-  customers: "customers",
-  families: "families",
-  characters: "characters",
-  characterVersions: "character_versions",
-  looks: "looks",
-  lookVersions: "look_versions",
-  referencePhotos: "reference_photos",
-  originalAssets: "original_assets",
-  changeEvents: "change_events",
-  invalidationReceipts: "invalidation_receipts",
-} as const;
+export { libraryCollections } from "./collections.js";
 
 export class StrictDocumentRepository<T extends BaseDocument> {
   private readonly documents: DocumentRepository<T>;
@@ -65,35 +59,76 @@ export class StrictDocumentRepository<T extends BaseDocument> {
     return this.documents.queryByField(field, value);
   }
 
-  insert(document: T, duplicateCode: LibraryErrorCode): T {
-    const parsed = this.schema.parse(document);
-    this.store.assertSafeForPersistence(parsed);
-    if (this.get(parsed.id)) fail(duplicateCode);
-    try {
-      this.store.database
-        .prepare(
-          `INSERT INTO documents(collection, id, doc, schema_version, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?)`,
-        )
-        .run(
-          this.collection,
-          parsed.id,
-          JSON.stringify(parsed),
-          parsed.schemaVersion,
-          parsed.createdAt,
-          parsed.updatedAt,
-        );
-    } catch (error) {
-      if (isConstraintFailure(error)) fail(duplicateCode);
-      throw error;
-    }
-    return parsed;
+  insert(
+    document: T,
+    duplicateCode: LibraryErrorCode,
+    operation?: OperationOwnedMutationContext,
+  ): T {
+    return this.store.transaction(() => {
+      const parsed = this.schema.parse(document);
+      this.store.assertSafeForPersistence(parsed);
+      if (this.get(parsed.id)) fail(duplicateCode);
+      this.assertMutation("insert", null, parsed, operation);
+      try {
+        this.insertDocument(parsed);
+      } catch (error) {
+        if (isConstraintFailure(error)) fail(duplicateCode);
+        throw error;
+      }
+      return parsed;
+    });
   }
 
-  update(document: T): T {
-    if (!this.get(document.id))
-      throw new Error("DOCUMENT_UPDATE_TARGET_MISSING");
-    return this.documents.put(document);
+  update(document: T, operation?: OperationOwnedMutationContext): T {
+    return this.store.transaction(() => {
+      const parsed = this.schema.parse(document);
+      const current = this.get(parsed.id);
+      if (!current) throw new Error("DOCUMENT_UPDATE_TARGET_MISSING");
+      this.assertMutation("update", current, parsed, operation);
+      return this.documents.put(parsed);
+    });
+  }
+
+  delete(id: string, operation?: OperationOwnedMutationContext): boolean {
+    return this.store.transaction(() => {
+      const current = this.get(id);
+      if (!current) return false;
+      this.assertMutation("delete", current, null, operation);
+      return this.documents.delete(id);
+    });
+  }
+
+  private insertDocument(document: T): void {
+    this.store.database
+      .prepare(
+        `INSERT INTO documents(collection, id, doc, schema_version, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        this.collection,
+        document.id,
+        JSON.stringify(document),
+        document.schemaVersion,
+        document.createdAt,
+        document.updatedAt,
+      );
+  }
+
+  private assertMutation(
+    mutation: "insert" | "update" | "delete",
+    before: T | null,
+    after: T | null,
+    operation?: OperationOwnedMutationContext,
+  ): void {
+    const admission = domainMutationAdmission(this.store);
+    admission.assertInTransaction({
+      writer: "library.document",
+      collection: this.collection,
+      mutation,
+      before,
+      after,
+      operation,
+    });
   }
 }
 

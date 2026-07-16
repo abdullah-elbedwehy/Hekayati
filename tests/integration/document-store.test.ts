@@ -106,6 +106,36 @@ describe("document repository", () => {
     reopened.close();
   });
 
+  it("runs immediate transactions synchronously and rolls back thenables", async () => {
+    const fixture = await databaseFixture();
+    const repository = new DocumentRepository<Fixture>(
+      fixture.store,
+      "fixtures",
+      fixtureSchema,
+    );
+
+    expect(
+      fixture.store.transactionImmediate(() => {
+        repository.put(makeDocument("sync", "family-sync"));
+        return "committed";
+      }),
+    ).toBe("committed");
+
+    expect(() =>
+      fixture.store.transactionImmediate(async () => {
+        repository.put(makeDocument("async", "family-async"));
+      }),
+    ).toThrow("ASYNC_TRANSACTION_FORBIDDEN");
+    expect(() =>
+      fixture.store.transaction(async () => {
+        repository.put(makeDocument("async-deferred", "family-async"));
+      }),
+    ).toThrow("ASYNC_TRANSACTION_FORBIDDEN");
+    expect(repository.get("async")).toBeNull();
+    expect(repository.get("async-deferred")).toBeNull();
+    expect(repository.get("sync")?.value).toBe("value-sync");
+  });
+
   it("atomically migrates legacy document schema versions through registered steps", async () => {
     const fixture = await databaseFixture();
     const now = new Date().toISOString();

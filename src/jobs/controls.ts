@@ -37,6 +37,7 @@ import type {
   ExpectedJobState,
   FailureTiming,
   JobFence,
+  JobScopeAdmissionPort,
   ProgressInput,
   StorageResumeImpact,
   StorageResumeInput,
@@ -60,6 +61,7 @@ export class JobControls {
     private readonly history: JobHistory,
     private readonly nowIso: () => string,
     private readonly promoteReady: () => void,
+    private readonly scopeAdmission: JobScopeAdmissionPort = repository.scopeAdmission,
   ) {}
 
   events(jobId: string): JobEvent[] {
@@ -206,6 +208,7 @@ export class JobControls {
       const current = this.expected(id, input);
       if (current.state !== "paused" || current.stateReason !== "operator")
         throw new JobError("JOB_ACTION_NOT_ALLOWED");
+      this.scopeAdmission.assertInTransaction(current, "scheduler_resume");
       const resumed = this.update(current, restoreState(current));
       this.history.append(resumed, "resumed", {
         fromState: "paused",
@@ -222,6 +225,7 @@ export class JobControls {
       const current = this.expected(id, input);
       if (!isManuallyRetryable(current))
         throw new JobError("JOB_ACTION_NOT_ALLOWED");
+      this.scopeAdmission.assertInTransaction(current, "scheduler_resume");
       const jobs = new Map(this.repository.list().map((job) => [job.id, job]));
       const state = dependenciesReady(current, jobs) ? "queued" : "blocked";
       const retried = this.update(current, {
@@ -273,14 +277,18 @@ export class JobControls {
 
   resumeProject(projectId: string): string[] {
     return this.repository.transaction(() => {
+      const resumable = this.repository
+        .list()
+        .filter(
+          (job) =>
+            job.projectId === projectId &&
+            job.state === "paused" &&
+            job.stateReason === "operator",
+        );
+      for (const job of resumable)
+        this.scopeAdmission.assertInTransaction(job, "scheduler_resume");
       const affected: string[] = [];
-      for (const job of this.repository.list()) {
-        if (
-          job.projectId !== projectId ||
-          job.state !== "paused" ||
-          job.stateReason !== "operator"
-        )
-          continue;
+      for (const job of resumable) {
         const resumed = this.update(job, restoreState(job));
         this.history.append(resumed, "resumed", {
           fromState: "paused",
@@ -364,6 +372,7 @@ export class JobControls {
     return this.repository.transaction(() => {
       const current = this.requireJob(id);
       assertOwned(current, fence, input.nowMonoMs, "running");
+      this.scopeAdmission.assertInTransaction(current, "scheduler_commit");
       const previous = current.progress;
       if (
         previous?.attempt === current.attempts &&
@@ -419,6 +428,7 @@ export class JobControls {
     return this.repository.transaction(() => {
       const current = this.requireJob(id);
       assertOwned(current, fence, timing.nowMonoMs, "running");
+      this.scopeAdmission.assertInTransaction(current, "scheduler_commit");
       const persistedFailure = safeFailure(failure);
       if (persistedFailure.category === "invalid_credentials")
         return this.activateCredentials(current, persistedFailure);
@@ -471,6 +481,7 @@ export class JobControls {
       if (current.request.targetVersionId !== input.targetVersionId)
         throw new JobError("JOB_GATE_VERSION_MISMATCH");
       if (!ownerVerify(current)) throw new JobError("JOB_GATE_OWNER_REJECTED");
+      this.scopeAdmission.assertInTransaction(current, "scheduler_commit");
       const succeeded = this.update(current, {
         state: "succeeded",
         stateReason: null,
@@ -690,6 +701,8 @@ export class JobControls {
         this.repository.list(),
         input,
       );
+      for (const job of affected)
+        this.scopeAdmission.assertInTransaction(job, "scheduler_resume");
       for (const job of affected) this.restoreStorageJob(job);
       this.history.updateStorage({
         active: false,

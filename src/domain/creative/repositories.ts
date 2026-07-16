@@ -5,6 +5,11 @@ import {
   type BaseDocument,
   type DocumentStore,
 } from "../repository/document-store.js";
+import {
+  domainMutationAdmission,
+  type OperationOwnedMutationContext,
+} from "../portability/domain-mutation-admission.js";
+import { creativeCollections } from "./collections.js";
 import { failCreative } from "./errors.js";
 import {
   characterApprovalSchema,
@@ -35,21 +40,7 @@ import {
   type PageTextVersion,
 } from "./schemas.js";
 
-export const creativeCollections = {
-  characterSheets: "character_sheets",
-  characterSheetIntents: "character_sheet_intents",
-  characterApprovals: "character_approvals",
-  runs: "creative_runs",
-  stageRecords: "creative_stage_records",
-  pages: "pages",
-  pageTextVersions: "page_text_versions",
-  pagePromptVersions: "page_prompt_versions",
-  illustrationVersions: "illustration_versions",
-  pageReviews: "page_reviews",
-  findingAcknowledgements: "finding_acknowledgements",
-  invalidationAudits: "invalidation_audits",
-  layoutWorkRequests: "layout_work_requests",
-} as const;
+export { creativeCollections } from "./collections.js";
 
 export class CreativeRepository<T extends BaseDocument> {
   private readonly documents: DocumentRepository<T>;
@@ -74,35 +65,72 @@ export class CreativeRepository<T extends BaseDocument> {
     return this.documents.queryByField(field, value);
   }
 
-  insert(document: T): T {
-    const parsed = this.schema.parse(document);
-    this.store.assertSafeForPersistence(parsed);
-    if (this.get(parsed.id)) failCreative("CREATIVE_DUPLICATE_ENTITY");
-    try {
-      this.store.database
-        .prepare(
-          `INSERT INTO documents(collection, id, doc, schema_version, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?)`,
-        )
-        .run(
-          this.collection,
-          parsed.id,
-          JSON.stringify(parsed),
-          parsed.schemaVersion,
-          parsed.createdAt,
-          parsed.updatedAt,
-        );
-    } catch (error) {
-      if (constraintFailure(error)) failCreative("CREATIVE_DUPLICATE_ENTITY");
-      throw error;
-    }
-    return parsed;
+  insert(document: T, operation?: OperationOwnedMutationContext): T {
+    return this.store.transaction(() => {
+      const parsed = this.schema.parse(document);
+      this.store.assertSafeForPersistence(parsed);
+      if (this.get(parsed.id)) failCreative("CREATIVE_DUPLICATE_ENTITY");
+      this.assertMutation("insert", null, parsed, operation);
+      try {
+        this.insertDocument(parsed);
+      } catch (error) {
+        if (constraintFailure(error)) failCreative("CREATIVE_DUPLICATE_ENTITY");
+        throw error;
+      }
+      return parsed;
+    });
   }
 
-  update(document: T): T {
-    const parsed = this.schema.parse(document);
-    if (!this.get(parsed.id)) failCreative("CREATIVE_ENTITY_NOT_FOUND", 404);
-    return this.documents.put(parsed);
+  update(document: T, operation?: OperationOwnedMutationContext): T {
+    return this.store.transaction(() => {
+      const parsed = this.schema.parse(document);
+      const current = this.get(parsed.id);
+      if (!current) failCreative("CREATIVE_ENTITY_NOT_FOUND", 404);
+      this.assertMutation("update", current, parsed, operation);
+      return this.documents.put(parsed);
+    });
+  }
+
+  delete(id: string, operation?: OperationOwnedMutationContext): boolean {
+    return this.store.transaction(() => {
+      const current = this.get(id);
+      if (!current) return false;
+      this.assertMutation("delete", current, null, operation);
+      return this.documents.delete(id);
+    });
+  }
+
+  private insertDocument(document: T): void {
+    this.store.database
+      .prepare(
+        `INSERT INTO documents(collection, id, doc, schema_version, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        this.collection,
+        document.id,
+        JSON.stringify(document),
+        document.schemaVersion,
+        document.createdAt,
+        document.updatedAt,
+      );
+  }
+
+  private assertMutation(
+    mutation: "insert" | "update" | "delete",
+    before: T | null,
+    after: T | null,
+    operation?: OperationOwnedMutationContext,
+  ): void {
+    const admission = domainMutationAdmission(this.store);
+    admission.assertInTransaction({
+      writer: "creative.document",
+      collection: this.collection,
+      mutation,
+      before,
+      after,
+      operation,
+    });
   }
 }
 

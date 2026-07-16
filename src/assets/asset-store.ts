@@ -1,21 +1,6 @@
-import { createHash, randomUUID } from "node:crypto";
-import {
-  closeSync,
-  constants,
-  fstatSync,
-  openSync,
-  readFileSync,
-} from "node:fs";
-import {
-  chmod,
-  lstat,
-  mkdir,
-  open,
-  readdir,
-  rename,
-  rm,
-} from "node:fs/promises";
-import { basename, dirname, extname, join } from "node:path";
+import { randomUUID } from "node:crypto";
+import { chmod, open, rename, rm } from "node:fs/promises";
+import { dirname, join } from "node:path";
 import { isDeepStrictEqual } from "node:util";
 
 import { ulid } from "ulid";
@@ -25,6 +10,30 @@ import {
   DocumentRepository,
   type DocumentStore,
 } from "../domain/repository/document-store.js";
+import {
+  fileMatches,
+  isCollectibleAssetFile,
+  isMissing,
+  listFiles,
+  prepareManagedDirectory,
+  readManagedFile,
+  readManagedFileSync,
+  removeTemporaryAfterFailure,
+  sha256,
+  syncDirectory,
+} from "./asset-file-operations.js";
+import {
+  assertMediaCleanupOutsideTransaction,
+  assertMediaReferenceTransaction,
+  mediaCleanupIntent,
+  unlinkManagedCleanupIntentSync,
+  validateMediaCleanupIntent,
+  type MediaCleanupIntent,
+  type MediaCleanupOutcome,
+  type MediaHoldClaim,
+  type MediaHoldResult,
+  type MediaReleaseResult,
+} from "./media-reference.js";
 
 const extensionPattern = /^[a-z0-9]{1,10}$/;
 const ulidPattern = /^[0-9A-HJKMNP-TV-Z]{26}$/;
@@ -396,10 +405,47 @@ export class AssetStore {
   }
 
   retain(assetId: string): AssetRecord {
-    return this.store.transaction(() => {
-      const record = this.requireRecord(assetId);
-      return this.incrementReference(record);
-    });
+    return this.store.transaction(() => this.retainInTransaction(assetId));
+  }
+
+  retainInTransaction(assetId: string): AssetRecord {
+    assertMediaReferenceTransaction(this.store);
+    return this.incrementReference(this.requireRecord(assetId));
+  }
+
+  holdInTransaction(
+    assetId: string,
+    claim: MediaHoldClaim,
+  ): MediaHoldResult<AssetRecord> {
+    assertMediaReferenceTransaction(this.store);
+    const before = this.requireRecord(assetId);
+    const disposition = claim();
+    if (disposition !== "acquired" && disposition !== "replayed")
+      throw new Error("MEDIA_HOLD_DISPOSITION_INVALID");
+    const current = this.requireRecord(assetId);
+    if (current.sha256 !== before.sha256)
+      throw new Error("ASSET_IDENTITY_CHANGED_IN_TRANSACTION");
+    return disposition === "acquired"
+      ? { record: this.incrementReference(current), acquired: true }
+      : { record: current, acquired: false };
+  }
+
+  releaseWithoutUnlinkInTransaction(
+    assetId: string,
+  ): MediaReleaseResult<AssetRecord, "asset"> {
+    assertMediaReferenceTransaction(this.store);
+    const record = this.requireRecord(assetId);
+    if (record.refCount > 1)
+      return {
+        record: this.repository.put({
+          ...record,
+          refCount: record.refCount - 1,
+          updatedAt: new Date().toISOString(),
+        }),
+        cleanupIntent: null,
+      };
+    this.repository.delete(assetId);
+    return { record: null, cleanupIntent: mediaCleanupIntent("asset", record) };
   }
 
   async release(assetId: string): Promise<AssetRecord | null> {
@@ -409,23 +455,31 @@ export class AssetStore {
     );
   }
 
-  private async releaseLocked(assetId: string): Promise<AssetRecord | null> {
-    let unlinked: AssetRecord | null = null;
-    const retained = this.store.transaction(() => {
-      const record = this.requireRecord(assetId);
-      if (record.refCount > 1) {
-        return this.repository.put({
-          ...record,
-          refCount: record.refCount - 1,
-          updatedAt: new Date().toISOString(),
-        });
-      }
-      this.repository.delete(assetId);
-      unlinked = record;
-      return null;
-    });
-    if (unlinked) await this.removeUnlinkedFile(unlinked);
-    return retained;
+  private releaseLocked(assetId: string): AssetRecord | null {
+    const released = this.store.transaction(() =>
+      this.releaseWithoutUnlinkInTransaction(assetId),
+    );
+    if (released.cleanupIntent)
+      this.unlinkCleanupIntentLocked(released.cleanupIntent);
+    return released.record;
+  }
+
+  unlinkCleanupIntent(
+    intent: MediaCleanupIntent<"asset">,
+  ): Promise<MediaCleanupOutcome> {
+    assertMediaCleanupOutsideTransaction(this.store);
+    validateMediaCleanupIntent(intent, "asset");
+    return this.withHashLock(intent.checksum, () =>
+      this.unlinkCleanupIntentLocked(intent),
+    );
+  }
+
+  private unlinkCleanupIntentLocked(
+    intent: MediaCleanupIntent<"asset">,
+  ): MediaCleanupOutcome {
+    if (this.repository.get(intent.mediaId) || this.findBySha(intent.checksum))
+      return "preserved";
+    return unlinkManagedCleanupIntentSync(this.root, intent);
   }
 
   pathForRecord(record: AssetRecord): string {
@@ -502,7 +556,7 @@ export class AssetStore {
 
   private async withHashLock<T>(
     hash: string,
-    operation: () => Promise<T>,
+    operation: () => T | Promise<T>,
   ): Promise<T> {
     const prior = this.hashLocks.get(hash) ?? Promise.resolve();
     let release: () => void = () => undefined;
@@ -601,17 +655,6 @@ function normalizeExtension(extension: string): string {
   return normalized;
 }
 
-function isCollectibleAssetFile(file: string, root: string): boolean {
-  const name = basename(file);
-  const parent = dirname(file);
-  const prefix = basename(parent);
-  if (dirname(parent) !== root || !/^[a-f0-9]{2}$/.test(prefix)) return false;
-  if (/^\.hekayati-tmp-[A-Za-z0-9-]{1,80}$/.test(name)) return true;
-  return (
-    /^[a-f0-9]{64}\.[a-z0-9]{1,10}$/.test(name) && prefix === name.slice(0, 2)
-  );
-}
-
 function metadataFromInput(input: AssetInput): AssetMetadata {
   return assetMetadataSchema.parse({
     mime: input.mime,
@@ -662,118 +705,4 @@ function assertCompatibleMetadata(
   });
   if (record.extension !== extension || !isDeepStrictEqual(stored, metadata))
     throw new Error("ASSET_METADATA_CONFLICT");
-}
-
-function sha256(bytes: Buffer): string {
-  return createHash("sha256").update(bytes).digest("hex");
-}
-
-async function fileMatches(
-  file: string,
-  expectedHash: string,
-): Promise<boolean> {
-  try {
-    return sha256(await readManagedFile(file)) === expectedHash;
-  } catch (error) {
-    if (isMissing(error)) return false;
-    throw error;
-  }
-}
-
-async function prepareManagedDirectory(directory: string): Promise<void> {
-  await mkdir(directory, { recursive: true, mode: 0o700 });
-  const info = await lstat(directory);
-  if (!info.isDirectory() || info.isSymbolicLink())
-    throw new Error("INVALID_ASSET_DIRECTORY");
-  await chmod(directory, 0o700);
-}
-
-async function readManagedFile(file: string): Promise<Buffer> {
-  let handle;
-  try {
-    handle = await open(file, constants.O_RDONLY | constants.O_NOFOLLOW);
-  } catch (error) {
-    if (isMissing(error)) throw error;
-    throw new Error("INVALID_ASSET_FILE", { cause: error });
-  }
-  try {
-    const info = await handle.stat();
-    if (!info.isFile() || info.nlink !== 1)
-      throw new Error("INVALID_ASSET_FILE");
-    return await handle.readFile();
-  } finally {
-    await handle.close();
-  }
-}
-
-function readManagedFileSync(file: string): Buffer {
-  let descriptor: number;
-  try {
-    descriptor = openSync(file, constants.O_RDONLY | constants.O_NOFOLLOW);
-  } catch (error) {
-    if (isMissing(error)) throw error;
-    throw new Error("INVALID_ASSET_FILE", { cause: error });
-  }
-  try {
-    const info = fstatSync(descriptor);
-    if (!info.isFile() || info.nlink !== 1)
-      throw new Error("INVALID_ASSET_FILE");
-    return readFileSync(descriptor);
-  } finally {
-    closeSync(descriptor);
-  }
-}
-
-async function syncDirectory(directory: string): Promise<void> {
-  const handle = await open(directory, "r");
-  try {
-    await handle.sync();
-  } catch (error) {
-    if (!isUnsupportedSync(error)) throw error;
-  } finally {
-    await handle.close();
-  }
-}
-
-async function removeTemporaryAfterFailure(temporary: string): Promise<void> {
-  try {
-    await rm(temporary, { force: true });
-    await syncDirectory(dirname(temporary));
-  } catch {
-    // Preserve the write failure; startup orphan GC remains the fallback.
-  }
-}
-
-async function listFiles(root: string): Promise<string[]> {
-  let entries;
-  try {
-    entries = await readdir(root, { withFileTypes: true });
-  } catch (error) {
-    if (isMissing(error)) return [];
-    throw error;
-  }
-  const nested = await Promise.all(
-    entries.map(async (entry) => {
-      const target = join(root, entry.name);
-      if (entry.isDirectory()) return listFiles(target);
-      return entry.isFile() ? [target] : [];
-    }),
-  );
-  return nested
-    .flat()
-    .filter(
-      (file) => basename(file) !== ".DS_Store" && extname(file) !== ".keep",
-    );
-}
-
-function isMissing(error: unknown): boolean {
-  return error instanceof Error && "code" in error && error.code === "ENOENT";
-}
-
-function isUnsupportedSync(error: unknown): boolean {
-  return (
-    error instanceof Error &&
-    "code" in error &&
-    (error.code === "EINVAL" || error.code === "ENOTSUP")
-  );
 }

@@ -7,6 +7,12 @@ import {
   type DocumentStore,
 } from "../repository/document-store.js";
 import { changeEventSchema, type ChangeEvent } from "../library/schemas.js";
+import {
+  domainMutationAdmission,
+  type DomainMutationWriterKey,
+  type OperationOwnedMutationContext,
+} from "../portability/domain-mutation-admission.js";
+import { authoringCollections } from "./collections.js";
 import { failAuthoring } from "./errors.js";
 import {
   projectOverrideSchema,
@@ -31,19 +37,7 @@ import {
   type StoryVersion,
 } from "./schemas.js";
 
-export const authoringCollections = {
-  projects: "projects",
-  projectVersions: "project_versions",
-  projectOverrides: "project_character_overrides",
-  projectOverrideVersions: "project_character_override_versions",
-  templates: "story_templates",
-  templateVersions: "story_template_versions",
-  stories: "stories",
-  storyVersions: "story_versions",
-  scenes: "scenes",
-  sceneVersions: "scene_versions",
-  changeEvents: "change_events",
-} as const;
+export { authoringCollections } from "./collections.js";
 
 export class AuthoringRepository<T extends BaseDocument> {
   private readonly documents: DocumentRepository<T>;
@@ -52,6 +46,7 @@ export class AuthoringRepository<T extends BaseDocument> {
     protected readonly store: DocumentStore,
     readonly collection: string,
     protected readonly schema: ZodType<T>,
+    private readonly writer: DomainMutationWriterKey = "authoring.document",
   ) {
     this.documents = new DocumentRepository(store, collection, schema);
   }
@@ -68,50 +63,108 @@ export class AuthoringRepository<T extends BaseDocument> {
     return this.documents.queryByField(field, value);
   }
 
-  insert(document: T): T {
-    const parsed = this.schema.parse(document);
-    if (this.get(parsed.id)) failAuthoring("DUPLICATE_AUTHORING_ID");
-    this.store.assertSafeForPersistence(parsed);
-    try {
-      this.store.database
-        .prepare(
-          `INSERT INTO documents(collection, id, doc, schema_version, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?)`,
-        )
-        .run(
-          this.collection,
-          parsed.id,
-          JSON.stringify(parsed),
-          parsed.schemaVersion,
-          parsed.createdAt,
-          parsed.updatedAt,
-        );
-    } catch (error) {
-      if (isConstraintFailure(error)) failAuthoring("DUPLICATE_AUTHORING_ID");
-      throw error;
-    }
-    return parsed;
+  insert(document: T, operation?: OperationOwnedMutationContext): T {
+    return this.store.transaction(() => {
+      const parsed = this.schema.parse(document);
+      if (this.get(parsed.id)) failAuthoring("DUPLICATE_AUTHORING_ID");
+      this.store.assertSafeForPersistence(parsed);
+      this.assertMutation("insert", null, parsed, operation);
+      try {
+        this.insertDocument(parsed);
+      } catch (error) {
+        if (isConstraintFailure(error)) failAuthoring("DUPLICATE_AUTHORING_ID");
+        throw error;
+      }
+      return parsed;
+    });
   }
 
-  update(document: T): T {
-    if (!this.get(document.id)) failAuthoring("DUPLICATE_AUTHORING_ID");
-    return this.documents.put(document);
+  update(document: T, operation?: OperationOwnedMutationContext): T {
+    return this.store.transaction(() => {
+      const parsed = this.schema.parse(document);
+      const current = this.get(parsed.id);
+      if (!current) failAuthoring("DUPLICATE_AUTHORING_ID");
+      this.assertMutation("update", current, parsed, operation);
+      return this.documents.put(parsed);
+    });
+  }
+
+  delete(id: string, operation?: OperationOwnedMutationContext): boolean {
+    return this.store.transaction(() => {
+      const current = this.get(id);
+      if (!current) return false;
+      this.assertMutation("delete", current, null, operation);
+      return this.documents.delete(id);
+    });
+  }
+
+  private insertDocument(document: T): void {
+    this.store.database
+      .prepare(
+        `INSERT INTO documents(collection, id, doc, schema_version, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        this.collection,
+        document.id,
+        JSON.stringify(document),
+        document.schemaVersion,
+        document.createdAt,
+        document.updatedAt,
+      );
+  }
+
+  protected assertMutation(
+    mutation: "insert" | "update" | "delete",
+    before: T | null,
+    after: T | null,
+    operation?: OperationOwnedMutationContext,
+  ): void {
+    const admission = domainMutationAdmission(this.store);
+    admission.assertInTransaction({
+      writer: this.writer,
+      collection: this.collection,
+      mutation,
+      before,
+      after,
+      operation,
+    });
   }
 }
 
 export class ProjectRepository extends AuthoringRepository<Project> {
-  update(document: Project): Project {
-    const next = this.schema.parse(document);
-    const current = this.get(next.id);
-    if (!current) failAuthoring("PROJECT_NOT_FOUND");
-    if (next.revision !== current.revision + 1)
-      failAuthoring("PROJECT_VERSION_CONFLICT");
-    for (const field of projectImmutableFields) {
-      if (canonicalJson(current[field]) !== canonicalJson(next[field]))
+  constructor(
+    store: DocumentStore,
+    collection: string,
+    schema: ZodType<Project>,
+  ) {
+    super(store, collection, schema, "authoring.project-revision");
+  }
+
+  update(
+    document: Project,
+    operation?: OperationOwnedMutationContext,
+  ): Project {
+    return this.store.transaction(() => {
+      const next = this.schema.parse(document);
+      const current = this.get(next.id);
+      if (!current) failAuthoring("PROJECT_NOT_FOUND");
+      if (next.revision !== current.revision + 1)
         failAuthoring("PROJECT_VERSION_CONFLICT");
-    }
-    this.store.assertSafeForPersistence(next);
-    const result = this.store.database
+      for (const field of projectImmutableFields) {
+        if (canonicalJson(current[field]) !== canonicalJson(next[field]))
+          failAuthoring("PROJECT_VERSION_CONFLICT");
+      }
+      this.store.assertSafeForPersistence(next);
+      this.assertMutation("update", current, next, operation);
+      const result = this.updateProject(current, next);
+      if (result.changes !== 1) failAuthoring("PROJECT_VERSION_CONFLICT");
+      return next;
+    });
+  }
+
+  private updateProject(current: Project, next: Project) {
+    return this.store.database
       .prepare(
         `UPDATE documents
          SET doc = ?, schema_version = ?, updated_at = ?
@@ -126,8 +179,6 @@ export class ProjectRepository extends AuthoringRepository<Project> {
         next.id,
         current.revision,
       );
-    if (result.changes !== 1) failAuthoring("PROJECT_VERSION_CONFLICT");
-    return next;
   }
 }
 

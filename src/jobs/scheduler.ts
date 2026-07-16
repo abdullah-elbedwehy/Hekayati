@@ -24,6 +24,7 @@ import {
   projectActionImpact as calculateProjectActionImpact,
   validateClaimOptions,
 } from "./scheduler-core.js";
+import { claimNextAdmitted } from "./scheduler-claim.js";
 import { JobEnqueuer } from "./scheduler-enqueuer.js";
 import {
   assertQuotaResumeImpact,
@@ -51,6 +52,7 @@ import type {
   HeartbeatOptions,
   JobFence,
   JobSchedulerOptions,
+  JobScopeAdmissionPort,
   ProgressInput,
   QuotaAvailabilityPort,
   QuotaDecisionInput,
@@ -68,6 +70,7 @@ export class JobScheduler {
   private readonly enqueuer: JobEnqueuer;
   private readonly retargeter: JobRetargeter;
   private readonly controls: JobControls;
+  private readonly scopeAdmission: JobScopeAdmissionPort;
   private readonly nowIso: () => string;
   private readonly idFactory: () => string;
   private readonly claimTokenFactory: () => string;
@@ -77,6 +80,8 @@ export class JobScheduler {
     this.nowIso = options.nowIso ?? (() => new Date().toISOString());
     this.idFactory = options.idFactory ?? ulid;
     this.claimTokenFactory = options.claimTokenFactory ?? randomUUID;
+    this.scopeAdmission =
+      options.scopeAdmission ?? this.repository.scopeAdmission;
     this.history = new JobHistory(store, this.nowIso);
     this.enqueuer = new JobEnqueuer(
       this.repository,
@@ -84,6 +89,7 @@ export class JobScheduler {
       new Map(options.registeredJobs.map((item) => [item.jobType, item])),
       this.nowIso,
       this.idFactory,
+      this.scopeAdmission,
     );
     this.retargeter = new JobRetargeter(
       this.repository,
@@ -97,6 +103,7 @@ export class JobScheduler {
       this.history,
       this.nowIso,
       () => this.enqueuer.promoteReady(),
+      this.scopeAdmission,
     );
   }
 
@@ -439,33 +446,23 @@ export class JobScheduler {
 
   claimNext(options: ClaimOptions): JobRecord | null {
     validateClaimOptions(options);
-    return this.repository.transaction(() => {
-      if (this.history.storageStatus().active) return null;
-      this.enqueuer.promoteReady();
-      const claimed = this.repository.claimNext(
+    return this.repository.transaction(() =>
+      claimNextAdmitted(
+        this.repository,
+        this.history,
+        this.enqueuer,
+        this.scopeAdmission,
         options,
-        {
-          workerId: options.workerId,
-          bootId: options.bootId,
-          claimToken: this.claimTokenFactory(),
-          claimedAtMono: options.nowMonoMs,
-          expiresAtMono: options.nowMonoMs + options.leaseTtlMs,
-        },
-        new Date(options.nowWallMs).toISOString(),
-      );
-      if (claimed)
-        this.history.append(claimed, "claimed", {
-          fromState: "queued",
-          toState: "claimed",
-        });
-      return claimed;
-    });
+        this.claimTokenFactory,
+      ),
+    );
   }
 
   markRunning(id: string, fence: JobFence, nowMonoMs: number): JobRecord {
     return this.repository.transaction(() => {
       const current = this.requireJob(id);
       assertOwned(current, fence, nowMonoMs, "claimed");
+      this.scopeAdmission.assertInTransaction(current, "scheduler_run");
       const running = this.repository.update(current, {
         ...current,
         state: "running",
@@ -484,6 +481,7 @@ export class JobScheduler {
     return this.repository.transaction(() => {
       const current = this.requireJob(id);
       assertOwned(current, fence, options.nowMonoMs, "running");
+      this.scopeAdmission.assertInTransaction(current, "scheduler_commit");
       const heartbeat = this.repository.update(current, {
         ...current,
         updatedAt: options.wallNowIso,
@@ -502,6 +500,10 @@ export class JobScheduler {
       const recovered: string[] = [];
       for (const job of this.repository.list()) {
         if (!isExpired(job, currentBootId, nowMonoMs)) continue;
+        if (
+          !this.scopeAdmission.isAdmittedInTransaction(job, "scheduler_resume")
+        )
+          continue;
         const queued = this.repository.update(job, {
           ...job,
           state: "queued",
@@ -542,6 +544,7 @@ export class JobScheduler {
     return this.repository.transaction(() => {
       const current = this.requireJob(id);
       assertOwned(current, fence, nowMonoMs, "running");
+      this.scopeAdmission.assertInTransaction(current, "scheduler_commit");
       const committed = ownerCommit(current);
       const succeeded = this.repository.update(current, {
         ...current,
@@ -593,6 +596,7 @@ export class JobScheduler {
       if (current.state !== "claimed" && current.state !== "running")
         throw new JobError("JOB_FENCE_MISMATCH");
       assertOwned(current, fence, nowMonoMs, current.state);
+      this.scopeAdmission.assertInTransaction(current, "scheduler_resume");
       const queued = this.repository.update(current, {
         ...current,
         state: "queued",
@@ -722,15 +726,11 @@ export class JobScheduler {
   }
 
   private restoreQuotaIncident(incident: QuotaIncident): JobRecord[] {
-    const owned = new Set(incident.ownedJobIds);
+    const restorable = quotaIncidentJobs(this.repository.list(), incident);
+    for (const job of restorable)
+      this.scopeAdmission.assertInTransaction(job, "scheduler_resume");
     const restored: JobRecord[] = [];
-    for (const job of this.repository.list()) {
-      if (
-        !owned.has(job.id) ||
-        job.state !== "paused" ||
-        job.stateReason !== "quota"
-      )
-        continue;
+    for (const job of restorable) {
       const resumed = this.repository.update(job, {
         ...job,
         state: job.resumeState ?? "queued",
@@ -757,6 +757,8 @@ export class JobScheduler {
     affected: readonly JobRecord[],
     impactHash: string,
   ): JobRecord[] {
+    for (const job of affected)
+      this.scopeAdmission.assertInTransaction(job, "scheduler_resume");
     const restored = affected.map((job) => {
       const resumed = this.repository.update(job, {
         ...job,

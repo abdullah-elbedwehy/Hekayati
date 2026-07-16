@@ -410,6 +410,7 @@ function isOwnershipLoss(error: unknown): boolean {
       "JOB_LEASE_EXPIRED",
       "JOB_REVISION_CONFLICT",
       "JOB_NOT_FOUND",
+      "JOB_SCOPE_ADMISSION_DENIED",
     ].includes(error.code)
   );
 }

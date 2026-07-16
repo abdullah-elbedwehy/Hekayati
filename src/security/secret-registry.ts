@@ -35,6 +35,13 @@ export class SecretRegistry {
     return knownSecretPatterns.some((pattern) => matches(pattern, value));
   }
 
+  streamingOverlapCharacters(minimum = 512): number {
+    let longest = minimum + 1;
+    for (const secret of this.exactSecrets)
+      longest = Math.max(longest, secret.length);
+    return longest - 1;
+  }
+
   assertSafeForPersistence(value: unknown): void {
     if (this.containsSecretMaterial(value, new WeakSet<object>()))
       throw new SecretPersistenceError();

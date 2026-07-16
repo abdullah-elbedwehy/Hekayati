@@ -14,6 +14,7 @@ export default defineConfig({
       include: [
         "src/assets/**/*.ts",
         "src/domain/**/*.ts",
+        "src/portability/**/*.ts",
         "src/layout/**/*.ts",
         "src/pdf/**/*.ts",
         "src/print/**/*.ts",
@@ -35,6 +36,18 @@ export default defineConfig({
           branches: 80,
         },
         "src/domain/layout/**/*.ts": {
+          lines: 80,
+          functions: 80,
+          statements: 80,
+          branches: 80,
+        },
+        "src/domain/portability/**/*.ts": {
+          lines: 80,
+          functions: 80,
+          statements: 80,
+          branches: 80,
+        },
+        "src/portability/**/*.ts": {
           lines: 80,
           functions: 80,
           statements: 80,

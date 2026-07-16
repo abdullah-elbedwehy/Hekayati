@@ -1,0 +1,15 @@
+export const creativeCollections = {
+  characterSheets: "character_sheets",
+  characterSheetIntents: "character_sheet_intents",
+  characterApprovals: "character_approvals",
+  runs: "creative_runs",
+  stageRecords: "creative_stage_records",
+  pages: "pages",
+  pageTextVersions: "page_text_versions",
+  pagePromptVersions: "page_prompt_versions",
+  illustrationVersions: "illustration_versions",
+  pageReviews: "page_reviews",
+  findingAcknowledgements: "finding_acknowledgements",
+  invalidationAudits: "invalidation_audits",
+  layoutWorkRequests: "layout_work_requests",
+} as const;

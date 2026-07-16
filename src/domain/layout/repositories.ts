@@ -6,6 +6,12 @@ import {
   type BaseDocument,
   type DocumentStore,
 } from "../repository/document-store.js";
+import {
+  domainMutationAdmission,
+  type DomainMutationWriterKey,
+  type OperationOwnedMutationContext,
+} from "../portability/domain-mutation-admission.js";
+import { layoutCollections } from "./collections.js";
 import { failLayout } from "./errors.js";
 import {
   bookApprovalActionSchema,
@@ -28,17 +34,7 @@ import {
   type PreviewWorkflow,
 } from "./schemas.js";
 
-export const layoutCollections = {
-  compositionProfiles: "composition_profiles",
-  pageLayoutHeads: "page_layout_heads",
-  layoutVersions: "layout_versions",
-  coverCompositions: "cover_compositions",
-  coverCompositionVersions: "cover_composition_versions",
-  previewWorkflows: "preview_workflows",
-  previewOutputs: "preview_outputs",
-  bookApprovalCycles: "book_approval_cycles",
-  bookApprovalActions: "book_approval_actions",
-} as const;
+export { layoutCollections } from "./collections.js";
 
 export class ImmutableLayoutRepository<T extends BaseDocument> {
   private readonly documents: DocumentRepository<T>;
@@ -47,6 +43,7 @@ export class ImmutableLayoutRepository<T extends BaseDocument> {
     protected readonly store: DocumentStore,
     readonly collection: string,
     protected readonly schema: ZodType<T>,
+    private readonly writer: DomainMutationWriterKey = "layout.immutable-document",
   ) {
     this.documents = new DocumentRepository(store, collection, schema);
   }
@@ -63,29 +60,62 @@ export class ImmutableLayoutRepository<T extends BaseDocument> {
     return this.documents.queryByField(field, value);
   }
 
-  insert(document: T): T {
-    const parsed = this.schema.parse(document);
-    if (this.get(parsed.id)) failLayout("LAYOUT_DUPLICATE_ENTITY");
-    this.store.assertSafeForPersistence(parsed);
-    try {
-      this.store.database
-        .prepare(
-          `INSERT INTO documents(collection, id, doc, schema_version, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?)`,
-        )
-        .run(
-          this.collection,
-          parsed.id,
-          JSON.stringify(parsed),
-          parsed.schemaVersion,
-          parsed.createdAt,
-          parsed.updatedAt,
-        );
-    } catch (error) {
-      if (constraintFailure(error)) failLayout("LAYOUT_DUPLICATE_ENTITY");
-      throw error;
-    }
-    return parsed;
+  insert(document: T, operation?: OperationOwnedMutationContext): T {
+    return this.store.transaction(() => {
+      const parsed = this.schema.parse(document);
+      if (this.get(parsed.id)) failLayout("LAYOUT_DUPLICATE_ENTITY");
+      this.store.assertSafeForPersistence(parsed);
+      this.assertMutation("insert", null, parsed, operation);
+      try {
+        this.insertDocument(parsed);
+      } catch (error) {
+        if (constraintFailure(error)) failLayout("LAYOUT_DUPLICATE_ENTITY");
+        throw error;
+      }
+      return parsed;
+    });
+  }
+
+  delete(id: string, operation?: OperationOwnedMutationContext): boolean {
+    return this.store.transaction(() => {
+      const current = this.get(id);
+      if (!current) return false;
+      this.assertMutation("delete", current, null, operation);
+      return this.documents.delete(id);
+    });
+  }
+
+  private insertDocument(document: T): void {
+    this.store.database
+      .prepare(
+        `INSERT INTO documents(collection, id, doc, schema_version, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        this.collection,
+        document.id,
+        JSON.stringify(document),
+        document.schemaVersion,
+        document.createdAt,
+        document.updatedAt,
+      );
+  }
+
+  protected assertMutation(
+    mutation: "insert" | "update" | "delete",
+    before: T | null,
+    after: T | null,
+    operation?: OperationOwnedMutationContext,
+  ): void {
+    const admission = domainMutationAdmission(this.store);
+    admission.assertInTransaction({
+      writer: this.writer,
+      collection: this.collection,
+      mutation,
+      before,
+      after,
+      operation,
+    });
   }
 }
 
@@ -98,23 +128,34 @@ export class RevisionedLayoutRepository<
     schema: ZodType<T>,
     private readonly immutableFields: readonly (keyof T)[],
   ) {
-    super(store, collection, schema);
+    super(store, collection, schema, "layout.revisioned-document");
   }
 
-  update(expectedRevision: number, document: T): T {
-    const next = this.schema.parse(document);
-    const current = this.get(next.id);
-    if (!current) failLayout("LAYOUT_ENTITY_NOT_FOUND", 404);
-    if (current.revision !== expectedRevision)
-      failLayout("LAYOUT_REVISION_CONFLICT");
-    if (next.revision !== expectedRevision + 1)
-      failLayout("LAYOUT_REVISION_INVALID");
-    for (const field of this.immutableFields) {
-      if (canonicalJson(current[field]) !== canonicalJson(next[field]))
-        failLayout("LAYOUT_IMMUTABLE_FIELD_CHANGED");
-    }
-    this.store.assertSafeForPersistence(next);
-    const result = this.store.database
+  update(
+    expectedRevision: number,
+    document: T,
+    operation?: OperationOwnedMutationContext,
+  ): T {
+    return this.store.transaction(() => {
+      const next = this.schema.parse(document);
+      const current = this.get(next.id);
+      if (!current) failLayout("LAYOUT_ENTITY_NOT_FOUND", 404);
+      assertRevisionedLayout(
+        current,
+        next,
+        expectedRevision,
+        this.immutableFields,
+      );
+      this.store.assertSafeForPersistence(next);
+      this.assertMutation("update", current, next, operation);
+      const result = this.updateDocument(expectedRevision, next);
+      if (result.changes !== 1) failLayout("LAYOUT_REVISION_CONFLICT");
+      return next;
+    });
+  }
+
+  private updateDocument(expectedRevision: number, next: T) {
+    return this.store.database
       .prepare(
         `UPDATE documents
          SET doc = ?, schema_version = ?, updated_at = ?
@@ -129,8 +170,22 @@ export class RevisionedLayoutRepository<
         next.id,
         expectedRevision,
       );
-    if (result.changes !== 1) failLayout("LAYOUT_REVISION_CONFLICT");
-    return next;
+  }
+}
+
+function assertRevisionedLayout<T extends BaseDocument & { revision: number }>(
+  current: T,
+  next: T,
+  expectedRevision: number,
+  immutableFields: readonly (keyof T)[],
+): void {
+  if (current.revision !== expectedRevision)
+    failLayout("LAYOUT_REVISION_CONFLICT");
+  if (next.revision !== expectedRevision + 1)
+    failLayout("LAYOUT_REVISION_INVALID");
+  for (const field of immutableFields) {
+    if (canonicalJson(current[field]) !== canonicalJson(next[field]))
+      failLayout("LAYOUT_IMMUTABLE_FIELD_CHANGED");
   }
 }
 

@@ -1,7 +1,8 @@
 import type { DocumentStore } from "../domain/repository/document-store.js";
 import { JobError } from "./errors.js";
 import { jobRecordSchema, type JobRecord } from "./schemas.js";
-import type { ClaimOptions } from "./types.js";
+import { JobScopeAdmission } from "./scope-admission.js";
+import type { ClaimOptions, JobScopeAdmissionPort } from "./types.js";
 
 interface StoredRow {
   doc: string;
@@ -29,6 +30,11 @@ const atomicClaimSql = `WITH candidate AS (
   FROM documents AS queued
   WHERE queued.collection = 'jobs'
     AND json_extract(queued.doc, '$.state') = 'queued'
+    AND NOT EXISTS (
+      SELECT 1
+      FROM json_each(@excludedJobIds) AS excluded
+      WHERE excluded.value = queued.id
+    )
     AND (
       json_type(queued.doc, '$.retrySchedule') = 'null'
       OR (
@@ -76,7 +82,10 @@ WHERE collection = 'jobs'
 RETURNING doc`;
 
 export class JobRepository {
+  readonly scopeAdmission: JobScopeAdmissionPort;
+
   constructor(private readonly store: DocumentStore) {
+    this.scopeAdmission = new JobScopeAdmission(store);
     this.createIndexes();
   }
 
@@ -123,12 +132,14 @@ export class JobRepository {
     options: ClaimOptions,
     lease: NonNullable<JobRecord["lease"]>,
     updatedAt: string,
+    excludedJobIds: readonly string[] = [],
   ): JobRecord | null {
     const row = this.store.database.prepare(atomicClaimSql).get({
       bootId: options.bootId,
       nowMonoMs: options.nowMonoMs,
       nowWallIso: new Date(options.nowWallMs).toISOString(),
       concurrencyPerProvider: options.concurrencyPerProvider,
+      excludedJobIds: JSON.stringify(excludedJobIds),
       lease: JSON.stringify(lease),
       updatedAt,
     }) as StoredRow | undefined;
