@@ -55,6 +55,7 @@ describe("T-P9-02 staged import validation", () => {
       normalizedManifestHash: archive.manifest.manifestHash,
       participantRegistryHash: registry.hash,
       archiveMode: "project",
+      mode: null,
       documentCount: 4,
       mediaCount: 1,
       migrationSummary: {

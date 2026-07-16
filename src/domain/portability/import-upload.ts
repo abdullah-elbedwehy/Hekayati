@@ -162,6 +162,7 @@ function uploadedOperation(input: {
     sourceSnapshotHash: null,
     participantRegistryHash: null,
     archiveMode: null,
+    mode: null,
     documentCount: 0,
     mediaCount: 0,
     totalUncompressedBytes: 0,

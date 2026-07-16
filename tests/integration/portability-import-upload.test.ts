@@ -472,6 +472,7 @@ function planReadyOperation(
     sourceSnapshotHash: hash,
     participantRegistryHash: hash,
     archiveMode: "project" as const,
+    mode: null,
     documentCount: 1,
     totalUncompressedBytes: 1,
     diskFacts: {

@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { entityIdSchema, sha256Pattern } from "../library/schemas.js";
+import { importPlanModeSchema } from "./import-plan-model.js";
 
 const timestampSchema = z.iso.datetime();
 const hashSchema = z.string().regex(sha256Pattern);
@@ -66,6 +67,7 @@ export const importOperationSchema = z
     sourceSnapshotHash: hashSchema.nullable(),
     participantRegistryHash: hashSchema.nullable(),
     archiveMode: z.literal("project").nullable(),
+    mode: importPlanModeSchema.nullable(),
     documentCount: countSchema,
     mediaCount: countSchema,
     totalUncompressedBytes: countSchema,
@@ -122,13 +124,7 @@ function validateImportOperation(
     validationSummary.some((value) => value !== null)
   )
     issue(context, ["manifestVersion"], "IMPORT_VALIDATION_PREMATURE");
-  if (
-    operation.state === "plan_ready" &&
-    (operation.planId !== null ||
-      operation.actionRefs.latestPlanActionId !== null ||
-      operation.actionRefs.commitActionId !== null)
-  )
-    issue(context, ["planId"], "IMPORT_PLAN_NOT_CREATED");
+  validatePlanBinding(operation, context);
   const failed = ["failed", "rolled_back", "cleanup_required"].includes(
     operation.state,
   );
@@ -149,6 +145,7 @@ interface ImportOperationCandidate {
   sourceSnapshotHash: string | null;
   participantRegistryHash: string | null;
   archiveMode: "project" | null;
+  mode: z.infer<typeof importPlanModeSchema> | null;
   documentCount: number;
   totalUncompressedBytes: number;
   diskFacts: ImportDiskFacts | null;
@@ -159,6 +156,39 @@ interface ImportOperationCandidate {
   };
   planId: string | null;
   failureCode: string | null;
+}
+
+function validatePlanBinding(
+  operation: ImportOperationCandidate,
+  context: z.RefinementCtx,
+): void {
+  const values = [
+    operation.mode,
+    operation.planId,
+    operation.actionRefs.latestPlanActionId,
+  ];
+  const any = values.some((value) => value !== null);
+  const complete = values.every((value) => value !== null);
+  if (any && !complete)
+    issue(context, ["planId"], "IMPORT_PLAN_BINDING_INCOMPLETE");
+  if (["uploaded", "validating"].includes(operation.state) && any)
+    issue(context, ["planId"], "IMPORT_PLAN_PREMATURE");
+  if (
+    ["committing", "imported", "rolled_back"].includes(operation.state) &&
+    !complete
+  )
+    issue(context, ["planId"], "IMPORT_PLAN_REQUIRED");
+  if (
+    operation.actionRefs.commitActionId !== null &&
+    !["committing", "imported", "rolled_back", "cleanup_required"].includes(
+      operation.state,
+    )
+  )
+    issue(
+      context,
+      ["actionRefs", "commitActionId"],
+      "IMPORT_COMMIT_ACTION_PREMATURE",
+    );
 }
 
 function issue(

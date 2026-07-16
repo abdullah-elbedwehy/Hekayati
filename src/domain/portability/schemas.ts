@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { entityIdSchema, sha256Pattern } from "../library/schemas.js";
 import { deletionLedgerEntrySchemas } from "./deletion-ledger.js";
+import { importLedgerEntrySchemas } from "./import-ledger.js";
 
 export const PORTABILITY_LEDGER_PAGE_SIZE = 256;
 
@@ -128,6 +129,7 @@ export const portabilityLedgerKindSchema = z.enum([
   "import_releases",
   "import_rebases",
   "prepared_media",
+  "import_authorizations",
   "deletion_inventory",
   "deletion_blockers",
   "deletion_unlinks",
@@ -209,6 +211,7 @@ export const portabilityLedgerEntrySchema = z.discriminatedUnion("entryType", [
   mappingLedgerEntrySchema,
   referenceDeltaLedgerEntrySchema,
   entityLedgerEntrySchema,
+  ...importLedgerEntrySchemas,
   ...deletionLedgerEntrySchemas,
 ]);
 
@@ -254,6 +257,13 @@ export const portabilityLedgerPageSchema = z
 const ledgerEntryKinds: Partial<
   Record<z.infer<typeof portabilityLedgerKindSchema>, ReadonlySet<string>>
 > = {
+  import_id_map: new Set(["import_mapping"]),
+  import_conflicts: new Set(["import_conflict"]),
+  import_writes: new Set(["import_write"]),
+  import_releases: new Set(["reference_delta"]),
+  import_rebases: new Set(["import_rebase"]),
+  prepared_media: new Set(["prepared_media_intent"]),
+  import_authorizations: new Set(["import_authorization"]),
   deletion_inventory: new Set([
     "deletion_document",
     "deletion_preserved_document",

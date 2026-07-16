@@ -20,6 +20,11 @@ describe("ImportOperation invariants", () => {
       manifestVersion: 2,
       cleanupState: "none",
     });
+    expect(importOperationSchema.parse(planned())).toMatchObject({
+      state: "plan_ready",
+      mode: "as_new_project",
+      planId: id,
+    });
   });
 
   it("rejects premature, missing, empty, and already-planned validation facts", () => {
@@ -43,13 +48,20 @@ describe("ImportOperation invariants", () => {
       { ...planReady(), totalUncompressedBytes: 0 },
       "IMPORT_STAGING_SUMMARY_REQUIRED",
     );
-    expectInvalid({ ...planReady(), planId: id }, "IMPORT_PLAN_NOT_CREATED");
+    expectInvalid(
+      { ...planReady(), planId: id },
+      "IMPORT_PLAN_BINDING_INCOMPLETE",
+    );
     expectInvalid(
       {
         ...planReady(),
         actionRefs: { ...planReady().actionRefs, latestPlanActionId: action },
       },
-      "IMPORT_PLAN_NOT_CREATED",
+      "IMPORT_PLAN_BINDING_INCOMPLETE",
+    );
+    expectInvalid(
+      { ...planReady(), mode: "as_new_project" },
+      "IMPORT_PLAN_BINDING_INCOMPLETE",
     );
   });
 
@@ -102,6 +114,7 @@ function uploaded() {
     sourceSnapshotHash: null,
     participantRegistryHash: null,
     archiveMode: null,
+    mode: null,
     documentCount: 0,
     mediaCount: 0,
     totalUncompressedBytes: 0,
@@ -115,6 +128,18 @@ function uploaded() {
     planId: null,
     failureCode: null,
     cleanupState: "none",
+  };
+}
+
+function planned() {
+  return {
+    ...planReady(),
+    mode: "as_new_project",
+    planId: id,
+    actionRefs: {
+      ...planReady().actionRefs,
+      latestPlanActionId: action,
+    },
   };
 }
 

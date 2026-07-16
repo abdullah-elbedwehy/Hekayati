@@ -46,7 +46,6 @@ import {
   PARTICIPANT_PROJECT_JOB_TYPES,
   type PortabilityCatalogClaims,
   type PortabilityDocumentReference,
-  type PortabilityMediaReference,
   type PortabilityParticipant,
   type PortabilityParticipantInput,
 } from "./participants.js";
@@ -55,17 +54,18 @@ import {
   validatePrinterProfileImport,
   validatePrintArtifactImport,
 } from "./real-participants-production-import.js";
-
-interface ReferencePath {
-  collection: string;
-  path: string;
-  required?: boolean;
-}
-
-interface MediaPath {
-  path: string;
-  ownership: PortabilityMediaReference["ownership"];
-}
+import {
+  idsFrom,
+  isRecord,
+  participantMedia as media,
+  participantRef as ref,
+  portabilityParticipantWiring,
+  referencesFrom,
+  stringsAt,
+  valuesAt,
+  type ParticipantMediaPath,
+  type ParticipantReferencePath,
+} from "./participant-spec-wiring.js";
 
 interface ProductionSpec {
   key: string;
@@ -74,22 +74,13 @@ interface ProductionSpec {
   dependencies?: readonly string[];
   projectField?: string;
   customerField?: string;
-  owner?: readonly ReferencePath[];
-  refs?: readonly ReferencePath[];
-  assets?: readonly MediaPath[];
+  owner?: readonly ParticipantReferencePath[];
+  refs?: readonly ParticipantReferencePath[];
+  assets?: readonly ParticipantMediaPath[];
   claims?: PortabilityCatalogClaims;
   extra?: Partial<PortabilityParticipantInput<BaseDocument>>;
 }
 
-const ref = (
-  collection: string,
-  path: string,
-  required = true,
-): ReferencePath => ({ collection, path, required });
-const media = (
-  path: string,
-  ownership: PortabilityMediaReference["ownership"] = "referenced",
-): MediaPath => ({ path, ownership });
 const schema = (value: ZodType<unknown>) => value as ZodType<BaseDocument>;
 
 const productionSpecs: readonly ProductionSpec[] = [
@@ -506,7 +497,7 @@ const productionSpecs: readonly ProductionSpec[] = [
     dependencies: ["print_runs", "jobs"],
     customerField: "ownerCustomerId",
     owner: [ref("print_runs", "runId")],
-    refs: [ref("jobs", "gateJobId")],
+    refs: [ref("jobs", "gateJobId"), ref("families", "ownerFamilyId")],
   },
 ];
 
@@ -514,6 +505,10 @@ export const productionPortabilityParticipants: readonly PortabilityParticipant[
   Object.freeze(productionSpecs.map(productionParticipant));
 
 function productionParticipant(spec: ProductionSpec): PortabilityParticipant {
+  const wiring = portabilityParticipantWiring({
+    ...spec,
+    collection: spec.key,
+  });
   return definePortabilityParticipant({
     key: spec.key,
     collection: spec.key,
@@ -521,73 +516,29 @@ function productionParticipant(spec: ProductionSpec): PortabilityParticipant {
     schema: spec.schema,
     dependencies: spec.dependencies,
     claims: spec.claims,
-    ownerReferences: referencesFrom(spec.owner),
-    references: referencesFrom(spec.refs),
-    assetReferences: mediaFrom(spec.assets),
     projectIds: idsFrom(spec.projectField ?? "projectId"),
     customerIds: idsFrom(spec.customerField ?? "customerId"),
-    selectForProject: (document, root) =>
-      spec.projectField &&
-      stringsAt(document, spec.projectField).includes(root.projectId)
-        ? `owned_project:${root.projectId}`
-        : null,
-    selectForCustomer: (document, root) =>
-      spec.customerField &&
-      stringsAt(document, spec.customerField).includes(root.customerId)
-        ? `owned_customer:${root.customerId}`
-        : null,
+    selectForProject: productionProjectSelector(spec),
+    selectForCustomer: productionCustomerSelector(spec),
     ...spec.extra,
+    ...wiring,
   });
 }
 
-function referencesFrom(paths: readonly ReferencePath[] | undefined) {
-  return (document: Readonly<BaseDocument>): PortabilityDocumentReference[] =>
-    (paths ?? []).flatMap((path) =>
-      stringsAt(document, path.path).map((id) => ({
-        collection: path.collection,
-        id,
-        field: path.path,
-        required: path.required,
-      })),
-    );
+function productionProjectSelector(spec: ProductionSpec) {
+  return (document: Readonly<BaseDocument>, root: { projectId: string }) =>
+    spec.projectField &&
+    stringsAt(document, spec.projectField).includes(root.projectId)
+      ? `owned_project:${root.projectId}`
+      : null;
 }
 
-function mediaFrom(paths: readonly MediaPath[] | undefined) {
-  return (document: Readonly<BaseDocument>): PortabilityMediaReference[] =>
-    (paths ?? []).flatMap((path) =>
-      stringsAt(document, path.path).map((id) => ({
-        id,
-        field: path.path,
-        ownership: path.ownership,
-      })),
-    );
-}
-
-function idsFrom(path: string) {
-  return (document: Readonly<BaseDocument>): readonly string[] =>
-    stringsAt(document, path);
-}
-
-function stringsAt(document: Readonly<BaseDocument>, path: string): string[] {
-  let values: unknown[] = [document];
-  for (const segment of path.split("."))
-    values = values.flatMap((value) => descend(value, segment));
-  return values.filter(
-    (value): value is string => typeof value === "string" && value !== "none",
-  );
-}
-
-function descend(value: unknown, segment: string): unknown[] {
-  if (segment === "*") {
-    if (Array.isArray(value)) return value;
-    if (isRecord(value)) return Object.values(value);
-    return [];
-  }
-  return isRecord(value) ? [value[segment]] : [];
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
+function productionCustomerSelector(spec: ProductionSpec) {
+  return (document: Readonly<BaseDocument>, root: { customerId: string }) =>
+    spec.customerField &&
+    stringsAt(document, spec.customerField).includes(root.customerId)
+      ? `owned_customer:${root.customerId}`
+      : null;
 }
 
 const jobInputCollections: Readonly<Record<string, string>> = {
@@ -727,7 +678,7 @@ function genericTaskReferences(
     refs.push({
       collection: "characters",
       id,
-      field: "request.task.participants.*.characterRef.characterId",
+      field: "request.request.task.participants.*.characterRef.characterId",
     });
   for (const id of stringsAt(
     request as unknown as BaseDocument,
@@ -736,7 +687,8 @@ function genericTaskReferences(
     refs.push({
       collection: "character_versions",
       id,
-      field: "request.task.participants.*.characterRef.characterVersionId",
+      field:
+        "request.request.task.participants.*.characterRef.characterVersionId",
     });
   return refs;
 }
@@ -783,13 +735,6 @@ function snapshotReferences(document: Readonly<BaseDocument>, path: string) {
       ? [{ collection, id, field: `${path}.${field}`, required: false }]
       : [];
   });
-}
-
-function valuesAt(document: Readonly<BaseDocument>, path: string): unknown[] {
-  let values: unknown[] = [document];
-  for (const segment of path.split("."))
-    values = values.flatMap((value) => descend(value, segment));
-  return values;
 }
 
 function jobRef(id: string, field: string): PortabilityDocumentReference {

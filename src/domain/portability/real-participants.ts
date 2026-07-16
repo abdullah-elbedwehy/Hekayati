@@ -32,7 +32,6 @@ import {
   PARTICIPANT_ASSET_ROLES,
   type PortabilityCatalogClaims,
   type PortabilityDocumentReference,
-  type PortabilityMediaReference,
   type PortabilityParticipant,
   type PortabilityParticipantInput,
   type PortabilityImportValidationContext,
@@ -40,17 +39,16 @@ import {
 import { productionPortabilityParticipants } from "./real-participants-production.js";
 import { operationOwnershipParticipants } from "./real-participants-operations.js";
 import { exportInternalOwnershipParticipants } from "./real-participants-export-internal.js";
-
-interface ReferencePath {
-  collection: string;
-  path: string;
-  required?: boolean;
-}
-
-interface MediaPath {
-  path: string;
-  ownership: PortabilityMediaReference["ownership"];
-}
+import {
+  idsFrom,
+  participantMedia as media,
+  participantRef as ref,
+  portabilityParticipantWiring,
+  stringsAt,
+  valueAt,
+  type ParticipantMediaPath,
+  type ParticipantReferencePath,
+} from "./participant-spec-wiring.js";
 
 interface RealParticipantSpec {
   key: string;
@@ -63,23 +61,14 @@ interface RealParticipantSpec {
   projectRoot?: boolean;
   customerRoot?: boolean;
   familyRoot?: boolean;
-  owner?: readonly ReferencePath[];
-  refs?: readonly ReferencePath[];
-  assets?: readonly MediaPath[];
-  originals?: readonly MediaPath[];
+  owner?: readonly ParticipantReferencePath[];
+  refs?: readonly ParticipantReferencePath[];
+  assets?: readonly ParticipantMediaPath[];
+  originals?: readonly ParticipantMediaPath[];
   claims?: PortabilityCatalogClaims;
   extra?: Partial<PortabilityParticipantInput<BaseDocument>>;
 }
 
-const ref = (
-  collection: string,
-  path: string,
-  required = true,
-): ReferencePath => ({ collection, path, required });
-const media = (
-  path: string,
-  ownership: PortabilityMediaReference["ownership"] = "referenced",
-): MediaPath => ({ path, ownership });
 const asDocumentSchema = (schema: ZodType<unknown>) =>
   schema as ZodType<BaseDocument>;
 
@@ -215,6 +204,7 @@ const authoringParticipantSpecs: readonly RealParticipantSpec[] = [
       ),
       ref("preview_outputs", "currentPreviewOutputId", false),
       ref("book_approval_cycles", "currentPreviewCycleId", false),
+      ref("book_approval_cycles", "currentContentApprovalId", false),
     ],
     claims: {
       scopedWriters: ["authoring.document", "authoring.project-revision"],
@@ -350,107 +340,54 @@ export const realPortabilityParticipants: readonly PortabilityParticipant[] =
 
 function realParticipant(spec: RealParticipantSpec): PortabilityParticipant {
   const collection = spec.collection ?? spec.key;
-  const common: PortabilityParticipantInput<BaseDocument> = {
+  const wiring = portabilityParticipantWiring({ ...spec, collection });
+  return definePortabilityParticipant({
     key: spec.key,
     collection,
     currentSchemaVersion: spec.version ?? 1,
     schema: spec.schema,
     dependencies: spec.dependencies,
     claims: spec.claims,
-    ownerReferences: referencesFrom(spec.owner),
-    references: referencesFrom(spec.refs),
-    assetReferences: mediaFrom(spec.assets),
-    originalReferences: mediaFrom(spec.originals),
     projectIds: idsFrom(spec.projectField ?? "projectId"),
     customerIds: idsFrom(spec.customerField ?? "customerId"),
-    selectForProject: (document, root) => {
-      if (spec.projectRoot && document.id === root.projectId)
-        return `project_root:${root.projectId}`;
-      if (spec.customerRoot && document.id === root.customerId)
-        return `owning_customer:${root.customerId}`;
-      if (spec.familyRoot && document.id === root.familyId)
-        return `owning_family:${root.familyId}`;
-      if (
-        spec.projectField &&
-        valueAt(document, spec.projectField) === root.projectId
-      )
-        return `owned_project:${root.projectId}`;
-      return null;
-    },
-    selectForCustomer: (document, root) => {
-      if (spec.customerRoot && document.id === root.customerId)
-        return `customer_root:${root.customerId}`;
-      if (
-        spec.customerField &&
-        valueAt(document, spec.customerField) === root.customerId
-      )
-        return `owned_customer:${root.customerId}`;
-      return null;
-    },
+    selectForProject: projectSelector(spec),
+    selectForCustomer: customerSelector(spec),
     ...spec.extra,
+    ...wiring,
+  });
+}
+
+function projectSelector(spec: RealParticipantSpec) {
+  return (
+    document: Readonly<BaseDocument>,
+    root: { projectId: string; customerId: string; familyId: string },
+  ) => {
+    if (spec.projectRoot && document.id === root.projectId)
+      return `project_root:${root.projectId}`;
+    if (spec.customerRoot && document.id === root.customerId)
+      return `owning_customer:${root.customerId}`;
+    if (spec.familyRoot && document.id === root.familyId)
+      return `owning_family:${root.familyId}`;
+    if (
+      spec.projectField &&
+      valueAt(document, spec.projectField) === root.projectId
+    )
+      return `owned_project:${root.projectId}`;
+    return null;
   };
-  return definePortabilityParticipant(common);
 }
 
-function referencesFrom(paths: readonly ReferencePath[] | undefined) {
-  return (document: Readonly<BaseDocument>): PortabilityDocumentReference[] =>
-    (paths ?? []).flatMap((path) =>
-      stringsAt(document, path.path).map((id) => ({
-        collection: path.collection,
-        id,
-        field: path.path,
-        required: path.required,
-      })),
-    );
-}
-
-function mediaFrom(paths: readonly MediaPath[] | undefined) {
-  return (document: Readonly<BaseDocument>): PortabilityMediaReference[] =>
-    (paths ?? []).flatMap((path) =>
-      stringsAt(document, path.path).map((id) => ({
-        id,
-        field: path.path,
-        ownership: path.ownership,
-      })),
-    );
-}
-
-function idsFrom(path: string) {
-  return (document: Readonly<BaseDocument>): readonly string[] =>
-    stringsAt(document, path);
-}
-
-function valueAt(document: Readonly<BaseDocument>, path: string): unknown {
-  return valuesAt(document, path)[0];
-}
-
-function stringsAt(document: Readonly<BaseDocument>, path: string): string[] {
-  return valuesAt(document, path).filter(
-    (value): value is string =>
-      typeof value === "string" && value !== "none" && value.length > 0,
-  );
-}
-
-function valuesAt(document: Readonly<BaseDocument>, path: string): unknown[] {
-  let values: unknown[] = [document];
-  for (const segment of path.split(".")) {
-    values = values.flatMap((value) => descend(value, segment));
-  }
-  return values.filter((value) => value !== null && value !== undefined);
-}
-
-function descend(value: unknown, segment: string): unknown[] {
-  if (segment === "*") {
-    if (Array.isArray(value)) return value;
-    if (isRecord(value)) return Object.values(value);
-    return [];
-  }
-  if (!isRecord(value)) return [];
-  return [value[segment]];
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
+function customerSelector(spec: RealParticipantSpec) {
+  return (document: Readonly<BaseDocument>, root: { customerId: string }) => {
+    if (spec.customerRoot && document.id === root.customerId)
+      return `customer_root:${root.customerId}`;
+    if (
+      spec.customerField &&
+      valueAt(document, spec.customerField) === root.customerId
+    )
+      return `owned_customer:${root.customerId}`;
+    return null;
+  };
 }
 
 function validateAssetImport(
