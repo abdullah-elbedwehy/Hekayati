@@ -50,6 +50,11 @@ import {
   type PortabilityParticipant,
   type PortabilityParticipantInput,
 } from "./participants.js";
+import {
+  validatePreviewOutputImport,
+  validatePrinterProfileImport,
+  validatePrintArtifactImport,
+} from "./real-participants-production-import.js";
 
 interface ReferencePath {
   collection: string;
@@ -374,6 +379,10 @@ const productionSpecs: readonly ProductionSpec[] = [
       media("assetId", "owned"),
       media("orderedInteriorPages.*.sourceAssets.*.assetId"),
     ],
+    extra: {
+      importValidationKey: "preview_pdf_owner:v1",
+      validateImport: validatePreviewOutputImport,
+    },
   },
   {
     key: "book_approval_cycles",
@@ -416,6 +425,10 @@ const productionSpecs: readonly ProductionSpec[] = [
     refs: [ref("printer_profile_versions", "previousVersionId", false)],
     assets: [media("color.iccAssetId"), media("coverTemplate.assetId")],
     claims: { scopedWriters: ["print.immutable-document"] },
+    extra: {
+      importValidationKey: "printer_profile_media:v1",
+      validateImport: validatePrinterProfileImport,
+    },
   },
   {
     key: "print_runs",
@@ -455,6 +468,10 @@ const productionSpecs: readonly ProductionSpec[] = [
       ref("print_artifacts", "reusedFromArtifactId", false),
     ],
     assets: [media("assetId", "owned")],
+    extra: {
+      importValidationKey: "print_pdf_owner:v1",
+      validateImport: validatePrintArtifactImport,
+    },
   },
   {
     key: "print_preflight_reports",

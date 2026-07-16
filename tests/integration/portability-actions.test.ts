@@ -175,6 +175,22 @@ describe("portability action boundary", () => {
     expect(fixture.repository.list()).toEqual([]);
   });
 
+  it("preallocates one immutable identity shared by the effect and action", async () => {
+    const fixture = await actionFixture();
+    const input = actionInput(ulid(), "identity-key");
+    let identityId = "";
+    const result = fixture.boundary.run(input, (identity) => {
+      identityId = identity.id;
+      expect(Object.isFrozen(identity)).toBe(true);
+      expect(() => {
+        (identity as { id: string }).id = ulid();
+      }).toThrow();
+      return inlineResult(input.operationScope.id);
+    });
+    expect(result.action.id).toBe(identityId);
+    expect(result.action.recordedAt).toBe(fixture.options.nowIso());
+  });
+
   it("rejects changed input paired with a caller-reused request hash", async () => {
     const fixture = await actionFixture();
     const input = actionInput(ulid(), "forged-hash");

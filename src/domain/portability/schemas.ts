@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { entityIdSchema, sha256Pattern } from "../library/schemas.js";
+import { deletionLedgerEntrySchemas } from "./deletion-ledger.js";
 
 export const PORTABILITY_LEDGER_PAGE_SIZE = 256;
 
@@ -128,6 +129,7 @@ export const portabilityLedgerKindSchema = z.enum([
   "import_rebases",
   "prepared_media",
   "deletion_inventory",
+  "deletion_blockers",
   "deletion_unlinks",
   "shared_preservation",
   "deletion_verification",
@@ -207,6 +209,7 @@ export const portabilityLedgerEntrySchema = z.discriminatedUnion("entryType", [
   mappingLedgerEntrySchema,
   referenceDeltaLedgerEntrySchema,
   entityLedgerEntrySchema,
+  ...deletionLedgerEntrySchemas,
 ]);
 
 export const portabilityLedgerPageSchema = z
@@ -239,7 +242,31 @@ export const portabilityLedgerPageSchema = z
         message: "PORTABILITY_LEDGER_ENTRY_KIND_MISMATCH",
       });
     }
+    const allowed = ledgerEntryKinds[page.ledgerKind];
+    if (allowed && page.entries.some((entry) => !allowed.has(entry.entryType)))
+      context.addIssue({
+        code: "custom",
+        path: ["entries"],
+        message: "PORTABILITY_LEDGER_ENTRY_KIND_MISMATCH",
+      });
   });
+
+const ledgerEntryKinds: Partial<
+  Record<z.infer<typeof portabilityLedgerKindSchema>, ReadonlySet<string>>
+> = {
+  deletion_inventory: new Set([
+    "deletion_document",
+    "deletion_preserved_document",
+    "deletion_job",
+    "deletion_export",
+    "deletion_media",
+  ]),
+  deletion_blockers: new Set(["deletion_blocker"]),
+  deletion_unlinks: new Set(["managed_unlink"]),
+  shared_preservation: new Set(["deletion_media"]),
+  deletion_verification: new Set(["deletion_verification"]),
+  report_detail: new Set(["deletion_report_detail"]),
+};
 
 const customerScopeSchema = z
   .object({

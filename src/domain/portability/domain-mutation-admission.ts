@@ -35,7 +35,7 @@ export const DOMAIN_MUTATION_WRITER_KEYS = Object.freeze([
 ] as const);
 
 export type DomainMutationWriterKey =
-  (typeof DOMAIN_MUTATION_WRITER_KEYS)[number];
+  (typeof DOMAIN_MUTATION_WRITER_KEYS)[number] | "portability.deletion-storage";
 export type DomainMutationKind = "insert" | "update" | "delete";
 
 export type OperationOwnedMutationPurpose =
@@ -123,8 +123,12 @@ export class DomainMutationAdmission {
   constructor(
     private readonly store: DocumentStore,
     private readonly participantRegistry: PortabilityRegistry,
+    options: { allowExtendedParticipantWriters?: boolean } = {},
   ) {
-    assertWriterCatalogComplete(participantRegistry);
+    assertWriterCatalogComplete(
+      participantRegistry,
+      options.allowExtendedParticipantWriters === true,
+    );
     this.locks = new PortabilityScopeLockRepository(store);
     this.scopeAdmission = new ScopeAdmissionService(
       store,
@@ -372,7 +376,10 @@ function assertOperationContext(input: DomainMutationAdmissionRequest): void {
     fail("DOMAIN_MUTATION_OPERATION_CONTEXT_INVALID");
 }
 
-function assertWriterCatalogComplete(registry: PortabilityRegistry): void {
+function assertWriterCatalogComplete(
+  registry: PortabilityRegistry,
+  allowExtended: boolean,
+): void {
   const actual = registry.catalog.scopedWriters
     .filter(
       (entry) =>
@@ -383,8 +390,10 @@ function assertWriterCatalogComplete(registry: PortabilityRegistry): void {
     .map((entry) => entry.key)
     .sort();
   const expected = [...DOMAIN_MUTATION_WRITER_KEYS].sort();
-  if (actual.join("\0") !== expected.join("\0"))
-    fail("DOMAIN_MUTATION_WRITER_CATALOG_MISMATCH");
+  const complete = allowExtended
+    ? expected.every((key) => actual.includes(key))
+    : actual.join("\0") === expected.join("\0");
+  if (!complete) fail("DOMAIN_MUTATION_WRITER_CATALOG_MISMATCH");
 }
 
 function fail(code: DomainMutationAdmissionErrorCode): never {

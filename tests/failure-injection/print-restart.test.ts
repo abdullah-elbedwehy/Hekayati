@@ -25,6 +25,8 @@ const STAGES = [
   "after_rename_before_db",
 ] as const;
 type FaultStage = (typeof STAGES)[number];
+const FAULT_MARKER_TIMEOUT_MS = 100_000;
+const RESTART_CASE_TIMEOUT_MS = 180_000;
 
 const cleanups: Array<() => Promise<void>> = [];
 
@@ -73,7 +75,7 @@ describe("print-stage process restart", () => {
 
       await expectRecoveredState(directory.path, stage, expectedState);
     },
-    90_000,
+    RESTART_CASE_TIMEOUT_MS,
   );
 });
 
@@ -111,7 +113,10 @@ async function waitForFault(
 ): Promise<void> {
   const marker = join(directory, `print-fault-${stage}.ready`);
   const failure = join(directory, "print-autostart.failed");
-  const deadline = Date.now() + 30_000;
+  // The child already gives layout materialization 90 seconds before writing
+  // its bounded failure marker. The parent must outlive that inner deadline so
+  // it can surface the real failure instead of masking it as a marker timeout.
+  const deadline = Date.now() + FAULT_MARKER_TIMEOUT_MS;
   while (Date.now() < deadline) {
     if (await exists(marker)) return;
     if (await exists(failure))

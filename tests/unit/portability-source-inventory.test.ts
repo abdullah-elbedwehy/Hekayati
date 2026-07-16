@@ -26,6 +26,7 @@ type SourceRoute =
       readonly kind: "portability-internal";
       readonly writerKey: string;
       readonly collections?: readonly string[];
+      readonly evidence?: readonly string[];
     }
   | {
       readonly kind: "cataloged-repository";
@@ -74,6 +75,15 @@ const sourceRoutes: Readonly<Record<string, SourceRoute>> = Object.freeze({
   "src/domain/portability/export-storage-common.ts": {
     kind: "portability-internal",
     writerKey: "portability.export-storage",
+  },
+  "src/domain/portability/deletion-storage.ts": {
+    kind: "portability-internal",
+    writerKey: "portability.deletion-storage",
+    evidence: [
+      "DomainMutationAdmission",
+      "operationOwnedMutation",
+      "admission.assertInTransaction",
+    ],
   },
   "src/domain/portability/repositories.ts": {
     kind: "portability-internal",
@@ -210,6 +220,14 @@ function assertRoutes(
       throw new Error(
         `PORTABILITY_INTERNAL_WRITER_UNREGISTERED:${path}:${route.writerKey}`,
       );
+    if (route.kind === "portability-internal" && route.evidence) {
+      const text = sourceByPath.get(path)?.text ?? "";
+      for (const evidence of route.evidence)
+        if (!text.includes(evidence))
+          throw new Error(
+            `PORTABILITY_DOCUMENT_WRITER_ADMISSION_MISSING:${path}:${evidence}`,
+          );
+    }
   }
 }
 

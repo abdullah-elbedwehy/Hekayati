@@ -40,6 +40,11 @@ export interface PortabilityActionBoundaryResult {
   replayed: boolean;
 }
 
+export interface PortabilityActionIdentity {
+  id: string;
+  recordedAt: string;
+}
+
 export { portabilityActionRequestHash } from "./repositories.js";
 
 export interface OperationLedgerOptions {
@@ -62,7 +67,7 @@ export class PortabilityActionBoundary {
 
   run(
     input: PortabilityActionBoundaryInput,
-    effect: () => PortabilityActionResult,
+    effect: (identity: PortabilityActionIdentity) => PortabilityActionResult,
   ): PortabilityActionBoundaryResult {
     return this.store.transactionImmediate(() =>
       this.runInTransaction(input, effect),
@@ -71,7 +76,7 @@ export class PortabilityActionBoundary {
 
   runInTransaction(
     input: PortabilityActionBoundaryInput,
-    effect: () => PortabilityActionResult,
+    effect: (identity: PortabilityActionIdentity) => PortabilityActionResult,
   ): PortabilityActionBoundaryResult {
     assertPortabilityTransaction(this.store);
     const parsed = parseBoundaryInput(input);
@@ -87,10 +92,13 @@ export class PortabilityActionBoundary {
         );
       return { action: existing, replayed: true };
     }
-    const result = portabilityActionResultSchema.parse(effect());
     const recordedAt = this.nowIso();
+    const id = this.idFactory();
+    const result = portabilityActionResultSchema.parse(
+      effect(Object.freeze({ id, recordedAt })),
+    );
     return this.repository.recordInTransaction({
-      id: this.idFactory(),
+      id,
       schemaVersion: 1,
       createdAt: recordedAt,
       updatedAt: recordedAt,

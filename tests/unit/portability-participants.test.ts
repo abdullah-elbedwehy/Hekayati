@@ -36,11 +36,20 @@ describe("portability participant registry", () => {
   it("freezes and hashes the complete real 003-009 catalogs", () => {
     const registry = createPortabilityRegistry(realPortabilityParticipants);
 
-    expect(registry.participants).toHaveLength(54);
-    expect(registry.catalog.collections).toHaveLength(62);
+    expect(registry.participants).toHaveLength(59);
+    expect(registry.catalog.collections).toHaveLength(70);
     expect(
       registry.catalog.collections.filter((entry) => entry.owner === "global"),
     ).toHaveLength(8);
+    expect(
+      registry.catalog.collections.filter(
+        (entry) => entry.owner === "internal",
+      ),
+    ).toEqual([
+      { key: "deletion_inventories", owner: "internal" },
+      { key: "deletion_operations", owner: "internal" },
+      { key: "deletion_reports", owner: "internal" },
+    ]);
     expect(
       registry.catalog.assetRoles.filter(
         (entry) => entry.owner === "participant",
@@ -180,7 +189,10 @@ describe("portability participant registry", () => {
       registry.catalog.scopedWriters.filter(
         (entry) => entry.owner === "internal",
       ),
-    ).toEqual([{ key: "layout.persistence-migration", owner: "internal" }]);
+    ).toEqual([
+      { key: "layout.persistence-migration", owner: "internal" },
+      { key: "portability.deletion-storage", owner: "internal" },
+    ]);
   });
 
   it("rejects duplicate keys, collections, and dependency cycles", () => {

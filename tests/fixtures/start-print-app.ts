@@ -86,18 +86,21 @@ async function seedPrintFixture(dataDirectory: string, stateFile: string) {
   const store = new DocumentStore(paths.database);
   initializeLayoutPersistence(store);
   const assets = new AssetStore(store, paths.assets);
-  const sourceBytes = await sharp(await syntheticPreviewSource())
-    .resize(2_600, 3_677, { fit: "fill" })
-    .jpeg({ quality: 82, chromaSubsampling: "4:4:4" })
-    .toBuffer();
+  const previewSource = await syntheticPreviewSource();
+  const sourceBytes = fastFixture
+    ? previewSource
+    : await sharp(previewSource)
+        .resize(2_600, 3_677, { fit: "fill" })
+        .jpeg({ quality: 82, chromaSubsampling: "4:4:4" })
+        .toBuffer();
   const source = await assets.put({
     bytes: sourceBytes,
-    extension: "jpg",
-    mime: "image/jpeg",
+    extension: fastFixture ? "png" : "jpg",
+    mime: fastFixture ? "image/png" : "image/jpeg",
     role: "illustration",
     origin: "derived",
-    width: 2_600,
-    height: 3_677,
+    width: fastFixture ? 1_400 : 2_600,
+    height: fastFixture ? 1_900 : 3_677,
     dpi: 300,
   });
   seedReviewedPages(store, seed.projectId, source.id);
@@ -430,12 +433,23 @@ async function waitForLayoutReady(
   projectId: string,
 ) {
   const deadline = Date.now() + 90_000;
+  let projection = app.layout.workspace.project(projectId);
   while (Date.now() < deadline) {
-    const projection = app.layout.workspace.project(projectId);
+    projection = app.layout.workspace.project(projectId);
     if (projection.workflow?.state === "ready") return projection;
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
-  throw new Error("PRINT_FAULT_LAYOUT_TIMEOUT");
+  const states = app.jobs.scheduler
+    .list()
+    .filter((job) => job.projectId === projectId)
+    .reduce<Record<string, number>>((counts, job) => {
+      const key = `${job.jobType}:${job.state}`;
+      counts[key] = (counts[key] ?? 0) + 1;
+      return counts;
+    }, {});
+  throw new Error(
+    `PRINT_FAULT_LAYOUT_TIMEOUT state=${projection.workflow?.state ?? "none"} jobs=${JSON.stringify(states)}`,
+  );
 }
 
 function approvalInput(

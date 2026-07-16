@@ -35,9 +35,11 @@ import {
   type PortabilityMediaReference,
   type PortabilityParticipant,
   type PortabilityParticipantInput,
+  type PortabilityImportValidationContext,
 } from "./participants.js";
 import { productionPortabilityParticipants } from "./real-participants-production.js";
 import { operationOwnershipParticipants } from "./real-participants-operations.js";
+import { exportInternalOwnershipParticipants } from "./real-participants-export-internal.js";
 
 interface ReferencePath {
   collection: string;
@@ -91,11 +93,19 @@ const mediaParticipantSpecs: readonly RealParticipantSpec[] = [
       assetRoles: PARTICIPANT_ASSET_ROLES,
       scopedWriters: ["assets.asset-record"],
     },
+    extra: {
+      importValidationKey: "asset_bytes_and_kind:v1",
+      validateImport: validateAssetImport,
+    },
   },
   {
     key: "original_assets",
     schema: asDocumentSchema(originalAssetRecordSchema),
     claims: { scopedWriters: ["assets.original-asset-record"] },
+    extra: {
+      importValidationKey: "original_image_decode:v1",
+      validateImport: validateOriginalImport,
+    },
   },
 ];
 
@@ -322,7 +332,11 @@ const authoringParticipantSpecs: readonly RealParticipantSpec[] = [
     dependencies: ["story_templates"],
     owner: [ref("story_templates", "templateId")],
     refs: [ref("story_template_versions", "previousVersionId", false)],
-    extra: { exportModes: ["templates_only"] },
+    extra: {
+      exportModes: ["templates_only"],
+      importValidationKey: "role_slot_template:v1",
+      validateImport: validateRoleSlotTemplate,
+    },
   },
 ];
 
@@ -331,6 +345,7 @@ export const realPortabilityParticipants: readonly PortabilityParticipant[] =
     ...realParticipantSpecs().map(realParticipant),
     ...productionPortabilityParticipants,
     ...operationOwnershipParticipants,
+    ...exportInternalOwnershipParticipants,
   ]);
 
 function realParticipant(spec: RealParticipantSpec): PortabilityParticipant {
@@ -436,6 +451,59 @@ function descend(value: unknown, segment: string): unknown[] {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
+}
+
+function validateAssetImport(
+  document: Readonly<BaseDocument>,
+  context: PortabilityImportValidationContext,
+): void {
+  const asset = assetRecordSchema.parse(document);
+  const facts = context.media("asset", asset.id);
+  if (!facts) importFailure("PORTABILITY_IMPORT_ASSET_BYTES_MISSING");
+  if (
+    facts.bytes !== asset.bytes ||
+    facts.sha256 !== asset.sha256 ||
+    facts.mime !== asset.mime ||
+    facts.extension !== asset.extension ||
+    facts.role !== asset.role
+  )
+    importFailure("PORTABILITY_IMPORT_ASSET_METADATA_MISMATCH");
+  if (asset.role === "icc_profile" && facts.inspection.kind !== "icc")
+    importFailure("PORTABILITY_IMPORT_ICC_FACTS_INVALID");
+  if (isPdfAsset(asset.mime) && facts.inspection.kind !== "pdf")
+    importFailure("PORTABILITY_IMPORT_PDF_FACTS_INVALID");
+  if (asset.mime.startsWith("image/") && facts.inspection.kind !== "image")
+    importFailure("PORTABILITY_IMPORT_IMAGE_FACTS_INVALID");
+}
+
+function validateOriginalImport(
+  document: Readonly<BaseDocument>,
+  context: PortabilityImportValidationContext,
+): void {
+  const original = originalAssetRecordSchema.parse(document);
+  const facts = context.media("original", original.id);
+  if (!facts) importFailure("PORTABILITY_IMPORT_ORIGINAL_BYTES_MISSING");
+  if (
+    facts.bytes !== original.bytes ||
+    facts.sha256 !== original.sha256 ||
+    facts.mime !== original.sourceMime ||
+    facts.extension !== original.extension ||
+    facts.role !== "reference_photo" ||
+    facts.inspection.kind !== "image"
+  )
+    importFailure("PORTABILITY_IMPORT_ORIGINAL_FACTS_INVALID");
+}
+
+function validateRoleSlotTemplate(document: Readonly<BaseDocument>): void {
+  storyTemplateVersionSchema.parse(document);
+}
+
+function isPdfAsset(mime: string): boolean {
+  return mime === "application/pdf";
+}
+
+function importFailure(code: string): never {
+  throw new Error(code);
 }
 
 function realParticipantSpecs(): readonly RealParticipantSpec[] {

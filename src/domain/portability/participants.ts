@@ -54,6 +54,48 @@ export interface PortabilityPostDeleteVerificationQuery extends PortabilityPostD
 
 export type ExactIdMap = ReadonlyMap<string, string>;
 
+export type PortabilityMediaInspection =
+  | {
+      readonly kind: "image";
+      readonly decoded: true;
+      readonly format: "heic" | "heif" | "jpeg" | "png" | "webp";
+      readonly width: number;
+      readonly height: number;
+    }
+  | {
+      readonly kind: "pdf";
+      readonly parseable: true;
+      readonly encrypted: false;
+      readonly prohibitedFeatureCount: 0;
+    }
+  | {
+      readonly kind: "icc";
+      readonly signature: "acsp";
+      readonly channels: 3 | 4;
+      readonly profileClass: "display" | "output";
+      readonly checksum: string;
+    }
+  | { readonly kind: "binary"; readonly executable: false };
+
+export interface PortabilityValidatedMediaFacts {
+  readonly namespace: "asset" | "original";
+  readonly id: string;
+  readonly bytes: number;
+  readonly sha256: string;
+  readonly mime: string;
+  readonly extension: string;
+  readonly role: string;
+  readonly inspection: PortabilityMediaInspection;
+}
+
+export interface PortabilityImportValidationContext {
+  document(collection: string, id: string): Readonly<BaseDocument> | null;
+  media(
+    namespace: PortabilityValidatedMediaFacts["namespace"],
+    id: string,
+  ): PortabilityValidatedMediaFacts | null;
+}
+
 export interface PortabilityMigration<T extends BaseDocument> {
   from: number;
   to: number;
@@ -76,6 +118,7 @@ export interface PortabilityParticipant<T extends BaseDocument = BaseDocument> {
   readonly exportModes: readonly PortabilityExportMode[];
   readonly deletionOrder: PortabilityDeletionOrder;
   readonly postDeleteVerification: PortabilityPostDeleteVerificationContract;
+  readonly importValidationKey: string;
   readonly claims: Readonly<Required<PortabilityCatalogClaims>>;
   selectForProject(
     document: Readonly<T>,
@@ -97,6 +140,10 @@ export interface PortabilityParticipant<T extends BaseDocument = BaseDocument> {
   ): readonly PortabilityMediaReference[];
   rewriteIds(document: Readonly<T>, idMap: ExactIdMap): T;
   rebaseDerivedFields(document: Readonly<T>, idMap: ExactIdMap): T;
+  validateImport(
+    document: Readonly<T>,
+    context: PortabilityImportValidationContext,
+  ): void;
   verifyDeleted(id: string): PortabilityPostDeleteVerificationQuery;
 }
 
@@ -110,6 +157,7 @@ export interface PortabilityParticipantInput<T extends BaseDocument> {
   exportModes?: readonly PortabilityExportMode[];
   deletionOrder?: PortabilityDeletionOrder;
   postDeleteVerification?: PortabilityPostDeleteVerificationContract;
+  importValidationKey?: string;
   claims?: PortabilityCatalogClaims;
   selectForProject?: PortabilityParticipant<T>["selectForProject"];
   selectForCustomer?: PortabilityParticipant<T>["selectForCustomer"];
@@ -121,6 +169,7 @@ export interface PortabilityParticipantInput<T extends BaseDocument> {
   originalReferences?: PortabilityParticipant<T>["originalReferences"];
   rewriteIds?: PortabilityParticipant<T>["rewriteIds"];
   rebaseDerivedFields?: PortabilityParticipant<T>["rebaseDerivedFields"];
+  validateImport?: PortabilityParticipant<T>["validateImport"];
 }
 
 export interface PortabilityCatalogEntry {
@@ -174,6 +223,17 @@ const foundationCollections = Object.freeze([
 const portabilityOwnershipCollections = Object.freeze([
   "export_operations",
   "managed_exports",
+  "portability_actions",
+  "portability_ledger_pages",
+  "portability_media_holds",
+  "portability_snapshot_entries",
+  "portability_snapshots",
+] as const);
+
+const portabilityInternalCollections = Object.freeze([
+  "deletion_inventories",
+  "deletion_operations",
+  "deletion_reports",
 ] as const);
 
 const realCollectionNames = uniqueSorted([
@@ -185,6 +245,7 @@ const realCollectionNames = uniqueSorted([
   ...jobCollections,
   ...foundationCollections,
   ...portabilityOwnershipCollections,
+  ...portabilityInternalCollections,
 ]);
 
 const internalAssetRoles = new Set<string>(["import_staging"]);
@@ -230,9 +291,13 @@ const scopedWriterKeys = Object.freeze([
 export const REAL_PORTABILITY_CATALOG: PortabilityCatalog = freezeCatalog({
   collections: realCollectionNames.map((key) => ({
     key,
-    owner: globalCollections.includes(key as (typeof globalCollections)[number])
-      ? "global"
-      : "participant",
+    owner: portabilityInternalCollections.includes(
+      key as (typeof portabilityInternalCollections)[number],
+    )
+      ? "internal"
+      : globalCollections.includes(key as (typeof globalCollections)[number])
+        ? "global"
+        : "participant",
   })),
   assetRoles: [
     ...PARTICIPANT_ASSET_ROLES.map((key) => ({
@@ -251,12 +316,17 @@ export const REAL_PORTABILITY_CATALOG: PortabilityCatalog = freezeCatalog({
       owner: "participant" as const,
     })),
     { key: "layout.persistence-migration", owner: "internal" },
+    { key: "portability.deletion-storage", owner: "internal" },
   ],
 });
 
 export function definePortabilityParticipant<T extends BaseDocument>(
   input: PortabilityParticipantInput<T>,
 ): PortabilityParticipant<T> {
+  const migrations = freezeMigrations(input.migrations ?? []);
+  const importValidationKey = input.importValidationKey ?? "schema_only:v1";
+  if (!/^[a-z][a-z0-9_.-]{0,63}:v[1-9][0-9]*$/.test(importValidationKey))
+    throw new Error("PORTABILITY_IMPORT_VALIDATION_KEY_INVALID");
   const postDeleteVerification = Object.freeze(
     input.postDeleteVerification ?? {
       kind: "document_id_absent" as const,
@@ -272,13 +342,14 @@ export function definePortabilityParticipant<T extends BaseDocument>(
   });
   return Object.freeze({
     ...input,
-    migrations: Object.freeze([...(input.migrations ?? [])]),
+    migrations,
     dependencies: Object.freeze([...(input.dependencies ?? [])]),
     exportModes: Object.freeze([
       ...(input.exportModes ?? ["project", "customer"]),
     ]),
     deletionOrder: input.deletionOrder ?? "reverse_dependencies",
     postDeleteVerification,
+    importValidationKey,
     claims,
     selectForProject: input.selectForProject ?? (() => null),
     selectForCustomer: input.selectForCustomer ?? (() => null),
@@ -294,6 +365,7 @@ export function definePortabilityParticipant<T extends BaseDocument>(
     rebaseDerivedFields:
       input.rebaseDerivedFields ??
       (() => failLater("PORTABILITY_REBASE_NOT_IMPLEMENTED", input.key)),
+    validateImport: input.validateImport ?? (() => undefined),
     verifyDeleted: (id: string) =>
       Object.freeze({ ...postDeleteVerification, id }),
   });
@@ -486,12 +558,32 @@ function registryIdentity(participant: PortabilityParticipant) {
     key: participant.key,
     collection: participant.collection,
     currentSchemaVersion: participant.currentSchemaVersion,
+    migrations: participant.migrations.map(({ from, to }) => ({ from, to })),
     dependencies: participant.dependencies,
     exportModes: participant.exportModes,
     deletionOrder: participant.deletionOrder,
     postDeleteVerification: participant.postDeleteVerification,
+    importValidationKey: participant.importValidationKey,
     claims: participant.claims,
   };
+}
+
+function freezeMigrations<T extends BaseDocument>(
+  input: readonly PortabilityMigration<T>[],
+): readonly PortabilityMigration<T>[] {
+  const seen = new Set<number>();
+  for (const migration of input) {
+    if (
+      !Number.isSafeInteger(migration.from) ||
+      !Number.isSafeInteger(migration.to) ||
+      migration.from < 1 ||
+      migration.to <= migration.from ||
+      seen.has(migration.from)
+    )
+      throw new Error("PORTABILITY_MIGRATION_DECLARATION_INVALID");
+    seen.add(migration.from);
+  }
+  return Object.freeze([...input]);
 }
 
 function freezeCatalog(catalog: PortabilityCatalog): PortabilityCatalog {
