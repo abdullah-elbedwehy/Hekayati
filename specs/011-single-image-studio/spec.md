@@ -10,7 +10,7 @@ This document is an ownership and acceptance slice. Canonical requirement wordin
 
 The operator can generate, review, regenerate, retain, and download one illustration from a top-level Arabic tab without creating a book project or changing any book page, preview, approval, or print state.
 
-## Requirements *(mandatory)*
+## Requirements _(mandatory)_
 
 Primary requirement ownership: **FR-140–146**.
 
@@ -33,13 +33,13 @@ This feature reuses rather than redefines FR-003/004, FR-070–075, FR-092/094/0
 - Reuses feature 007 style/legal/safety constraints and reference-budgeting behavior while remaining outside its book page graph.
 - Feature 010 deletion must include Studio history/assets when their owning customer or characters are permanently deleted.
 
-## User Scenarios & Testing *(mandatory)*
+## User Scenarios & Testing _(mandatory)_
 
 Canonical story and seven acceptance scenarios: **US11** in the [product bible](../001-hekayati-product-bible/spec.md).
 
 Independent acceptance: from the main navigation with no project open, generate with one consented character/look, regenerate, browse both versions, and download; verify no Project/Story/Page record or book invalidation event exists. Repeat prompt-only, cross-family, no-consent, capacity-warning, and concurrent-book cases exactly as specified.
 
-## Success Criteria *(mandatory)*
+## Success Criteria _(mandatory)_
 
 Primary measurable outcome: **SC-013**. CHK026, CHK425, EC-C11–C13, E8, and the canonical US11 scenarios provide the remaining history, RTL, isolation, and boundary evidence.
 

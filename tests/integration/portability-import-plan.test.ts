@@ -8,6 +8,7 @@ import { canonicalJson } from "../../src/contracts/canonical-json.js";
 import { rewritePortabilityParticipantIds } from "../../src/domain/portability/import-id-rules.js";
 import { ImportPlanService } from "../../src/domain/portability/import-plan.js";
 import { ImportPlanRepository } from "../../src/domain/portability/import-plan-storage.js";
+import { recompileStoredImportPlan } from "../../src/domain/portability/import-plan-replay.js";
 import {
   DocumentStoreImportPlanTargetReader,
   hashImportTargetRevision,
@@ -114,6 +115,18 @@ describe("ImportPlanService", () => {
         )
         .get(),
     ).toEqual({ count: 0 });
+
+    const replayedPlan = recompileStoredImportPlan({
+      plan: first.plan,
+      source,
+      ledgers,
+      registry,
+      target: emptyTargetReader(),
+    });
+    expect(replayedPlan.compiled.documents).toHaveLength(
+      first.plan.counts.writes,
+    );
+    expect(replayedPlan.graphHash).toMatch(/^[a-f0-9]{64}$/);
 
     const replay = service.plan(sourceIds.operation, request, source);
     expect(replay.replayed).toBe(true);
@@ -406,6 +419,7 @@ function seedPlanReadyOperation(
       commitActionId: null,
     },
     planId: null,
+    commit: null,
     failureCode: null,
     cleanupState: "none" as const,
   };

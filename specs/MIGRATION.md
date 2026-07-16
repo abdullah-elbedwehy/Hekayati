@@ -20,8 +20,9 @@ Feature slices are primary delivery and verification owners. A slice does not ov
 | 009 | US7 | FR-121–123 |
 | 010 | US9 | FR-005, FR-125–129 |
 | 011 | US11 | FR-140–146 |
+| 012 | US12 | FR-149–159 |
 
-This partition owns all 120 current FR IDs exactly once. Numeric gaps remain intentional. Interface consumers still cite the primary requirement: for example, 002 consumes provider provenance FR-094; 004 implements the project-context FR-014(a)/IM-04 destination defined by 003; 009 consumes book-assembly FR-057 and watermark FR-124; 010 owns deletion FR-005 while 003 supplies the affected entities; 011 consumes consent, provider, scheduler, style, and safety rules from 003/005/006/007.
+This partition owns all 131 current FR IDs exactly once (012 is a pending amendment awaiting graph re-approval). Numeric gaps remain intentional. Interface consumers still cite the primary requirement: for example, 002 consumes provider provenance FR-094; 004 implements the project-context FR-014(a)/IM-04 destination defined by 003; 009 consumes book-assembly FR-057 and watermark FR-124; 010 owns deletion FR-005 while 003 supplies the affected entities; 011 consumes consent, provider, scheduler, style, and safety rules from 003/005/006/007.
 
 ## Success criteria and clarifications
 
@@ -38,6 +39,7 @@ This partition owns all 120 current FR IDs exactly once. Numeric gaps remain int
 | 009 | SC-006; SC-007 print half; SC-010 print-consumer completion; SC-008 print repeat | C-04, C-12 |
 | 010 | SC-005 | C-07 |
 | 011 | SC-013 | C-15 |
+| 012 | SC-015 | C-22 |
 
 Cross-feature evidence remains required: SC-005 includes logs, credentials, and archives; SC-011 includes character approval and page locks; SC-012 is rechecked during the shared end-to-end gate.
 
@@ -58,6 +60,7 @@ The canonical invalidation matrix remains one file because cascades cross featur
 | 009 | IM-14–15 | RR-05, RR-11 | EC-F01–F10, F13–F14 |
 | 010 | — | RR-06 | EC-E11; EC-G01–G13; EC-H03–H04, H07–H08 |
 | 011 | Outside the matrix by FR-145 | No dedicated RR | EC-C11–C13 |
+| 012 | Derived-pack staleness note (FR-152); imports behave as IM-10 | No dedicated RR | EC-I01–I16 |
 
 All IM-01–21, RR-01–19, and current EC IDs are accounted for. Slice 007 owns the closed rule table; slice 008 proves the real layout/preview/approval participants are included in the original transaction/receipt for every affecting row; slice 011 proves it emits none of those book events.
 

@@ -8,6 +8,7 @@ import {
   type ImportOperation,
   type ImportOperationState,
 } from "./import-model.js";
+import type { ImportCommitProgress } from "./import-apply-model.js";
 
 export const importPortabilityCollections = Object.freeze({
   operations: "import_operations",
@@ -182,11 +183,22 @@ const allowedTransitions: Readonly<
     "cleanup_required",
   ]),
   plan_ready: new Set(["plan_ready", "committing", "failed"]),
-  committing: new Set(["imported", "rolled_back", "cleanup_required"]),
-  imported: new Set(),
-  rolled_back: new Set(),
+  committing: new Set([
+    "committing",
+    "imported",
+    "rolled_back",
+    "cleanup_required",
+  ]),
+  imported: new Set(["imported", "cleanup_required"]),
+  rolled_back: new Set(["rolled_back", "cleanup_required"]),
   failed: new Set(),
-  cleanup_required: new Set(["cleanup_required", "validating", "failed"]),
+  cleanup_required: new Set([
+    "cleanup_required",
+    "validating",
+    "failed",
+    "imported",
+    "rolled_back",
+  ]),
 };
 
 function assertOperationTransition(
@@ -212,6 +224,7 @@ function assertOperationTransition(
     throw new Error("IMPORT_OPERATION_IMMUTABLE_FIELD_CHANGED");
   if (current.normalizedManifestHash !== null)
     assertPinnedValidationFacts(current, next);
+  assertCommitFacts(current, next);
 }
 
 function keyChanged(current: string | null, next: string | null): boolean {
@@ -236,4 +249,99 @@ function assertPinnedValidationFacts(
   ] as const)
     if (canonicalJson(current[field]) !== canonicalJson(next[field]))
       throw new Error("IMPORT_OPERATION_VALIDATION_FACT_CHANGED");
+}
+
+function assertCommitFacts(
+  current: ImportOperation,
+  next: ImportOperation,
+): void {
+  if (!current.commit) {
+    if (!next.commit) return;
+    if (
+      current.state !== "plan_ready" ||
+      next.state !== "committing" ||
+      next.commit.expectedOperationRevision !== current.revision
+    )
+      throw new Error("IMPORT_COMMIT_BINDING_INVALID");
+    return;
+  }
+  if (!next.commit) throw new Error("IMPORT_COMMIT_BINDING_CHANGED");
+  assertCommitImmutable(current.commit, next.commit);
+  if (!commitTransitions[current.commit.phase].has(next.commit.phase))
+    throw new Error("IMPORT_COMMIT_PHASE_INVALID");
+  if (
+    (current.commit.phase === "cleanup_required" ||
+      next.commit.phase === "cleanup_required") &&
+    next.commit.result !== null &&
+    current.commit.result === null
+  )
+    throw new Error("IMPORT_COMMIT_RECOVERY_BRANCH_CHANGED");
+  if (
+    current.actionRefs.commitActionId !== null &&
+    current.actionRefs.commitActionId !== next.actionRefs.commitActionId
+  )
+    throw new Error("IMPORT_COMMIT_ACTION_CHANGED");
+}
+
+const commitTransitions: Readonly<
+  Record<
+    ImportCommitProgress["phase"],
+    ReadonlySet<ImportCommitProgress["phase"]>
+  >
+> = {
+  preparing: new Set([
+    "preparing",
+    "graph_committed",
+    "rolling_back",
+    "cleanup_required",
+  ]),
+  graph_committed: new Set(["graph_committed", "complete", "cleanup_required"]),
+  rolling_back: new Set(["rolling_back", "rolled_back", "cleanup_required"]),
+  cleanup_required: new Set(["cleanup_required", "complete", "rolled_back"]),
+  complete: new Set(),
+  rolled_back: new Set(),
+};
+
+function assertCommitImmutable(
+  current: ImportCommitProgress,
+  next: ImportCommitProgress,
+): void {
+  for (const field of [
+    "action",
+    "idempotencyKey",
+    "requestHash",
+    "expectedOperationRevision",
+    "planConfirmationHash",
+    "preparedCount",
+  ] as const)
+    if (canonicalJson(current[field]) !== canonicalJson(next[field]))
+      throw new Error("IMPORT_COMMIT_IMMUTABLE_FIELD_CHANGED");
+  for (const field of ["id", "mode", "scope"] as const)
+    if (canonicalJson(current.lock[field]) !== canonicalJson(next.lock[field]))
+      throw new Error("IMPORT_COMMIT_LOCK_CHANGED");
+  assertPinnedHash(current.sourceProofHash, next.sourceProofHash);
+  assertPinnedHash(current.targetSnapshotHash, next.targetSnapshotHash);
+  if (current.result) assertCommitResultImmutable(current.result, next.result);
+}
+
+function assertPinnedHash(current: string | null, next: string | null): void {
+  if (current !== null && current !== next)
+    throw new Error("IMPORT_COMMIT_IMMUTABLE_FIELD_CHANGED");
+}
+
+function assertCommitResultImmutable(
+  current: NonNullable<ImportCommitProgress["result"]>,
+  next: ImportCommitProgress["result"],
+): void {
+  if (!next) throw new Error("IMPORT_COMMIT_RESULT_CHANGED");
+  for (const field of [
+    "graphHash",
+    "targetRootIds",
+    "documentCount",
+    "preparedMediaCount",
+    "canceledJobCount",
+    "committedAt",
+  ] as const)
+    if (canonicalJson(current[field]) !== canonicalJson(next[field]))
+      throw new Error("IMPORT_COMMIT_RESULT_CHANGED");
 }

@@ -208,6 +208,12 @@ export interface PreparedAsset {
   isNew: boolean;
 }
 
+export interface ImportedAssetPreparation {
+  record: AssetRecord;
+  bytes: Buffer;
+  wasPreexisting: boolean;
+}
+
 export class AssetStore {
   private readonly repository: DocumentRepository<AssetRecord>;
   private readonly hashLocks = new Map<string, Promise<void>>();
@@ -222,6 +228,11 @@ export class AssetStore {
       "assets",
       assetRecordSchema,
     );
+    this.store.database.exec(`
+      CREATE UNIQUE INDEX IF NOT EXISTS assets_sha256_unique
+      ON documents(json_extract(doc, '$.sha256'))
+      WHERE collection = 'assets';
+    `);
   }
 
   async put(input: AssetInput): Promise<AssetRecord> {
@@ -273,6 +284,48 @@ export class AssetStore {
     return { record, isNew: true };
   }
 
+  /** Prepare bytes for an immutable import-plan record without allocating an ID. */
+  async prepareImported(
+    input: ImportedAssetPreparation,
+  ): Promise<PreparedAsset> {
+    const record = assetRecordSchema.parse(input.record);
+    this.store.assertSafeForPersistence(record);
+    this.store.secretRegistry.assertSafeBinaryPayload(input.bytes);
+    if (
+      input.bytes.byteLength !== record.bytes ||
+      sha256(input.bytes) !== record.sha256
+    )
+      throw new Error("IMPORTED_ASSET_BYTES_MISMATCH");
+    return this.withHashLock(record.sha256, async () => {
+      const existing = this.findBySha(record.sha256);
+      if (input.wasPreexisting) {
+        if (!existing || existing.id !== record.id)
+          throw new Error("IMPORTED_ASSET_TARGET_STALE");
+        assertCompatibleMetadata(
+          existing,
+          record.extension,
+          metadataFromInput({ ...record, bytes: Buffer.alloc(0) }),
+        );
+        await this.atomicWrite(
+          this.pathForRecord(existing),
+          input.bytes,
+          record.sha256,
+          record.role,
+        );
+        return { record: existing, isNew: false };
+      }
+      if (existing || this.repository.get(record.id))
+        throw new Error("IMPORTED_ASSET_TARGET_STALE");
+      await this.atomicWrite(
+        this.pathForRecord(record),
+        input.bytes,
+        record.sha256,
+        record.role,
+      );
+      return { record, isNew: true };
+    });
+  }
+
   /** Commit inside the caller's DocumentStore transaction. */
   commitPrepared(prepared: PreparedAsset): AssetRecord {
     const parsed = assetRecordSchema.parse(prepared.record);
@@ -286,6 +339,37 @@ export class AssetStore {
       return this.incrementReference(existing);
     }
     return this.repository.put(parsed);
+  }
+
+  /** Commit all planned references inside the caller's transaction. */
+  commitPreparedImported(
+    prepared: PreparedAsset,
+    references: number,
+  ): AssetRecord {
+    assertMediaReferenceTransaction(this.store);
+    if (!Number.isSafeInteger(references) || references < 1)
+      throw new Error("IMPORTED_ASSET_REFERENCE_COUNT_INVALID");
+    const record = assetRecordSchema.parse(prepared.record);
+    const existing = this.findBySha(record.sha256);
+    if (existing) {
+      if (prepared.isNew || existing.id !== record.id)
+        throw new Error("IMPORTED_ASSET_TARGET_STALE");
+      assertCompatibleMetadata(
+        existing,
+        record.extension,
+        metadataFromInput({ ...record, bytes: Buffer.alloc(0) }),
+      );
+      return this.repository.put({
+        ...existing,
+        refCount: existing.refCount + references,
+        updatedAt: new Date().toISOString(),
+      });
+    }
+    if (this.repository.get(record.id))
+      throw new Error("IMPORTED_ASSET_TARGET_STALE");
+    if (prepared.isNew && record.refCount !== references)
+      throw new Error("IMPORTED_ASSET_REFERENCE_COUNT_MISMATCH");
+    return this.repository.put({ ...record, refCount: references });
   }
 
   async discardPrepared(prepared: PreparedAsset): Promise<void> {

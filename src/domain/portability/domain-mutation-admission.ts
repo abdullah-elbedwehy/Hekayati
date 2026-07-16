@@ -35,7 +35,9 @@ export const DOMAIN_MUTATION_WRITER_KEYS = Object.freeze([
 ] as const);
 
 export type DomainMutationWriterKey =
-  (typeof DOMAIN_MUTATION_WRITER_KEYS)[number] | "portability.deletion-storage";
+  | (typeof DOMAIN_MUTATION_WRITER_KEYS)[number]
+  | "portability.deletion-storage"
+  | "portability.import-storage";
 export type DomainMutationKind = "insert" | "update" | "delete";
 
 export type OperationOwnedMutationPurpose =

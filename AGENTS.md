@@ -83,6 +83,8 @@ These rules apply once implementation is approved:
 ## Non-negotiable rules
 
 - Bind all services to `127.0.0.1`. No LAN exposure.
+- A Hekayati book-prototype run never completes with images alone. Every scope must automatically assemble, render-check, and verify a versioned watermarked preview PDF before handoff.
+- If image-generation response rules end a turn, persist `pdf_pending`; the next continuation must build the PDF before optional work. Every successful handoff includes a clickable absolute PDF path.
 - No secret (Gemini key, Codex auth, Keychain content) in DB, logs, exports, UI, or error text.
 - Child images: local only; send providers the minimum required per call; consent must be recorded.
 - Validate all AI output against canonical schemas before use.

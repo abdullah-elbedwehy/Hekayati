@@ -6,6 +6,8 @@ Rules: invalidation **marks stale + surfaces scope + offers actions**; it never 
 
 **Single Image Studio (FR-145)**: `studio_image` jobs and `studioGenerations` history are **outside this matrix**. Creating, regenerating, or deleting a studio image MUST NOT emit book ChangeEvents and MUST leave every column below unchanged.
 
+**Flow-mode Prompt Pack (FR-152)**: a `PromptPack` is a **derived** artifact, not a matrix column. Any row that marks a page illustration ✖ also marks every pack pinned to that page's superseded versions stale (with the row ID as reason). Pack recompilation itself invalidates nothing. Imported illustrations are ordinary page illustration versions: committing one behaves exactly like IM-10, and stale imports are rejected at commit (FR-155) rather than entering the matrix.
+
 Legend: ✖ = invalidated/stale, ⚠ = flagged for re-check (no invalidation), — = unaffected.
 
 | # | Upstream change | Char. approval | Char. sheet | Story plan/text | Scene(s) | Page illustration(s) | Page layout | Preview PDF | Book approval | Print PDFs / preflight |

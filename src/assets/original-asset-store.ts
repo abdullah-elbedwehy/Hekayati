@@ -1,5 +1,11 @@
 import { createHash, randomUUID } from "node:crypto";
-import { constants } from "node:fs";
+import {
+  closeSync,
+  constants,
+  fstatSync,
+  openSync,
+  readFileSync,
+} from "node:fs";
 import {
   chmod,
   lstat,
@@ -19,7 +25,10 @@ import {
   DocumentRepository,
   type DocumentStore,
 } from "../domain/repository/document-store.js";
-import type { IntegrityReport } from "./asset-store.js";
+import type {
+  AssetIntegrityVerification,
+  IntegrityReport,
+} from "./asset-store.js";
 import {
   assertMediaCleanupOutsideTransaction,
   assertMediaReferenceTransaction,
@@ -74,6 +83,27 @@ export interface PreparedOriginalAsset {
   isNew: boolean;
 }
 
+export interface ImportedOriginalPreparation {
+  record: OriginalAssetRecord;
+  bytes: Buffer;
+  wasPreexisting: boolean;
+}
+
+export interface OriginalAssetWriteBoundary {
+  target: string;
+  temporary: string;
+  expectedHash: string;
+}
+
+export interface OriginalAssetStoreHooks {
+  afterTempSync?(
+    boundary: OriginalAssetWriteBoundary,
+  ): Promise<void> | void;
+  afterRenameSync?(
+    boundary: OriginalAssetWriteBoundary,
+  ): Promise<void> | void;
+}
+
 /**
  * Exact uploads live here and deliberately have no conversion to AssetRecord.
  * Provider-facing code accepts neither this class nor OriginalAssetRecord IDs.
@@ -85,12 +115,18 @@ export class OriginalAssetStore {
   constructor(
     private readonly store: DocumentStore,
     readonly root: string,
+    private readonly hooks: OriginalAssetStoreHooks = {},
   ) {
     this.repository = new DocumentRepository(
       store,
       "original_assets",
       originalAssetRecordSchema,
     );
+    this.store.database.exec(`
+      CREATE UNIQUE INDEX IF NOT EXISTS original_assets_sha256_unique
+      ON documents(json_extract(doc, '$.sha256'))
+      WHERE collection = 'original_assets';
+    `);
   }
 
   async put(input: OriginalAssetInput): Promise<OriginalAssetRecord> {
@@ -134,6 +170,47 @@ export class OriginalAssetStore {
     return { record, isNew: true };
   }
 
+  /** Prepare one exact immutable import-plan original record. */
+  async prepareImported(
+    input: ImportedOriginalPreparation,
+  ): Promise<PreparedOriginalAsset> {
+    const record = originalAssetRecordSchema.parse(input.record);
+    this.store.assertSafeForPersistence(record);
+    this.store.secretRegistry.assertSafeBinaryPayload(input.bytes);
+    if (
+      input.bytes.byteLength !== record.bytes ||
+      sha256(input.bytes) !== record.sha256
+    )
+      throw new Error("IMPORTED_ORIGINAL_BYTES_MISMATCH");
+    return this.withHashLock(record.sha256, async () => {
+      const existing = this.findBySha(record.sha256);
+      if (input.wasPreexisting) {
+        if (!existing || existing.id !== record.id)
+          throw new Error("IMPORTED_ORIGINAL_TARGET_STALE");
+        assertCompatible(
+          existing,
+          record.sourceMime,
+          record.extension,
+          record.bytes,
+        );
+        await this.atomicWrite(
+          this.pathForRecord(existing),
+          input.bytes,
+          record.sha256,
+        );
+        return { record: existing, isNew: false };
+      }
+      if (existing || this.repository.get(record.id))
+        throw new Error("IMPORTED_ORIGINAL_TARGET_STALE");
+      await this.atomicWrite(
+        this.pathForRecord(record),
+        input.bytes,
+        record.sha256,
+      );
+      return { record, isNew: true };
+    });
+  }
+
   /** Commit inside the caller's DocumentStore transaction. */
   commitPrepared(prepared: PreparedOriginalAsset): OriginalAssetRecord {
     const parsed = originalAssetRecordSchema.parse(prepared.record);
@@ -148,6 +225,38 @@ export class OriginalAssetStore {
       return this.incrementReference(existing);
     }
     return this.repository.put(parsed);
+  }
+
+  /** Commit all planned references inside the caller's transaction. */
+  commitPreparedImported(
+    prepared: PreparedOriginalAsset,
+    references: number,
+  ): OriginalAssetRecord {
+    assertMediaReferenceTransaction(this.store);
+    if (!Number.isSafeInteger(references) || references < 1)
+      throw new Error("IMPORTED_ORIGINAL_REFERENCE_COUNT_INVALID");
+    const record = originalAssetRecordSchema.parse(prepared.record);
+    const existing = this.findBySha(record.sha256);
+    if (existing) {
+      if (prepared.isNew || existing.id !== record.id)
+        throw new Error("IMPORTED_ORIGINAL_TARGET_STALE");
+      assertCompatible(
+        existing,
+        record.sourceMime,
+        record.extension,
+        record.bytes,
+      );
+      return this.repository.put({
+        ...existing,
+        refCount: existing.refCount + references,
+        updatedAt: new Date().toISOString(),
+      });
+    }
+    if (this.repository.get(record.id))
+      throw new Error("IMPORTED_ORIGINAL_TARGET_STALE");
+    if (prepared.isNew && record.refCount !== references)
+      throw new Error("IMPORTED_ORIGINAL_REFERENCE_COUNT_MISMATCH");
+    return this.repository.put({ ...record, refCount: references });
   }
 
   async discardPrepared(prepared: PreparedOriginalAsset): Promise<void> {
@@ -178,6 +287,32 @@ export class OriginalAssetStore {
     if (sha256(bytes) !== record.sha256)
       throw new Error("ORIGINAL_ASSET_CHECKSUM_MISMATCH");
     return bytes;
+  }
+
+  verifyPreparedIntegritySync(
+    prepared: PreparedOriginalAsset,
+  ): AssetIntegrityVerification {
+    const record = originalAssetRecordSchema.parse(prepared.record);
+    try {
+      const descriptor = openSync(
+        this.pathForRecord(record),
+        constants.O_RDONLY | constants.O_NOFOLLOW,
+      );
+      try {
+        const info = fstatSync(descriptor);
+        if (!info.isFile() || info.nlink !== 1)
+          throw new Error("INVALID_ORIGINAL_ASSET_FILE");
+        if (sha256(readFileSync(descriptor)) !== record.sha256)
+          return integrity(record, "corrupt", "checksum_mismatch");
+      } finally {
+        closeSync(descriptor);
+      }
+      return integrity(record, "healthy", null);
+    } catch (error) {
+      if (hasCode(error, "ENOENT"))
+        return integrity(record, "missing", "missing");
+      throw error;
+    }
   }
 
   retain(id: string): OriginalAssetRecord {
@@ -374,16 +509,24 @@ export class OriginalAssetStore {
       return;
     }
     const temporary = join(dirname(target), `.hekayati-tmp-${randomUUID()}`);
-    const handle = await open(temporary, "wx", 0o600);
     try {
-      await handle.writeFile(bytes);
-      await handle.sync();
-    } finally {
-      await handle.close();
+      const handle = await open(temporary, "wx", 0o600);
+      try {
+        await handle.writeFile(bytes);
+        await handle.sync();
+      } finally {
+        await handle.close();
+      }
+      const boundary = { target, temporary, expectedHash };
+      await this.hooks.afterTempSync?.(boundary);
+      await rename(temporary, target);
+      await chmod(target, 0o600);
+      await syncDirectory(dirname(target));
+      await this.hooks.afterRenameSync?.(boundary);
+    } catch (error) {
+      await rm(temporary, { force: true });
+      throw error;
     }
-    await rename(temporary, target);
-    await chmod(target, 0o600);
-    await syncDirectory(dirname(target));
   }
 
   private async withHashLock<T>(
@@ -473,6 +616,22 @@ async function readIfPresent(file: string): Promise<Buffer | null> {
 
 function sha256(bytes: Buffer): string {
   return createHash("sha256").update(bytes).digest("hex");
+}
+
+function integrity(
+  record: OriginalAssetRecord,
+  status: "healthy" | "missing" | "corrupt",
+  reason: "missing" | "checksum_mismatch" | null,
+): AssetIntegrityVerification {
+  if ((status === "healthy") !== (reason === null))
+    throw new Error("ORIGINAL_ASSET_INTEGRITY_RESULT_INVALID");
+  const base = {
+    assetId: record.id,
+    expectedSha256: record.sha256,
+  };
+  if (status === "healthy") return { ...base, status, reason: null };
+  if (status === "missing") return { ...base, status, reason: "missing" };
+  return { ...base, status, reason: "checksum_mismatch" };
 }
 
 function isCollectibleOriginal(file: string, root: string): boolean {

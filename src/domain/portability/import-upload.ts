@@ -174,6 +174,7 @@ function uploadedOperation(input: {
       commitActionId: null,
     },
     planId: null,
+    commit: null,
     failureCode: null,
     cleanupState: "none",
   };

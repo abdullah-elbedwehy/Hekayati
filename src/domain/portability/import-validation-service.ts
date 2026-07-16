@@ -70,7 +70,10 @@ export class ImportValidationService {
       if (operation.state === "validating") {
         await this.validate(operation.id);
         resumed.push(operation.id);
-      } else if (operation.state === "cleanup_required") {
+      } else if (
+        operation.state === "cleanup_required" &&
+        operation.commit === null
+      ) {
         await this.retryCleanup(operation);
         cleanupRetried.push(operation.id);
       }
@@ -86,6 +89,8 @@ export class ImportValidationService {
     let operation = this.requireOperation(operationId);
     if (operation.state === "plan_ready") return operation;
     if (operation.state === "cleanup_required") {
+      if (operation.commit !== null)
+        throw new Error("IMPORT_APPLY_RECOVERY_REQUIRED");
       await this.retryCleanup(operation);
       throw new Error("IMPORT_VALIDATION_PREVIOUSLY_FAILED");
     }
@@ -220,6 +225,8 @@ export class ImportValidationService {
   }
 
   private async retryCleanup(operation: ImportOperation): Promise<void> {
+    if (operation.commit !== null)
+      throw new Error("IMPORT_APPLY_RECOVERY_REQUIRED");
     if (operation.stagingKey)
       await this.managedImports.removeStaging(operation.stagingKey);
     if (operation.reservationKey)

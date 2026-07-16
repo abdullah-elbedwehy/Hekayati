@@ -197,6 +197,12 @@ export class ManagedImportStore {
     return join(this.#reservationRoot, key);
   }
 
+  stagingPath(key: string): string {
+    if (!stagingKeyPattern.test(key))
+      throw new Error("IMPORT_STAGING_KEY_INVALID");
+    return join(this.#stagingRoot, key);
+  }
+
   async removeReservation(key: string): Promise<void> {
     assertReservationKey(key);
     await this.initialize();

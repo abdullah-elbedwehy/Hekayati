@@ -130,6 +130,7 @@ export const portabilityLedgerKindSchema = z.enum([
   "import_rebases",
   "prepared_media",
   "import_authorizations",
+  "import_unlinks",
   "deletion_inventory",
   "deletion_blockers",
   "deletion_unlinks",
@@ -264,6 +265,7 @@ const ledgerEntryKinds: Partial<
   import_rebases: new Set(["import_rebase"]),
   prepared_media: new Set(["prepared_media_intent"]),
   import_authorizations: new Set(["import_authorization"]),
+  import_unlinks: new Set(["managed_unlink"]),
   deletion_inventory: new Set([
     "deletion_document",
     "deletion_preserved_document",

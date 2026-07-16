@@ -152,8 +152,11 @@ Format: `[ID] [P?] [Refs] Description` — **[P]** = parallelizable (different f
 - [ ] T-P6-10 [US11] Single Image Studio domain + API: `studioGenerations` CRUD, `studio_image` job type, same-family plus active-anchor eligibility, and no Project/Story/Page side effects (`src/domain/studio/`) [FR-003/017–018/140–146, C-21]
 - [ ] T-P6-11 [US11] Studio Arabic RTL tab UI: active-anchored family/character/look picker, actionable missing/archived-anchor state, prompt, style, generate/regenerate/history/download, consent, and capacity warnings [FR-140/141/144, C-15/C-21]
 - [ ] T-P6-12 [US11] E2E: US11 + E8 — prompt-only and referenced generation, same-family enforcement, missing/archived-anchor rejection with old history intact, download, assert zero project records and zero book invalidation events; isolation vs concurrent book project (SC-013, C-21, EC-C11–C13)
+- [ ] T-P6-13 [US12] Flow-mode domain: `external_manual` provider entry + FR-095 switch semantics, `waiting_external_import` scheduler state, PromptPack compiler with pinned versions/checksums/stale marking, and no-photo/no-secret pack invariant tests (`src/domain/flow-mode/`) [FR-149–153, EC-I15]
+- [ ] T-P6-14 [US12] Import pipeline + Arabic RTL UI: pack view with per-block copy + Markdown export, consent-gated logged reference-bundle export (working copies + sheet renders, upload warning, no originals), file validation (magic bytes, size cap, decode, metadata strip), mapping UI (prompt + thumbnail), versioned commit with stale/locked rejection, DPI/aspect warnings, `external_manual` provenance (`src/server/flow-import/`, `src/ui/views/`) [FR-151/154–157, EC-I01–I08, EC-I10, EC-I12, EC-I16]
+- [ ] T-P6-15 [US12] E2E: US12 + E9 — full 16-page book via fixture imports with zero image-provider calls, partial import persistence across restart, stale/locked/corrupt/duplicate rejections, low-DPI warning through to preflight, provider switch-away confirmation flow (SC-015, FR-158/159, EC-I01–I16)
 
-**Checkpoint**: a full 16-page mock book produced, reviewed, page-7-regenerated with checksum-proven isolation; Studio one-shot image path green. **DoD**: CHK012–018 + CHK026 satisfiable; SC-003 and SC-013 tests green.
+**Checkpoint**: a full 16-page mock book produced, reviewed, page-7-regenerated with checksum-proven isolation; Studio one-shot image path green; Flow-mode pack→import→review path green with zero image-provider calls. **DoD**: CHK012–018 + CHK026 satisfiable; SC-003, SC-013, and SC-015 tests green.
 
 ---
 

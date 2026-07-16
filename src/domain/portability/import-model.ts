@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { entityIdSchema, sha256Pattern } from "../library/schemas.js";
+import { importCommitProgressSchema } from "./import-apply-model.js";
 import { importPlanModeSchema } from "./import-plan-model.js";
 
 const timestampSchema = z.iso.datetime();
@@ -81,6 +82,7 @@ export const importOperationSchema = z
       })
       .strict(),
     planId: entityIdSchema.nullable(),
+    commit: importCommitProgressSchema.nullable(),
     failureCode: safeCodeSchema.nullable(),
     cleanupState: z.enum(["none", "pending", "complete", "failed"]),
   })
@@ -98,9 +100,11 @@ function validateImportOperation(
   operation: ImportOperationCandidate,
   context: z.RefinementCtx,
 ): void {
-  const validated = ["plan_ready", "committing", "imported"].includes(
-    operation.state,
-  );
+  const validated =
+    ["plan_ready", "committing", "imported", "rolled_back"].includes(
+      operation.state,
+    ) ||
+    (operation.state === "cleanup_required" && operation.commit !== null);
   const validationSummary = [
     operation.manifestVersion,
     operation.normalizedManifestHash,
@@ -113,7 +117,7 @@ function validateImportOperation(
   if (validated && validationSummary.some((value) => value === null))
     issue(context, ["normalizedManifestHash"], "IMPORT_VALIDATION_REQUIRED");
   if (
-    validated &&
+    ["plan_ready", "committing"].includes(operation.state) &&
     (operation.stagingKey === null ||
       operation.documentCount < 1 ||
       operation.totalUncompressedBytes < 1)
@@ -125,6 +129,7 @@ function validateImportOperation(
   )
     issue(context, ["manifestVersion"], "IMPORT_VALIDATION_PREMATURE");
   validatePlanBinding(operation, context);
+  validateCommitBinding(operation, context);
   const failed = ["failed", "rolled_back", "cleanup_required"].includes(
     operation.state,
   );
@@ -155,7 +160,69 @@ interface ImportOperationCandidate {
     commitActionId: string | null;
   };
   planId: string | null;
+  commit: z.infer<typeof importCommitProgressSchema> | null;
   failureCode: string | null;
+}
+
+function validateCommitBinding(
+  operation: ImportOperationCandidate,
+  context: z.RefinementCtx,
+): void {
+  const applyStates: readonly ImportOperationState[] = [
+    "committing",
+    "imported",
+    "rolled_back",
+    "cleanup_required",
+  ];
+  const commitRequired = ["committing", "imported", "rolled_back"].includes(
+    operation.state,
+  );
+  if (commitRequired && operation.commit === null)
+    issue(context, ["commit"], "IMPORT_COMMIT_BINDING_REQUIRED");
+  if (operation.commit !== null && !applyStates.includes(operation.state))
+    issue(context, ["commit"], "IMPORT_COMMIT_STATE_MISMATCH");
+  if (operation.commit !== null && operation.planId === null)
+    issue(context, ["commit"], "IMPORT_COMMIT_PLAN_REQUIRED");
+  if (operation.commit !== null)
+    validateCommitPhaseBinding(operation.state, operation.commit, context);
+  if (
+    operation.state === "committing" &&
+    operation.commit !== null &&
+    operation.commit.result !== null
+  )
+    issue(context, ["commit", "result"], "IMPORT_COMMIT_RESULT_PREMATURE");
+  if (
+    operation.state === "imported" &&
+    operation.commit !== null &&
+    operation.commit.result === null
+  )
+    issue(context, ["commit", "result"], "IMPORT_COMMIT_RESULT_REQUIRED");
+  const actionBound = operation.actionRefs.commitActionId !== null;
+  const resultBound =
+    operation.commit !== null && operation.commit.result !== null;
+  if (actionBound !== resultBound)
+    issue(
+      context,
+      ["actionRefs", "commitActionId"],
+      "IMPORT_COMMIT_ACTION_BINDING_MISMATCH",
+    );
+}
+
+function validateCommitPhaseBinding(
+  state: ImportOperationState,
+  commit: NonNullable<ImportOperationCandidate["commit"]>,
+  context: z.RefinementCtx,
+): void {
+  const allowed: Partial<
+    Record<ImportOperationState, readonly (typeof commit.phase)[]>
+  > = {
+    committing: ["preparing", "rolling_back"],
+    imported: ["graph_committed", "complete"],
+    rolled_back: ["rolled_back"],
+    cleanup_required: ["cleanup_required"],
+  };
+  if (!allowed[state]?.includes(commit.phase))
+    issue(context, ["commit", "phase"], "IMPORT_COMMIT_PHASE_STATE_MISMATCH");
 }
 
 function validatePlanBinding(

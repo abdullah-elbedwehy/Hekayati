@@ -10,7 +10,7 @@ This document is an ownership and acceptance slice. Canonical requirement wordin
 
 Approved text-free illustrations become readable Arabic pages through deterministic layout; the operator can create a protected preview, record version-bound customer approval, and see that approval invalidated by exactly the documented visible changes.
 
-## Requirements *(mandatory)*
+## Requirements _(mandatory)_
 
 Primary requirement ownership: **FR-080–083, FR-085–087, FR-120, FR-124**.
 
@@ -33,13 +33,13 @@ Printer profiles, final interior/cover files, color conversion, and print prefli
 - Supplies an approved book-version/page map and shared HTML/CSS templates to feature 009.
 - Uses the shared invalidation matrix; approval consequences cannot be privately redefined here.
 
-## User Scenarios & Testing *(mandatory)*
+## User Scenarios & Testing _(mandatory)_
 
 Canonical story and scenarios: **US6** in the [product bible](../001-hekayati-product-bible/spec.md).
 
 Independent acceptance: automatically continue a completed mock book through deterministic layouts, customer-view cover composition, durable `pdf_pending`, and a validated exact-snapshot preview; verify Arabic shaping/BiDi, layout floors/fallbacks, watermark/footer on every proof/interior page, ~150-DPI derivatives, hard size budget, embedded fonts, zero egress, kill/restart recovery, and exact-preview approval. Then drive the real invalidation ports through punctuation, layout, title/dedication, compatible printer-profile, internal-only, watermark, and asset-integrity rows; verify the prior preview/approval/print guard changes only as prescribed and an old-preview action fails.
 
-## Success Criteria *(mandatory)*
+## Success Criteria _(mandatory)_
 
 Direct outcome: **SC-008**. This slice proves the preview half of **SC-007** and the authorization-guard half of **SC-010**; feature 009 must prove watermark absence and actual guard consumption in every print producer before those criteria close globally. CHK020–CHK021, CHK228, CHK309–CHK314 producer evidence, CHK428, Arabic layout goldens, and every canonical US6 scenario provide the remaining evidence.
 

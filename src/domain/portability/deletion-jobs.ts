@@ -21,7 +21,25 @@ export interface ForcedJobCancellation {
   currentJobs: ReadonlyMap<string, JobRecord>;
 }
 
-export class DeletionJobCanceler {
+export type ForcedJobCancellationContext =
+  | Readonly<{
+      mode: "permanent_delete";
+      phase: "draining";
+      reason: "permanent_delete";
+    }>
+  | Readonly<{
+      mode: "replace_import";
+      phase: "draining";
+      reason: "replace_import";
+    }>;
+
+const permanentDeletionCancellation = Object.freeze({
+  mode: "permanent_delete" as const,
+  phase: "draining" as const,
+  reason: "permanent_delete" as const,
+});
+
+export class OperationJobCanceler {
   private readonly jobs: JobRepository;
   private readonly admission: ScopeAdmissionService;
 
@@ -43,14 +61,16 @@ export class DeletionJobCanceler {
       revisionHash: string;
     }[];
     nowIso: string;
+    context?: ForcedJobCancellationContext;
   }): ForcedJobCancellation {
     assertPortabilityTransaction(this.store);
+    const context = input.context ?? permanentDeletionCancellation;
     const currentJobs = new Map<string, JobRecord>();
     const canceledJobIds: string[] = [];
     for (const expected of [...input.expected].sort((a, b) =>
       a.jobId.localeCompare(b.jobId),
     )) {
-      this.assertCancelAdmission(input.operationId, input.scope);
+      this.assertCancelAdmission(input.operationId, input.scope, context);
       const current = this.jobs.get(expected.jobId);
       if (
         !current ||
@@ -64,7 +84,7 @@ export class DeletionJobCanceler {
       }
       const canceled = this.jobs.update(
         current,
-        canceledJob(current, input.nowIso),
+        canceledJob(current, input.nowIso, context.reason),
       );
       currentJobs.set(canceled.id, canceled);
       canceledJobIds.push(canceled.id);
@@ -78,6 +98,7 @@ export class DeletionJobCanceler {
   private assertCancelAdmission(
     operationId: string,
     scope: PortabilityScope,
+    context: ForcedJobCancellationContext,
   ): void {
     this.admission.assertAdmittedInTransaction({
       scope,
@@ -85,24 +106,31 @@ export class DeletionJobCanceler {
       operation: operationScopeCapability({
         operationId,
         purpose: "scope_cancel",
-        mode: "permanent_delete",
-        phase: "draining",
+        mode: context.mode,
+        phase: context.phase,
       }),
     });
   }
 }
 
+/** Backward-compatible name for permanent-deletion callers. */
+export class DeletionJobCanceler extends OperationJobCanceler {}
+
 function hash(value: unknown): string {
   return createHash("sha256").update(canonicalJson(value)).digest("hex");
 }
 
-function canceledJob(current: JobRecord, nowIso: string): JobRecord {
+function canceledJob(
+  current: JobRecord,
+  nowIso: string,
+  reason: ForcedJobCancellationContext["reason"],
+): JobRecord {
   return {
     ...current,
     updatedAt: nowIso,
     revision: current.revision + 1,
     state: "canceled",
-    stateReason: "permanent_delete",
+    stateReason: reason,
     lease: null,
     retrySchedule: null,
     resumeState: null,

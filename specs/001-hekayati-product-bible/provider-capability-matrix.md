@@ -31,3 +31,7 @@ Status column: **Confirmed** (verified), **Documented** (current official model 
 4. **Reference budgeting**: prompt compiler allocates sheet views per character within max-reference budget; if 3 characters × 2 views exceeds the measured limit, compiler drops to 1 view per character and records the reduction in provenance + a UI notice (never silently below 1).
 5. Economy model selection → persistent settings-level and per-generation warnings (FR-108).
 6. Any documented or unverified cell that fails runtime verification updates this file + risk register before dependent phases proceed (Constitution XII).
+
+## External manual image mode (Flow mode, FR-149–159)
+
+Not a column above because it has no API surface. Auth: none (operator's own Google Labs session, outside the app). Text generation: n/a (pairs with any text provider). Image generation: operator-executed in Google Flow; the app's contract is prompt-pack out (FR-150) and validated file import in (FR-154–156). Quota/rate limits, cancellation, timeouts, model availability: n/a — jobs sit in `waiting_external_import` (FR-153). Cost model: covered by the operator's existing Google Labs subscription; zero per-image API billing (SC-015). Provenance: `external_manual` + declared tool label + pack/prompt checksums (FR-157). Reliable characters per image and consistency quality are operator-judged in Flow's character builder; C-08 warnings do not apply, but FR-118 review remains mandatory. Runtime capability verification (FR-098) does not apply; import validation is the trust boundary.

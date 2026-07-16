@@ -2,6 +2,8 @@
 
 The complete spec graph was approved for the full delivery loop on 2026-07-14. Phase 0 is authorized; each feature slice advances through its own readiness pipeline and analyze gate before implementation.
 
+**Pending amendment**: slice 012 (Flow mode) was added after graph approval and requires explicit re-approval of the amended graph (FR-149–159, US12, SC-015, C-22, E9, EC-I01–I16) before its readiness pipeline may start. It does not alter any previously approved slice's scope.
+
 ## Authority
 
 1. [Constitution](../.specify/memory/constitution.md)
@@ -13,19 +15,20 @@ Canonical requirement wording, stable IDs, contracts, state machines, invalidati
 
 ## Feature slices
 
-| Order | Spec | Primary scope | Master task slice |
-|---|---|---|---|
-| 001 | [Product bible](./001-hekayati-product-bible/spec.md) | Shared product rules and integrated design | P0/P10 coordination |
-| 002 | [Local foundation](./002-local-foundation/spec.md) | Local platform, brand shell, assets, security, settings, health | P1 |
-| 003 | [Customer and character library](./003-customer-character-library/spec.md) | Customers, consent, families, characters, looks, photo intake | P2 data slice |
-| 004 | [Story authoring and templates](./004-story-authoring-and-templates/spec.md) | Mentions, story configuration, templates, book structure | P3 |
-| 005 | [AI provider boundary](./005-ai-provider-boundary/spec.md) | Canonical AI contract, Codex/Gemini/mock, credentials, capabilities | P0 provider gates + P4 |
-| 006 | [Durable job orchestration](./006-durable-job-orchestration/spec.md) | Scheduler, retries, leases, recovery, quota decisions | P5 |
-| 007 | [Creative generation and review](./007-creative-generation-and-review/spec.md) | Character sheets, book generation, page versions, locks, safety, review | P2 sheet slice + P6 book slice |
-| 008 | [Arabic layout, preview, and approval](./008-arabic-layout-preview-and-approval/spec.md) | Arabic layout, preview PDF, customer approval | P7 |
-| 009 | [Print production](./009-print-production/spec.md) | Printer profiles, interior/cover PDFs, preflight | P0 print gates + P8 |
-| 010 | [Portability and deletion](./010-portability-and-deletion/spec.md) | Export/import and permanent deletion | P2 deletion slice + P9 |
-| 011 | [Single Image Studio](./011-single-image-studio/spec.md) | Standalone image generation isolated from book state | P6 Studio slice |
+| Order | Spec                                                                                     | Primary scope                                                           | Master task slice              |
+| ----- | ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- | ------------------------------ |
+| 001   | [Product bible](./001-hekayati-product-bible/spec.md)                                    | Shared product rules and integrated design                              | P0/P10 coordination            |
+| 002   | [Local foundation](./002-local-foundation/spec.md)                                       | Local platform, brand shell, assets, security, settings, health         | P1                             |
+| 003   | [Customer and character library](./003-customer-character-library/spec.md)               | Customers, consent, families, characters, looks, photo intake           | P2 data slice                  |
+| 004   | [Story authoring and templates](./004-story-authoring-and-templates/spec.md)             | Mentions, story configuration, templates, book structure                | P3                             |
+| 005   | [AI provider boundary](./005-ai-provider-boundary/spec.md)                               | Canonical AI contract, Codex/Gemini/mock, credentials, capabilities     | P0 provider gates + P4         |
+| 006   | [Durable job orchestration](./006-durable-job-orchestration/spec.md)                     | Scheduler, retries, leases, recovery, quota decisions                   | P5                             |
+| 007   | [Creative generation and review](./007-creative-generation-and-review/spec.md)           | Character sheets, book generation, page versions, locks, safety, review | P2 sheet slice + P6 book slice |
+| 008   | [Arabic layout, preview, and approval](./008-arabic-layout-preview-and-approval/spec.md) | Arabic layout, preview PDF, customer approval                           | P7                             |
+| 009   | [Print production](./009-print-production/spec.md)                                       | Printer profiles, interior/cover PDFs, preflight                        | P0 print gates + P8            |
+| 010   | [Portability and deletion](./010-portability-and-deletion/spec.md)                       | Export/import and permanent deletion                                    | P2 deletion slice + P9         |
+| 011   | [Single Image Studio](./011-single-image-studio/spec.md)                                 | Standalone image generation isolated from book state                    | P6 Studio slice                |
+| 012   | [Flow mode: external prompt pack & import](./012-flow-external-generation/spec.md)       | Manual external image provider (Google Flow), prompt pack, file import  | P6 Flow-mode slice             |
 
 ## Dependency order
 
@@ -36,8 +39,9 @@ full spec-graph approval → shared Phase 0 gates → 002
 003 + 005 ──▶ 006 ────┤           │
 003 + 004 + 005 + 006 ──▶ 007 ──▶ 008 ──▶ 009
                               ├──▶ 010 (parallel with 008/009)
-                              └──▶ 011 (parallel with 008/009/010)
-009 + 010 + 011 ──▶ shared Phase 10 acceptance
+                              ├──▶ 011 (parallel with 008/009/010)
+                              └──▶ 012 (parallel with 008/009/010/011; imports feed 008/009 unchanged)
+009 + 010 + 011 + 012 ──▶ shared Phase 10 acceptance
 ```
 
 Leaf folders intentionally contain specification only. The bible retains the integrated plan/tasks until each leaf separately advances through later Spec Kit stages. On `main`, set the intended feature explicitly before using helpers that expect one active feature directory.
